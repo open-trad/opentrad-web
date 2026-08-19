@@ -44,7 +44,7 @@ describe("首页导航与工具入口", () => {
     renderAt();
 
     await user.click(screen.getByRole("link", { name: /报价单/ }));
-    expect(screen.getByRole("heading", { name: "标准商品报价单" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "标准商品报价单" })).toBeVisible();
   });
 
   test("尚未开放的页头动作明确禁用", () => {
@@ -103,7 +103,7 @@ describe("模板中心", () => {
 
     await user.click(screen.getByRole("link", { name: "使用模板：通用报价单" }));
     expect(window.location.pathname).toBe("/editor/standard-goods-quote");
-    expect(screen.getByRole("heading", { name: "标准商品报价单" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "标准商品报价单" })).toBeVisible();
   });
 
   test("未知模板编号显示诚实的不存在状态", () => {
@@ -116,19 +116,22 @@ describe("模板中心", () => {
 });
 
 describe("报价单编辑器", () => {
-  test("表单输入实时同步到 A4 文档预览", async () => {
+  test("真实五步表单输入同步到统一 A4 文档预览", async () => {
     const user = userEvent.setup();
     renderAt("/editor/standard-goods-quote");
 
-    const preview = screen.getByRole("region", { name: "A4 报价单预览" });
-    await user.clear(screen.getByLabelText("公司名称"));
-    await user.type(screen.getByLabelText("公司名称"), "宁波远航贸易有限公司");
-    await user.clear(screen.getByLabelText("客户名称"));
-    await user.type(screen.getByLabelText("客户名称"), "海湾采购集团");
-    await user.clear(screen.getByLabelText("产品名称"));
-    await user.type(screen.getByLabelText("产品名称"), "高效节能电机");
+    const preview = await screen.findByRole("region", { name: "A4 报价单预览" });
+    await user.clear(screen.getByRole("textbox", { name: "报价方名称" }));
+    await user.type(screen.getByRole("textbox", { name: "报价方名称" }), "宁波远航贸易有限公司");
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    await user.clear(screen.getByRole("textbox", { name: "采购方名称" }));
+    await user.type(screen.getByRole("textbox", { name: "采购方名称" }), "海湾采购集团");
+    await user.click(screen.getByRole("button", { name: /商品明细/ }));
+    const firstLineName = screen.getByLabelText("第 1 行商品名称");
+    await user.clear(firstLineName);
+    await user.type(firstLineName, "高效节能电机");
 
-    expect(within(preview).getAllByText("宁波远航贸易有限公司")).toHaveLength(2);
+    expect(within(preview).getByText("宁波远航贸易有限公司")).toBeVisible();
     expect(within(preview).getByText("海湾采购集团")).toBeVisible();
     expect(within(preview).getByText("高效节能电机")).toBeVisible();
   });
@@ -150,7 +153,7 @@ describe("报价单编辑器", () => {
     const user = userEvent.setup();
     renderAt("/editor/standard-goods-quote");
 
-    const form = screen.getByRole("region", { name: "报价单基本信息" });
+    const form = await screen.findByRole("region", { name: "报价单填写区" });
     const preview = screen.getByRole("region", { name: "A4 报价单预览" });
     const previewButton = screen.getByRole("button", { name: "查看文档预览" });
     expect(previewButton).toHaveAttribute("aria-pressed", "false");
@@ -170,23 +173,25 @@ describe("报价单编辑器", () => {
     expect(form).toHaveFocus();
   });
 
-  test("桌面端保持三栏且不暴露移动端切换控件", () => {
+  test("桌面端保持三栏且不暴露移动端切换控件", async () => {
     renderAt("/editor/standard-goods-quote");
 
-    expect(screen.getByRole("complementary", { name: "报价单步骤" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "报价单基本信息" })).toBeInTheDocument();
+    expect(await screen.findByRole("complementary", { name: "报价单步骤" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "报价单填写区" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "A4 报价单预览" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /查看文档预览|返回填写/ })).not.toBeInTheDocument();
   });
 
-  test("未开放的编辑动作明确禁用", () => {
+  test("保存与下一步动作已真实开放", async () => {
+    const user = userEvent.setup();
     renderAt("/editor/standard-goods-quote");
 
-    for (const label of [/保存草稿.*第二阶段开放/, /下一步.*第二阶段开放/]) {
-      const button = screen.getByRole("button", { name: label });
-      expect(button).toBeDisabled();
-      expect(button).toHaveAttribute("title", expect.stringMatching(/第二阶段开放/));
-    }
+    const save = await screen.findByRole("button", { name: "保存草稿" });
+    const next = screen.getByRole("button", { name: "下一步" });
+    expect(save).toBeEnabled();
+    expect(next).toBeEnabled();
+    await user.click(next);
+    expect(await screen.findByRole("heading", { name: "客户信息" })).toBeVisible();
   });
 });
 
