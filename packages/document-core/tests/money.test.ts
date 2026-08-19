@@ -43,7 +43,7 @@ describe("exact quotation money calculations", () => {
     });
     input.lineItems = sparseLines as StandardGoodsQuoteDraft["lineItems"];
 
-    expect(() => operation(input)).toThrow(/maximum of 100 line items/);
+    expect(() => operation(input)).toThrow(/lineItems exceeds 100 entries/);
   });
 
   it("calculates tax-excluded line and summary amounts after discount", () => {

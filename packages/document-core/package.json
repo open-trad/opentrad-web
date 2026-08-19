@@ -17,6 +17,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "biome check src tests",
+    "pretest": "pnpm build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --pretty false"
   },
@@ -24,6 +25,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/node": "24.3.0",
     "vitest": "3.2.4"
   }
 }

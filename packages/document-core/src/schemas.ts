@@ -1,3 +1,4 @@
+import { boundedCompositeSchema, snapshotCompositeInput } from "./boundaries.js";
 import { z } from "./zod.js";
 
 export const STANDARD_GOODS_QUOTE_TEMPLATE_ID = "quotation.goods.standard.v1" as const;
@@ -14,11 +15,36 @@ function plainText(maxLength: number) {
   return z
     .string()
     .max(maxLength)
+    .refine(isXml10Text, "Text contains characters forbidden by XML 1.0")
     .refine((value) => !HTML_PATTERN.test(value), "HTML is not allowed");
 }
 
 function requiredPlainText(maxLength: number) {
   return plainText(maxLength).refine((value) => value.trim().length > 0, "Required text is blank");
+}
+
+function isXml10Text(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff) {
+        return false;
+      }
+      index += 1;
+      continue;
+    }
+    if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+    if (codeUnit === 0x09 || codeUnit === 0x0a || codeUnit === 0x0d) {
+      continue;
+    }
+    if (codeUnit < 0x20 || codeUnit === 0xfffe || codeUnit === 0xffff) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function isCalendarDate(value: string): boolean {
@@ -55,7 +81,7 @@ export const QuantitySchema = z
   .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be positive");
 export const BasisPointsSchema = z.number().int().min(0).max(10_000);
 
-export const TemplateDefinitionSchema = z.object({
+const TemplateDefinitionRawSchema = z.object({
   id: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   version: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
   basisDate: z.literal(STANDARD_GOODS_QUOTE_BASIS_DATE),
@@ -63,14 +89,15 @@ export const TemplateDefinitionSchema = z.object({
   name: z.literal("标准货物报价单"),
   supportedCurrencies: z.tuple([z.literal("CNY"), z.literal("USD"), z.literal("EUR")]),
 });
+export const TemplateDefinitionSchema = boundedCompositeSchema(TemplateDefinitionRawSchema);
 
-export type TemplateDefinition = z.infer<typeof TemplateDefinitionSchema>;
+export type TemplateDefinition = z.infer<typeof TemplateDefinitionRawSchema>;
 
 export type FixedTemplateDefinition = Readonly<Omit<TemplateDefinition, "supportedCurrencies">> & {
   readonly supportedCurrencies: readonly ["CNY", "USD", "EUR"];
 };
 
-const parsedStandardGoodsQuoteTemplate = TemplateDefinitionSchema.parse({
+const parsedStandardGoodsQuoteTemplate = TemplateDefinitionRawSchema.parse({
   id: STANDARD_GOODS_QUOTE_TEMPLATE_ID,
   version: STANDARD_GOODS_QUOTE_TEMPLATE_VERSION,
   basisDate: STANDARD_GOODS_QUOTE_BASIS_DATE,
@@ -83,7 +110,7 @@ export const STANDARD_GOODS_QUOTE_TEMPLATE = Object.freeze(
   parsedStandardGoodsQuoteTemplate,
 ) as FixedTemplateDefinition;
 
-export const PartySchema = z.object({
+const PartyRawSchema = z.object({
   name: requiredPlainText(200),
   address: plainText(500).optional(),
   contactName: plainText(100).optional(),
@@ -93,10 +120,11 @@ export const PartySchema = z.object({
   bankName: plainText(200).optional(),
   bankAccount: plainText(100).optional(),
 });
+export const PartySchema = boundedCompositeSchema(PartyRawSchema);
 
-export type Party = z.infer<typeof PartySchema>;
+export type Party = z.infer<typeof PartyRawSchema>;
 
-export const LineItemSchema = z.object({
+const LineItemRawSchema = z.object({
   id: IdentifierSchema,
   name: requiredPlainText(300),
   sku: plainText(100).optional(),
@@ -108,10 +136,11 @@ export const LineItemSchema = z.object({
   discountBps: BasisPointsSchema.default(0),
   taxRateBps: BasisPointsSchema.default(0),
 });
+export const LineItemSchema = boundedCompositeSchema(LineItemRawSchema);
 
-export type LineItem = z.infer<typeof LineItemSchema>;
+export type LineItem = z.infer<typeof LineItemRawSchema>;
 
-export const StandardGoodsQuoteMetaSchema = z
+const StandardGoodsQuoteMetaRawSchema = z
   .object({
     number: requiredPlainText(64),
     issueDate: DateSchema,
@@ -131,17 +160,21 @@ export const StandardGoodsQuoteMetaSchema = z
       });
     }
   });
+export const StandardGoodsQuoteMetaSchema = boundedCompositeSchema(StandardGoodsQuoteMetaRawSchema);
 
-export const StandardGoodsQuoteTermsSchema = z.object({
+const StandardGoodsQuoteTermsRawSchema = z.object({
   delivery: plainText(4_000).optional(),
   payment: plainText(4_000).optional(),
   quality: plainText(4_000).optional(),
   warranty: plainText(4_000).optional(),
   notes: plainText(10_000).optional(),
 });
+export const StandardGoodsQuoteTermsSchema = boundedCompositeSchema(
+  StandardGoodsQuoteTermsRawSchema,
+);
 
-const StandardGoodsQuoteLineItemsSchema = z
-  .array(LineItemSchema)
+const StandardGoodsQuoteLineItemsRawSchema = z
+  .array(LineItemRawSchema)
   .min(1)
   .max(100)
   .superRefine((lineItems, context) => {
@@ -158,36 +191,34 @@ const StandardGoodsQuoteLineItemsSchema = z
     });
   });
 
-export const StandardGoodsQuoteDraftSchema = z.object({
+const StandardGoodsQuoteDraftRawSchema = z.object({
   id: IdentifierSchema,
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
-  meta: StandardGoodsQuoteMetaSchema,
-  seller: PartySchema,
-  buyer: PartySchema,
-  lineItems: StandardGoodsQuoteLineItemsSchema,
-  terms: StandardGoodsQuoteTermsSchema.default({}),
+  meta: StandardGoodsQuoteMetaRawSchema,
+  seller: PartyRawSchema,
+  buyer: PartyRawSchema,
+  lineItems: StandardGoodsQuoteLineItemsRawSchema,
+  terms: StandardGoodsQuoteTermsRawSchema.default({}),
   updatedAt: z.string().max(35).refine(isIsoDateTime, "Expected a real ISO date-time"),
 });
+export const StandardGoodsQuoteDraftSchema = boundedCompositeSchema(
+  StandardGoodsQuoteDraftRawSchema,
+);
 
-export const DocumentDraftSchema = z.discriminatedUnion("templateId", [
-  StandardGoodsQuoteDraftSchema,
+const DocumentDraftRawSchema = z.discriminatedUnion("templateId", [
+  StandardGoodsQuoteDraftRawSchema,
 ]);
+export const DocumentDraftSchema = boundedCompositeSchema(DocumentDraftRawSchema);
 
-export type StandardGoodsQuoteDraft = z.infer<typeof StandardGoodsQuoteDraftSchema>;
-export type DocumentDraft = z.infer<typeof DocumentDraftSchema>;
+export type StandardGoodsQuoteDraft = z.infer<typeof StandardGoodsQuoteDraftRawSchema>;
+export type DocumentDraft = z.infer<typeof DocumentDraftRawSchema>;
 
 export function parseDocumentDraft(input: unknown): DocumentDraft {
-  if (input !== null && typeof input === "object" && !Array.isArray(input)) {
-    const lineItems = (input as { lineItems?: unknown }).lineItems;
-    if (Array.isArray(lineItems) && lineItems.length > 100) {
-      throw new RangeError("Document draft has a maximum of 100 line items");
-    }
-  }
   return DocumentDraftSchema.parse(input);
 }
 
-export const CalculatedLineAmountsSchema = z.object({
+const CalculatedLineAmountsRawSchema = z.object({
   lineId: IdentifierSchema,
   grossMinor: CalculatedMoneyMinorSchema,
   subtotalMinor: CalculatedMoneyMinorSchema,
@@ -195,37 +226,41 @@ export const CalculatedLineAmountsSchema = z.object({
   taxMinor: CalculatedMoneyMinorSchema,
   totalMinor: CalculatedMoneyMinorSchema,
 });
+export const CalculatedLineAmountsSchema = boundedCompositeSchema(CalculatedLineAmountsRawSchema);
 
-export const CalculatedSummarySchema = z.object({
+const CalculatedSummaryRawSchema = z.object({
   grossMinor: CalculatedMoneyMinorSchema,
   subtotalMinor: CalculatedMoneyMinorSchema,
   discountMinor: CalculatedMoneyMinorSchema,
   taxMinor: CalculatedMoneyMinorSchema,
   totalMinor: CalculatedMoneyMinorSchema,
 });
+export const CalculatedSummarySchema = boundedCompositeSchema(CalculatedSummaryRawSchema);
 
-export const QuoteCalculationSchema = z.object({
+const QuoteCalculationRawSchema = z.object({
   currency: CurrencySchema,
   taxMode: TaxModeSchema,
-  lines: z.array(CalculatedLineAmountsSchema).min(1).max(100),
-  summary: CalculatedSummarySchema,
+  lines: z.array(CalculatedLineAmountsRawSchema).min(1).max(100),
+  summary: CalculatedSummaryRawSchema,
 });
+export const QuoteCalculationSchema = boundedCompositeSchema(QuoteCalculationRawSchema);
 
-export type CalculatedLineAmounts = z.infer<typeof CalculatedLineAmountsSchema>;
-export type CalculatedSummary = z.infer<typeof CalculatedSummarySchema>;
-export type QuoteCalculation = z.infer<typeof QuoteCalculationSchema>;
+export type CalculatedLineAmounts = z.infer<typeof CalculatedLineAmountsRawSchema>;
+export type CalculatedSummary = z.infer<typeof CalculatedSummaryRawSchema>;
+export type QuoteCalculation = z.infer<typeof QuoteCalculationRawSchema>;
 
 const DocumentNodeIdSchema = requiredPlainText(80);
 const DocumentValueSchema = plainText(10_000);
 
-export const DocumentHeadingNodeSchema = z.object({
+const DocumentHeadingNodeRawSchema = z.object({
   type: z.literal("heading"),
   id: DocumentNodeIdSchema,
   level: z.union([z.literal(1), z.literal(2)]),
   text: DocumentValueSchema,
 });
+export const DocumentHeadingNodeSchema = boundedCompositeSchema(DocumentHeadingNodeRawSchema);
 
-export const DocumentMetadataNodeSchema = z.object({
+const DocumentMetadataNodeRawSchema = z.object({
   type: z.literal("metadata"),
   id: DocumentNodeIdSchema,
   entries: z
@@ -239,8 +274,11 @@ export const DocumentMetadataNodeSchema = z.object({
     .min(1)
     .max(20),
 });
+export const DocumentMetadataNodeSchema = boundedCompositeSchema(DocumentMetadataNodeRawSchema, {
+  arrayLimits: { entries: 20 },
+});
 
-export const DocumentPartiesNodeSchema = z.object({
+const DocumentPartiesNodeRawSchema = z.object({
   type: z.literal("parties"),
   id: DocumentNodeIdSchema,
   parties: z
@@ -254,8 +292,13 @@ export const DocumentPartiesNodeSchema = z.object({
     )
     .length(2),
 });
+export const DocumentPartiesNodeSchema = boundedCompositeSchema(DocumentPartiesNodeRawSchema);
 
-export const DocumentTableNodeSchema = z.object({
+const DocumentTableCellsRawSchema = z
+  .record(DocumentNodeIdSchema, DocumentValueSchema)
+  .refine((cells) => Object.keys(cells).length <= 20, "Table rows support at most 20 cells");
+
+const DocumentTableNodeRawSchema = z.object({
   type: z.literal("table"),
   id: DocumentNodeIdSchema,
   columns: z
@@ -273,7 +316,7 @@ export const DocumentTableNodeSchema = z.object({
     .array(
       z.object({
         id: DocumentNodeIdSchema,
-        cells: z.record(DocumentNodeIdSchema, DocumentValueSchema),
+        cells: DocumentTableCellsRawSchema,
       }),
     )
     .min(1)
@@ -284,50 +327,60 @@ export const DocumentTableNodeSchema = z.object({
     keepHeaderWithRows: z.number().int().min(1).max(10),
   }),
 });
+export const DocumentTableNodeSchema = boundedCompositeSchema(DocumentTableNodeRawSchema);
 
-const LabeledDocumentEntrySchema = z.object({
+const LabeledDocumentEntryRawSchema = z.object({
   id: DocumentNodeIdSchema,
   label: requiredPlainText(100),
   value: DocumentValueSchema,
 });
 
-export const DocumentTotalsNodeSchema = z.object({
+const DocumentTotalsNodeRawSchema = z.object({
   type: z.literal("totals"),
   id: DocumentNodeIdSchema,
-  entries: z.array(LabeledDocumentEntrySchema).min(1).max(10),
+  entries: z.array(LabeledDocumentEntryRawSchema).min(1).max(10),
+});
+export const DocumentTotalsNodeSchema = boundedCompositeSchema(DocumentTotalsNodeRawSchema, {
+  arrayLimits: { entries: 10 },
 });
 
-export const DocumentTermsNodeSchema = z.object({
+const DocumentTermsNodeRawSchema = z.object({
   type: z.literal("terms"),
   id: DocumentNodeIdSchema,
-  entries: z.array(LabeledDocumentEntrySchema).min(1).max(10),
+  entries: z.array(LabeledDocumentEntryRawSchema).min(1).max(10),
+});
+export const DocumentTermsNodeSchema = boundedCompositeSchema(DocumentTermsNodeRawSchema, {
+  arrayLimits: { entries: 10 },
 });
 
-export const DocumentNoticeNodeSchema = z.object({
+const DocumentNoticeNodeRawSchema = z.object({
   type: z.literal("notice"),
   id: DocumentNodeIdSchema,
   paragraphs: z.array(DocumentValueSchema).min(1).max(10),
 });
+export const DocumentNoticeNodeSchema = boundedCompositeSchema(DocumentNoticeNodeRawSchema);
 
-export const DocumentSignatureNodeSchema = z.object({
+const DocumentSignatureNodeRawSchema = z.object({
   type: z.literal("signature"),
   id: DocumentNodeIdSchema,
   signerLabel: requiredPlainText(100),
   dateLabel: requiredPlainText(100),
 });
+export const DocumentSignatureNodeSchema = boundedCompositeSchema(DocumentSignatureNodeRawSchema);
 
-export const DocumentNodeSchema = z.discriminatedUnion("type", [
-  DocumentHeadingNodeSchema,
-  DocumentMetadataNodeSchema,
-  DocumentPartiesNodeSchema,
-  DocumentTableNodeSchema,
-  DocumentTotalsNodeSchema,
-  DocumentTermsNodeSchema,
-  DocumentNoticeNodeSchema,
-  DocumentSignatureNodeSchema,
+const DocumentNodeRawSchema = z.discriminatedUnion("type", [
+  DocumentHeadingNodeRawSchema,
+  DocumentMetadataNodeRawSchema,
+  DocumentPartiesNodeRawSchema,
+  DocumentTableNodeRawSchema,
+  DocumentTotalsNodeRawSchema,
+  DocumentTermsNodeRawSchema,
+  DocumentNoticeNodeRawSchema,
+  DocumentSignatureNodeRawSchema,
 ]);
+export const DocumentNodeSchema = boundedCompositeSchema(DocumentNodeRawSchema);
 
-export const DocumentModelSchema = z.object({
+const DocumentModelRawSchema = z.object({
   schemaVersion: z.literal("1.0.0"),
   documentId: IdentifierSchema,
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
@@ -343,30 +396,45 @@ export const DocumentModelSchema = z.object({
       left: z.number().int().min(0).max(50),
     }),
   }),
-  nodes: z.array(DocumentNodeSchema).min(1).max(30),
+  nodes: z.array(DocumentNodeRawSchema).min(1).max(30),
 });
+export const DocumentModelSchema = boundedCompositeSchema(DocumentModelRawSchema);
 
-export type DocumentNode = z.infer<typeof DocumentNodeSchema>;
-export type DocumentModel = z.infer<typeof DocumentModelSchema>;
+export type DocumentNode = z.infer<typeof DocumentNodeRawSchema>;
+export type DocumentModel = z.infer<typeof DocumentModelRawSchema>;
 
-export const RiskFindingSchema = z.object({
+const RiskFindingRawSchema = z.object({
   code: requiredPlainText(100),
   severity: z.enum(["info", "warning", "error"]),
   message: requiredPlainText(1_000),
   path: z.array(requiredPlainText(100)).max(20).optional(),
 });
+export const RiskFindingSchema = boundedCompositeSchema(RiskFindingRawSchema);
 
-export type RiskFinding = z.infer<typeof RiskFindingSchema>;
+export type RiskFinding = z.infer<typeof RiskFindingRawSchema>;
 
-export const ProjectEnvelopeSchema = z.object({
+const ProjectEnvelopeRawSchema = z.object({
   formatVersion: z.literal(PROJECT_FORMAT_VERSION),
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
-  draft: DocumentDraftSchema,
-  calculation: QuoteCalculationSchema,
+  draft: DocumentDraftRawSchema,
+  calculation: QuoteCalculationRawSchema,
+});
+export const ProjectEnvelopeSchema = boundedCompositeSchema(ProjectEnvelopeRawSchema);
+
+export type OpenTradProjectEnvelope = z.infer<typeof ProjectEnvelopeRawSchema>;
+
+const ProjectEnvelopeInputRawSchema = z.object({
+  formatVersion: z.literal(PROJECT_FORMAT_VERSION),
+  templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
+  templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
+  draft: DocumentDraftRawSchema,
+  calculation: z.unknown().optional(),
 });
 
-export type OpenTradProjectEnvelope = z.infer<typeof ProjectEnvelopeSchema>;
+export function parseProjectEnvelopeInput(input: unknown) {
+  return ProjectEnvelopeInputRawSchema.parse(snapshotCompositeInput(input));
+}
 
 export interface CreateStandardGoodsQuoteDraftInput {
   id: string;
