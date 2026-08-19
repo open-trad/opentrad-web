@@ -1,0 +1,22 @@
+{
+  "name": "opentrad-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OpenTrad 开源商贸单证工具包",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.28.2",
+  "scripts": {
+    "build": "pnpm --filter @opentrad/web build",
+    "dev": "pnpm --filter @opentrad/web dev",
+    "lint": "biome check .",
+    "test": "pnpm --filter @opentrad/web test",
+    "typecheck": "pnpm --filter @opentrad/web typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.2",
+    "typescript": "5.9.2"
+  }
+}
