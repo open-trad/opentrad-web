@@ -10,8 +10,13 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-const localCapabilities = ["文件不上网", "处理速度快", "支持离线使用", "保护商业隐私"];
-const serverCapabilities = ["支持超大文件", "更高的格式保真度", "复杂版式重排", "隔离的临时处理"];
+const localCapabilities = [
+  "TXT / Markdown / HTML 互转",
+  "DOCX → HTML / Markdown / TXT",
+  "PDF 本地工具",
+  "PNG / JPG / WebP / AVIF 图片互转",
+];
+const serverCapabilities = ["Office 转 PDF", "OCR 文字识别", "复杂表格处理", "复杂版式重排"];
 
 export function ConvertPage() {
   const [localFile, setLocalFile] = useState<File | null>(null);
@@ -47,12 +52,13 @@ export function ConvertPage() {
             <input
               type="file"
               aria-label="选择本地转换文件"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+              accept=".txt,.md,.markdown,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp,.avif"
               onChange={(event) => setLocalFile(event.target.files?.[0] ?? null)}
             />
             <FileUp size={31} />
             <strong>{localFile ? localFile.name : "点击或拖拽文件到此处"}</strong>
-            <span>支持 PDF、Word、Excel、图片，单个文件不超过 20 MB</span>
+            <span>支持 TXT、Markdown、HTML、DOCX、PDF 与常用图片；具体操作按格式显示</span>
+            <span>单个文件不超过 25 MiB</span>
             <em>{localFile ? "文件已在本机就绪" : "选择文件"}</em>
           </label>
           <div className="boundary-note">
@@ -72,7 +78,7 @@ export function ConvertPage() {
             <div>
               <span className="status-pill blue">增强能力</span>
               <h2>服务器增强</h2>
-              <p>利用服务器能力处理大文件或复杂任务</p>
+              <p>处理复杂表格、旧版 Office 与复杂版式任务</p>
             </div>
           </div>
           <ul>
@@ -85,7 +91,7 @@ export function ConvertPage() {
           <div className="file-drop server-drop">
             <FileArchive size={31} />
             <strong>登录后选择增强转换</strong>
-            <span>支持更大文件与高级版式，任务完成后自动清理</span>
+            <span>Office 转 PDF、OCR 与复杂文档处理，任务完成后自动清理</span>
             <button type="button" disabled>
               <LockKeyhole size={15} /> 需登录后使用 <ArrowRight size={15} />
             </button>

@@ -1,15 +1,54 @@
-import { Check, ChevronRight, FileText, PanelRight, Save } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Check, ChevronRight, Eye, FileText, PanelRight, Save } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 const steps = ["基本信息", "客户信息", "商品明细", "条款与备注", "审核与完成"];
+const mobileEditorQuery = "(max-width: 600px)";
+
+function useIsMobileEditor() {
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window.matchMedia === "function" ? window.matchMedia(mobileEditorQuery).matches : false,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(mobileEditorQuery);
+    const updateViewport = (event: MediaQueryListEvent) => setIsMobile(event.matches);
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener("change", updateViewport);
+    return () => mediaQuery.removeEventListener("change", updateViewport);
+  }, []);
+
+  return isMobile;
+}
 
 export function QuoteEditorPage() {
   const [companyName, setCompanyName] = useState("远航国际贸易有限公司");
   const [customerName, setCustomerName] = useState("环球供应链有限公司");
   const [productName, setProductName] = useState("工业级节能电机");
+  const [mobileView, setMobileView] = useState<"form" | "preview">("form");
+  const isMobileEditor = useIsMobileEditor();
+  const hasSwitchedView = useRef(false);
+  const formRef = useRef<HTMLElement>(null);
+  const previewRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!hasSwitchedView.current) {
+      return;
+    }
+    const activePanel = mobileView === "preview" ? previewRef.current : formRef.current;
+    activePanel?.focus();
+  }, [mobileView]);
+
+  const toggleMobileView = () => {
+    hasSwitchedView.current = true;
+    setMobileView((currentView) => (currentView === "form" ? "preview" : "form"));
+  };
 
   return (
-    <div className="editor-page">
+    <div className="editor-page" data-mobile-view={mobileView}>
       <div className="editor-topbar">
         <div>
           <span className="eyebrow">报价单编辑器</span>
@@ -19,9 +58,24 @@ export function QuoteEditorPage() {
           <button type="button" className="secondary-button">
             <Save size={16} /> 保存草稿
           </button>
-          <button type="button" className="primary-button">
-            预览 <ChevronRight size={16} />
-          </button>
+          {isMobileEditor && (
+            <button
+              type="button"
+              className="primary-button mobile-view-toggle"
+              aria-pressed={mobileView === "preview"}
+              onClick={toggleMobileView}
+            >
+              {mobileView === "preview" ? (
+                <>
+                  <ArrowLeft size={16} /> 返回填写
+                </>
+              ) : (
+                <>
+                  <Eye size={16} /> 查看文档预览
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -44,7 +98,7 @@ export function QuoteEditorPage() {
           </ol>
         </aside>
 
-        <section className="quote-form" aria-label="报价单基本信息">
+        <section ref={formRef} className="quote-form" aria-label="报价单基本信息" tabIndex={-1}>
           <div className="form-section-heading">
             <span>01</span>
             <div>
@@ -95,7 +149,12 @@ export function QuoteEditorPage() {
           </div>
         </section>
 
-        <section className="preview-panel" aria-label="A4 报价单预览">
+        <section
+          ref={previewRef}
+          className="preview-panel"
+          aria-label="A4 报价单预览"
+          tabIndex={-1}
+        >
           <div className="preview-toolbar">
             <span>
               <PanelRight size={16} /> 文档预览

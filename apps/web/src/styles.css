@@ -133,14 +133,13 @@ button {
   font-weight: 700;
 }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
+.brand-avatar {
+  display: block;
   width: 31px;
   height: 31px;
   border: 1px solid rgba(25, 100, 67, 0.4);
   border-radius: 50%;
-  color: var(--green);
+  object-fit: cover;
 }
 
 .brand em {
@@ -241,7 +240,6 @@ button {
   text-align: center;
 }
 
-.hero-kicker,
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -1416,10 +1414,6 @@ button {
     padding-inline: 9px;
   }
 
-  .brand em {
-    display: none;
-  }
-
   .tool-grid,
   .template-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1543,7 +1537,7 @@ button {
     width: min(calc(100% - 28px), var(--content));
   }
 
-  .brand-mark {
+  .brand-avatar {
     width: 29px;
     height: 29px;
   }
@@ -1620,6 +1614,19 @@ button {
     display: flex;
     min-height: 0;
     flex-direction: column;
+  }
+
+  .editor-page[data-mobile-view="form"] .preview-panel {
+    display: none;
+  }
+
+  .editor-page[data-mobile-view="preview"] .editor-steps,
+  .editor-page[data-mobile-view="preview"] .quote-form {
+    display: none;
+  }
+
+  .editor-page[data-mobile-view="preview"] .preview-panel {
+    display: block;
   }
 
   .editor-steps {

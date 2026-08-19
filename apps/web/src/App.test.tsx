@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import App from "./App";
 
 const renderAt = (path = "/") => {
@@ -10,6 +10,7 @@ const renderAt = (path = "/") => {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  vi.unstubAllGlobals();
 });
 
 describe("首页导航与工具入口", () => {
@@ -18,7 +19,16 @@ describe("首页导航与工具入口", () => {
 
     expect(screen.getByRole("heading", { name: "专业的开源商贸单证工具包" })).toBeVisible();
     expect(screen.getByText("从创建、编辑到转换，满足您的全球贸易文档需求")).toBeVisible();
-    expect(screen.getByRole("link", { name: /OpenTrad 开源商贸/ })).toBeVisible();
+    expect(screen.queryByText("全球贸易文档工作台")).not.toBeInTheDocument();
+    expect(screen.queryByText(/智能填写/)).not.toBeInTheDocument();
+
+    const brand = screen.getByRole("link", { name: /OpenTrad 开源商贸/ });
+    expect(within(brand).getByRole("img", { name: "OpenTrad 组织头像" })).toHaveAttribute(
+      "src",
+      "/brand/open-trad.png",
+    );
+    expect(within(brand).getByText("OpenTrad")).toBeVisible();
+    expect(within(brand).getByText("开源商贸")).toBeVisible();
 
     const navigation = screen.getByRole("navigation", { name: "主导航" });
     for (const label of ["首页", "模板中心", "格式转换", "帮助文档", "关于我们"]) {
@@ -74,6 +84,52 @@ describe("报价单编辑器", () => {
     expect(within(preview).getByText("海湾采购集团")).toBeVisible();
     expect(within(preview).getByText("高效节能电机")).toBeVisible();
   });
+
+  test("移动端可在填写和预览之间双向切换", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+    const user = userEvent.setup();
+    renderAt("/editor/standard-goods-quote");
+
+    const form = screen.getByRole("region", { name: "报价单基本信息" });
+    const preview = screen.getByRole("region", { name: "A4 报价单预览" });
+    const previewButton = screen.getByRole("button", { name: "查看文档预览" });
+    expect(previewButton).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(previewButton);
+    expect(screen.getByRole("button", { name: "返回填写" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(preview).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "返回填写" }));
+    expect(screen.getByRole("button", { name: "查看文档预览" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(form).toHaveFocus();
+  });
+
+  test("桌面端保持三栏且不暴露移动端切换控件", () => {
+    renderAt("/editor/standard-goods-quote");
+
+    expect(screen.getByRole("complementary", { name: "报价单步骤" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "报价单基本信息" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "A4 报价单预览" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /查看文档预览|返回填写/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("格式转换边界", () => {
@@ -82,8 +138,21 @@ describe("格式转换边界", () => {
     renderAt("/convert");
 
     expect(screen.getByRole("heading", { name: "本地处理" })).toBeVisible();
-    expect(screen.getByLabelText("选择本地转换文件")).toHaveAttribute("type", "file");
+    const localInput = screen.getByLabelText("选择本地转换文件");
+    expect(localInput).toHaveAttribute("type", "file");
+    expect(localInput).toHaveAttribute(
+      "accept",
+      ".txt,.md,.markdown,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp,.avif",
+    );
+    expect(localInput.getAttribute("accept")?.split(",")).not.toEqual(
+      expect.arrayContaining([".doc", ".xls", ".xlsx"]),
+    );
+    expect(
+      screen.getByText("支持 TXT、Markdown、HTML、DOCX、PDF 与常用图片；具体操作按格式显示"),
+    ).toBeVisible();
+    expect(screen.getByText(/单个文件不超过 25 MiB/)).toBeVisible();
     expect(screen.getByText("文件不会离开您的设备")).toBeVisible();
+    expect(screen.queryByText(/超大文件/)).not.toBeInTheDocument();
 
     expect(screen.getByRole("heading", { name: "服务器增强" })).toBeVisible();
     const serverButton = screen.getByRole("button", { name: /需登录/ });

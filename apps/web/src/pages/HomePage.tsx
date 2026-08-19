@@ -3,7 +3,6 @@ import {
   FileCheck2,
   FilePenLine,
   FileSignature,
-  FileStack,
   FolderSync,
   HardDrive,
   RefreshCw,
@@ -40,7 +39,7 @@ const tools: ToolCard[] = [
   },
   {
     title: "合同",
-    description: "标准合同模板与智能填写",
+    description: "标准合同模板与结构化填写",
     to: "/templates?category=合同",
     icon: <FileSignature size={32} />,
     tone: "forest",
@@ -67,10 +66,6 @@ export function HomePage() {
   return (
     <div className="home-page paper-grain">
       <section className="hero section-container">
-        <div className="hero-kicker">
-          <FileStack size={16} />
-          <span>全球贸易文档工作台</span>
-        </div>
         <h1>专业的开源商贸单证工具包</h1>
         <p>从创建、编辑到转换，满足您的全球贸易文档需求</p>
       </section>

@@ -1,4 +1,4 @@
-import { Languages, Menu, ScrollText, X } from "lucide-react";
+import { Languages, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 
@@ -17,9 +17,11 @@ export function AppHeader() {
     <header className="site-header">
       <div className="header-inner">
         <NavLink className="brand" to="/" aria-label="OpenTrad 开源商贸，返回首页">
-          <span className="brand-mark" aria-hidden="true">
-            <ScrollText size={19} strokeWidth={1.7} />
-          </span>
+          <img
+            className="brand-avatar"
+            src={`${import.meta.env.BASE_URL}brand/open-trad.png`}
+            alt="OpenTrad 组织头像"
+          />
           <span>OpenTrad</span>
           <em>开源商贸</em>
         </NavLink>
