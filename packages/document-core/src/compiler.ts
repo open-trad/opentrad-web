@@ -94,11 +94,13 @@ export function compileStandardGoodsQuote(input: unknown): DocumentModel {
       discount: formatBasisPoints(line.discountBps),
       subtotal: formatMoneyMinor(amounts.subtotalMinor, draft.meta.currency),
       total: formatMoneyMinor(amounts.totalMinor, draft.meta.currency),
+      ...(showTax
+        ? {
+            "tax-rate": formatBasisPoints(line.taxRateBps),
+            tax: formatMoneyMinor(amounts.taxMinor, draft.meta.currency),
+          }
+        : {}),
     };
-    if (showTax) {
-      cells["tax-rate"] = formatBasisPoints(line.taxRateBps);
-      cells.tax = formatMoneyMinor(amounts.taxMinor, draft.meta.currency);
-    }
     return { id: line.id, cells };
   });
 
@@ -182,13 +184,7 @@ export function compileStandardGoodsQuote(input: unknown): DocumentModel {
         },
       ],
     },
-  ];
-
-  if (terms.length > 0) {
-    nodes.push({ type: "terms", id: "terms", entries: terms });
-  }
-
-  nodes.push(
+    ...(terms.length > 0 ? [{ type: "terms", id: "terms", entries: terms }] : []),
     {
       type: "notice",
       id: "notice",
@@ -203,7 +199,7 @@ export function compileStandardGoodsQuote(input: unknown): DocumentModel {
       signerLabel: "报价方签署/盖章",
       dateLabel: "签署日期",
     },
-  );
+  ];
 
   return DocumentModelSchema.parse({
     schemaVersion: "1.0.0",

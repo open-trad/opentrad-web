@@ -158,7 +158,12 @@ function snapshotArray(
       throw new InputBoundaryError(`${pathLabel(path)} must not contain sparse entries`);
     }
     const descriptor = dataDescriptor(value, key);
-    snapshot.push(snapshotValue(descriptor.value, state, [...path, index]));
+    Object.defineProperty(snapshot, index, {
+      configurable: true,
+      enumerable: true,
+      value: snapshotValue(descriptor.value, state, [...path, index]),
+      writable: true,
+    });
   }
   return snapshot;
 }

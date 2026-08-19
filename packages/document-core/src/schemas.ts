@@ -1,4 +1,12 @@
 import { boundedCompositeSchema, snapshotCompositeInput } from "./boundaries.js";
+import {
+  isolatedArraySchema,
+  isolatedDiscriminatedUnionSchema,
+  isolatedObjectSchema,
+  isolatedRecordSchema,
+  isolatedTupleSchema,
+  isolatedValueSchema,
+} from "./safe-schema.js";
 import { z } from "./zod.js";
 
 export const STANDARD_GOODS_QUOTE_TEMPLATE_ID = "quotation.goods.standard.v1" as const;
@@ -69,25 +77,34 @@ function isIsoDateTime(value: string): boolean {
 }
 
 const IdentifierSchema = requiredPlainText(64);
-export const DateSchema = z.string().refine(isCalendarDate, "Expected a real YYYY-MM-DD date");
-export const CurrencySchema = z.enum(["CNY", "USD", "EUR"]);
-export const TaxModeSchema = z.enum(["tax-excluded", "tax-included", "tax-exempt"]);
-export const QuoteNatureSchema = z.enum(["invitation", "binding-offer"]);
-export const MoneyMinorSchema = z.string().regex(/^(?:0|[1-9]\d{0,17})$/);
-export const CalculatedMoneyMinorSchema = z.string().regex(/^(?:0|[1-9]\d{0,33})$/);
-export const QuantitySchema = z
+const DateRawSchema = z.string().refine(isCalendarDate, "Expected a real YYYY-MM-DD date");
+const CurrencyRawSchema = z.enum(["CNY", "USD", "EUR"]);
+const TaxModeRawSchema = z.enum(["tax-excluded", "tax-included", "tax-exempt"]);
+const QuoteNatureRawSchema = z.enum(["invitation", "binding-offer"]);
+const MoneyMinorRawSchema = z.string().regex(/^(?:0|[1-9]\d{0,17})$/);
+const CalculatedMoneyMinorRawSchema = z.string().regex(/^(?:0|[1-9]\d{0,33})$/);
+const QuantityRawSchema = z
   .string()
   .regex(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/)
   .refine((value) => !/^0(?:\.0+)?$/.test(value), "Quantity must be positive");
-export const BasisPointsSchema = z.number().int().min(0).max(10_000);
+const BasisPointsRawSchema = z.number().int().min(0).max(10_000);
 
-const TemplateDefinitionRawSchema = z.object({
+export const DateSchema = isolatedValueSchema(DateRawSchema);
+export const CurrencySchema = isolatedValueSchema(CurrencyRawSchema);
+export const TaxModeSchema = isolatedValueSchema(TaxModeRawSchema);
+export const QuoteNatureSchema = isolatedValueSchema(QuoteNatureRawSchema);
+export const MoneyMinorSchema = isolatedValueSchema(MoneyMinorRawSchema);
+export const CalculatedMoneyMinorSchema = isolatedValueSchema(CalculatedMoneyMinorRawSchema);
+export const QuantitySchema = isolatedValueSchema(QuantityRawSchema);
+export const BasisPointsSchema = isolatedValueSchema(BasisPointsRawSchema);
+
+const TemplateDefinitionRawSchema = isolatedObjectSchema({
   id: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   version: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
   basisDate: z.literal(STANDARD_GOODS_QUOTE_BASIS_DATE),
   category: z.literal("quotation"),
   name: z.literal("标准货物报价单"),
-  supportedCurrencies: z.tuple([z.literal("CNY"), z.literal("USD"), z.literal("EUR")]),
+  supportedCurrencies: isolatedTupleSchema([z.literal("CNY"), z.literal("USD"), z.literal("EUR")]),
 });
 export const TemplateDefinitionSchema = boundedCompositeSchema(TemplateDefinitionRawSchema);
 
@@ -110,7 +127,7 @@ export const STANDARD_GOODS_QUOTE_TEMPLATE = Object.freeze(
   parsedStandardGoodsQuoteTemplate,
 ) as FixedTemplateDefinition;
 
-const PartyRawSchema = z.object({
+const PartyRawSchema = isolatedObjectSchema({
   name: requiredPlainText(200),
   address: plainText(500).optional(),
   contactName: plainText(100).optional(),
@@ -124,45 +141,46 @@ export const PartySchema = boundedCompositeSchema(PartyRawSchema);
 
 export type Party = z.infer<typeof PartyRawSchema>;
 
-const LineItemRawSchema = z.object({
+const LineItemRawSchema = isolatedObjectSchema({
   id: IdentifierSchema,
   name: requiredPlainText(300),
   sku: plainText(100).optional(),
   specification: plainText(500).optional(),
   description: plainText(1_000).optional(),
   unit: requiredPlainText(50),
-  quantity: QuantitySchema,
-  unitPriceMinor: MoneyMinorSchema,
-  discountBps: BasisPointsSchema.default(0),
-  taxRateBps: BasisPointsSchema.default(0),
+  quantity: QuantityRawSchema,
+  unitPriceMinor: MoneyMinorRawSchema,
+  discountBps: BasisPointsRawSchema.default(0),
+  taxRateBps: BasisPointsRawSchema.default(0),
 });
 export const LineItemSchema = boundedCompositeSchema(LineItemRawSchema);
 
 export type LineItem = z.infer<typeof LineItemRawSchema>;
 
-const StandardGoodsQuoteMetaRawSchema = z
-  .object({
+const StandardGoodsQuoteMetaRawSchema = isolatedObjectSchema(
+  {
     number: requiredPlainText(64),
-    issueDate: DateSchema,
-    validUntil: DateSchema,
-    currency: CurrencySchema,
-    taxMode: TaxModeSchema,
-    quoteNature: QuoteNatureSchema,
+    issueDate: DateRawSchema,
+    validUntil: DateRawSchema,
+    currency: CurrencyRawSchema,
+    taxMode: TaxModeRawSchema,
+    quoteNature: QuoteNatureRawSchema,
     language: z.literal("zh-CN"),
     layout: z.literal("classic"),
-  })
-  .superRefine((meta, context) => {
+  },
+  (meta, addIssue) => {
     if (meta.validUntil < meta.issueDate) {
-      context.addIssue({
+      addIssue({
         code: "custom",
         message: "validUntil must be on or after issueDate",
         path: ["validUntil"],
       });
     }
-  });
+  },
+);
 export const StandardGoodsQuoteMetaSchema = boundedCompositeSchema(StandardGoodsQuoteMetaRawSchema);
 
-const StandardGoodsQuoteTermsRawSchema = z.object({
+const StandardGoodsQuoteTermsRawSchema = isolatedObjectSchema({
   delivery: plainText(4_000).optional(),
   payment: plainText(4_000).optional(),
   quality: plainText(4_000).optional(),
@@ -173,15 +191,14 @@ export const StandardGoodsQuoteTermsSchema = boundedCompositeSchema(
   StandardGoodsQuoteTermsRawSchema,
 );
 
-const StandardGoodsQuoteLineItemsRawSchema = z
-  .array(LineItemRawSchema)
-  .min(1)
-  .max(100)
-  .superRefine((lineItems, context) => {
+const StandardGoodsQuoteLineItemsRawSchema = isolatedArraySchema(LineItemRawSchema, {
+  min: 1,
+  max: 100,
+  refine: (lineItems, addIssue) => {
     const seenIds = new Set<string>();
     lineItems.forEach((line, index) => {
       if (seenIds.has(line.id)) {
-        context.addIssue({
+        addIssue({
           code: "custom",
           message: "Line item ids must be unique",
           path: [index, "id"],
@@ -189,9 +206,10 @@ const StandardGoodsQuoteLineItemsRawSchema = z
       }
       seenIds.add(line.id);
     });
-  });
+  },
+});
 
-const StandardGoodsQuoteDraftRawSchema = z.object({
+const StandardGoodsQuoteDraftRawSchema = isolatedObjectSchema({
   id: IdentifierSchema,
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
@@ -199,16 +217,18 @@ const StandardGoodsQuoteDraftRawSchema = z.object({
   seller: PartyRawSchema,
   buyer: PartyRawSchema,
   lineItems: StandardGoodsQuoteLineItemsRawSchema,
-  terms: StandardGoodsQuoteTermsRawSchema.default({}),
+  terms: StandardGoodsQuoteTermsRawSchema.default(
+    () => Object.create(null) as z.output<typeof StandardGoodsQuoteTermsRawSchema>,
+  ),
   updatedAt: z.string().max(35).refine(isIsoDateTime, "Expected a real ISO date-time"),
 });
 export const StandardGoodsQuoteDraftSchema = boundedCompositeSchema(
   StandardGoodsQuoteDraftRawSchema,
 );
 
-const DocumentDraftRawSchema = z.discriminatedUnion("templateId", [
-  StandardGoodsQuoteDraftRawSchema,
-]);
+const DocumentDraftRawSchema = isolatedDiscriminatedUnionSchema("templateId", {
+  [STANDARD_GOODS_QUOTE_TEMPLATE_ID]: StandardGoodsQuoteDraftRawSchema,
+});
 export const DocumentDraftSchema = boundedCompositeSchema(DocumentDraftRawSchema);
 
 export type StandardGoodsQuoteDraft = z.infer<typeof StandardGoodsQuoteDraftRawSchema>;
@@ -218,29 +238,29 @@ export function parseDocumentDraft(input: unknown): DocumentDraft {
   return DocumentDraftSchema.parse(input);
 }
 
-const CalculatedLineAmountsRawSchema = z.object({
+const CalculatedLineAmountsRawSchema = isolatedObjectSchema({
   lineId: IdentifierSchema,
-  grossMinor: CalculatedMoneyMinorSchema,
-  subtotalMinor: CalculatedMoneyMinorSchema,
-  discountMinor: CalculatedMoneyMinorSchema,
-  taxMinor: CalculatedMoneyMinorSchema,
-  totalMinor: CalculatedMoneyMinorSchema,
+  grossMinor: CalculatedMoneyMinorRawSchema,
+  subtotalMinor: CalculatedMoneyMinorRawSchema,
+  discountMinor: CalculatedMoneyMinorRawSchema,
+  taxMinor: CalculatedMoneyMinorRawSchema,
+  totalMinor: CalculatedMoneyMinorRawSchema,
 });
 export const CalculatedLineAmountsSchema = boundedCompositeSchema(CalculatedLineAmountsRawSchema);
 
-const CalculatedSummaryRawSchema = z.object({
-  grossMinor: CalculatedMoneyMinorSchema,
-  subtotalMinor: CalculatedMoneyMinorSchema,
-  discountMinor: CalculatedMoneyMinorSchema,
-  taxMinor: CalculatedMoneyMinorSchema,
-  totalMinor: CalculatedMoneyMinorSchema,
+const CalculatedSummaryRawSchema = isolatedObjectSchema({
+  grossMinor: CalculatedMoneyMinorRawSchema,
+  subtotalMinor: CalculatedMoneyMinorRawSchema,
+  discountMinor: CalculatedMoneyMinorRawSchema,
+  taxMinor: CalculatedMoneyMinorRawSchema,
+  totalMinor: CalculatedMoneyMinorRawSchema,
 });
 export const CalculatedSummarySchema = boundedCompositeSchema(CalculatedSummaryRawSchema);
 
-const QuoteCalculationRawSchema = z.object({
-  currency: CurrencySchema,
-  taxMode: TaxModeSchema,
-  lines: z.array(CalculatedLineAmountsRawSchema).min(1).max(100),
+const QuoteCalculationRawSchema = isolatedObjectSchema({
+  currency: CurrencyRawSchema,
+  taxMode: TaxModeRawSchema,
+  lines: isolatedArraySchema(CalculatedLineAmountsRawSchema, { min: 1, max: 100 }),
   summary: CalculatedSummaryRawSchema,
 });
 export const QuoteCalculationSchema = boundedCompositeSchema(QuoteCalculationRawSchema);
@@ -252,7 +272,7 @@ export type QuoteCalculation = z.infer<typeof QuoteCalculationRawSchema>;
 const DocumentNodeIdSchema = requiredPlainText(80);
 const DocumentValueSchema = plainText(10_000);
 
-const DocumentHeadingNodeRawSchema = z.object({
+const DocumentHeadingNodeRawSchema = isolatedObjectSchema({
   type: z.literal("heading"),
   id: DocumentNodeIdSchema,
   level: z.union([z.literal(1), z.literal(2)]),
@@ -260,107 +280,100 @@ const DocumentHeadingNodeRawSchema = z.object({
 });
 export const DocumentHeadingNodeSchema = boundedCompositeSchema(DocumentHeadingNodeRawSchema);
 
-const DocumentMetadataNodeRawSchema = z.object({
-  type: z.literal("metadata"),
-  id: DocumentNodeIdSchema,
-  entries: z
-    .array(
-      z.object({
-        id: DocumentNodeIdSchema,
-        label: requiredPlainText(100),
-        value: DocumentValueSchema,
-      }),
-    )
-    .min(1)
-    .max(20),
-});
-export const DocumentMetadataNodeSchema = boundedCompositeSchema(DocumentMetadataNodeRawSchema, {
-  arrayLimits: { entries: 20 },
-});
-
-const DocumentPartiesNodeRawSchema = z.object({
-  type: z.literal("parties"),
-  id: DocumentNodeIdSchema,
-  parties: z
-    .array(
-      z.object({
-        role: z.enum(["seller", "buyer"]),
-        label: requiredPlainText(100),
-        name: requiredPlainText(200),
-        details: z.array(DocumentValueSchema).max(20),
-      }),
-    )
-    .length(2),
-});
-export const DocumentPartiesNodeSchema = boundedCompositeSchema(DocumentPartiesNodeRawSchema);
-
-const DocumentTableCellsRawSchema = z
-  .record(DocumentNodeIdSchema, DocumentValueSchema)
-  .refine((cells) => Object.keys(cells).length <= 20, "Table rows support at most 20 cells");
-
-const DocumentTableNodeRawSchema = z.object({
-  type: z.literal("table"),
-  id: DocumentNodeIdSchema,
-  columns: z
-    .array(
-      z.object({
-        id: DocumentNodeIdSchema,
-        label: requiredPlainText(100),
-        align: z.enum(["left", "center", "right"]),
-        width: requiredPlainText(20),
-      }),
-    )
-    .min(1)
-    .max(20),
-  rows: z
-    .array(
-      z.object({
-        id: DocumentNodeIdSchema,
-        cells: DocumentTableCellsRawSchema,
-      }),
-    )
-    .min(1)
-    .max(100),
-  repeatHeader: z.boolean(),
-  pagePolicy: z.object({
-    allowRowSplit: z.boolean(),
-    keepHeaderWithRows: z.number().int().min(1).max(10),
-  }),
-});
-export const DocumentTableNodeSchema = boundedCompositeSchema(DocumentTableNodeRawSchema);
-
-const LabeledDocumentEntryRawSchema = z.object({
+const DocumentMetadataEntryRawSchema = isolatedObjectSchema({
   id: DocumentNodeIdSchema,
   label: requiredPlainText(100),
   value: DocumentValueSchema,
 });
 
-const DocumentTotalsNodeRawSchema = z.object({
+const DocumentMetadataNodeRawSchema = isolatedObjectSchema({
+  type: z.literal("metadata"),
+  id: DocumentNodeIdSchema,
+  entries: isolatedArraySchema(DocumentMetadataEntryRawSchema, { min: 1, max: 20 }),
+});
+export const DocumentMetadataNodeSchema = boundedCompositeSchema(DocumentMetadataNodeRawSchema, {
+  arrayLimits: { entries: 20 },
+});
+
+const DocumentPartyRawSchema = isolatedObjectSchema({
+  role: z.enum(["seller", "buyer"]),
+  label: requiredPlainText(100),
+  name: requiredPlainText(200),
+  details: isolatedArraySchema(DocumentValueSchema, { max: 20 }),
+});
+
+const DocumentPartiesNodeRawSchema = isolatedObjectSchema({
+  type: z.literal("parties"),
+  id: DocumentNodeIdSchema,
+  parties: isolatedArraySchema(DocumentPartyRawSchema, { min: 2, max: 2 }),
+});
+export const DocumentPartiesNodeSchema = boundedCompositeSchema(DocumentPartiesNodeRawSchema);
+
+const DocumentTableCellsRawSchema = isolatedRecordSchema(
+  DocumentNodeIdSchema,
+  DocumentValueSchema,
+  20,
+);
+
+const DocumentTableColumnRawSchema = isolatedObjectSchema({
+  id: DocumentNodeIdSchema,
+  label: requiredPlainText(100),
+  align: z.enum(["left", "center", "right"]),
+  width: requiredPlainText(20),
+});
+
+const DocumentTableRowRawSchema = isolatedObjectSchema({
+  id: DocumentNodeIdSchema,
+  cells: DocumentTableCellsRawSchema,
+});
+
+const DocumentTablePagePolicyRawSchema = isolatedObjectSchema({
+  allowRowSplit: z.boolean(),
+  keepHeaderWithRows: z.number().int().min(1).max(10),
+});
+
+const DocumentTableNodeRawSchema = isolatedObjectSchema({
+  type: z.literal("table"),
+  id: DocumentNodeIdSchema,
+  columns: isolatedArraySchema(DocumentTableColumnRawSchema, { min: 1, max: 20 }),
+  rows: isolatedArraySchema(DocumentTableRowRawSchema, { min: 1, max: 100 }),
+  repeatHeader: z.boolean(),
+  pagePolicy: DocumentTablePagePolicyRawSchema,
+});
+export const DocumentTableNodeSchema = boundedCompositeSchema(DocumentTableNodeRawSchema);
+
+const LabeledDocumentEntryRawSchema = isolatedObjectSchema({
+  id: DocumentNodeIdSchema,
+  label: requiredPlainText(100),
+  value: DocumentValueSchema,
+});
+
+const DocumentTotalsNodeRawSchema = isolatedObjectSchema({
   type: z.literal("totals"),
   id: DocumentNodeIdSchema,
-  entries: z.array(LabeledDocumentEntryRawSchema).min(1).max(10),
+  entries: isolatedArraySchema(LabeledDocumentEntryRawSchema, { min: 1, max: 10 }),
 });
 export const DocumentTotalsNodeSchema = boundedCompositeSchema(DocumentTotalsNodeRawSchema, {
   arrayLimits: { entries: 10 },
 });
 
-const DocumentTermsNodeRawSchema = z.object({
+const DocumentTermsNodeRawSchema = isolatedObjectSchema({
   type: z.literal("terms"),
   id: DocumentNodeIdSchema,
-  entries: z.array(LabeledDocumentEntryRawSchema).min(1).max(10),
+  entries: isolatedArraySchema(LabeledDocumentEntryRawSchema, { min: 1, max: 10 }),
 });
 export const DocumentTermsNodeSchema = boundedCompositeSchema(DocumentTermsNodeRawSchema, {
   arrayLimits: { entries: 10 },
 });
 
-const DocumentNoticeNodeRawSchema = z.object({
+const DocumentNoticeNodeRawSchema = isolatedObjectSchema({
   type: z.literal("notice"),
   id: DocumentNodeIdSchema,
-  paragraphs: z.array(DocumentValueSchema).min(1).max(10),
+  paragraphs: isolatedArraySchema(DocumentValueSchema, { min: 1, max: 10 }),
 });
 export const DocumentNoticeNodeSchema = boundedCompositeSchema(DocumentNoticeNodeRawSchema);
 
-const DocumentSignatureNodeRawSchema = z.object({
+const DocumentSignatureNodeRawSchema = isolatedObjectSchema({
   type: z.literal("signature"),
   id: DocumentNodeIdSchema,
   signerLabel: requiredPlainText(100),
@@ -368,52 +381,56 @@ const DocumentSignatureNodeRawSchema = z.object({
 });
 export const DocumentSignatureNodeSchema = boundedCompositeSchema(DocumentSignatureNodeRawSchema);
 
-const DocumentNodeRawSchema = z.discriminatedUnion("type", [
-  DocumentHeadingNodeRawSchema,
-  DocumentMetadataNodeRawSchema,
-  DocumentPartiesNodeRawSchema,
-  DocumentTableNodeRawSchema,
-  DocumentTotalsNodeRawSchema,
-  DocumentTermsNodeRawSchema,
-  DocumentNoticeNodeRawSchema,
-  DocumentSignatureNodeRawSchema,
-]);
+const DocumentNodeRawSchema = isolatedDiscriminatedUnionSchema("type", {
+  heading: DocumentHeadingNodeRawSchema,
+  metadata: DocumentMetadataNodeRawSchema,
+  notice: DocumentNoticeNodeRawSchema,
+  parties: DocumentPartiesNodeRawSchema,
+  signature: DocumentSignatureNodeRawSchema,
+  table: DocumentTableNodeRawSchema,
+  terms: DocumentTermsNodeRawSchema,
+  totals: DocumentTotalsNodeRawSchema,
+});
 export const DocumentNodeSchema = boundedCompositeSchema(DocumentNodeRawSchema);
 
-const DocumentModelRawSchema = z.object({
+const DocumentMarginsRawSchema = isolatedObjectSchema({
+  top: z.number().int().min(0).max(50),
+  right: z.number().int().min(0).max(50),
+  bottom: z.number().int().min(0).max(50),
+  left: z.number().int().min(0).max(50),
+});
+
+const DocumentPageRawSchema = isolatedObjectSchema({
+  size: z.literal("A4"),
+  orientation: z.literal("portrait"),
+  marginsMm: DocumentMarginsRawSchema,
+});
+
+const DocumentModelRawSchema = isolatedObjectSchema({
   schemaVersion: z.literal("1.0.0"),
   documentId: IdentifierSchema,
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
   locale: z.literal("zh-CN"),
-  page: z.object({
-    size: z.literal("A4"),
-    orientation: z.literal("portrait"),
-    marginsMm: z.object({
-      top: z.number().int().min(0).max(50),
-      right: z.number().int().min(0).max(50),
-      bottom: z.number().int().min(0).max(50),
-      left: z.number().int().min(0).max(50),
-    }),
-  }),
-  nodes: z.array(DocumentNodeRawSchema).min(1).max(30),
+  page: DocumentPageRawSchema,
+  nodes: isolatedArraySchema(DocumentNodeRawSchema, { min: 1, max: 30 }),
 });
 export const DocumentModelSchema = boundedCompositeSchema(DocumentModelRawSchema);
 
 export type DocumentNode = z.infer<typeof DocumentNodeRawSchema>;
 export type DocumentModel = z.infer<typeof DocumentModelRawSchema>;
 
-const RiskFindingRawSchema = z.object({
+const RiskFindingRawSchema = isolatedObjectSchema({
   code: requiredPlainText(100),
   severity: z.enum(["info", "warning", "error"]),
   message: requiredPlainText(1_000),
-  path: z.array(requiredPlainText(100)).max(20).optional(),
+  path: isolatedArraySchema(requiredPlainText(100), { max: 20 }).optional(),
 });
 export const RiskFindingSchema = boundedCompositeSchema(RiskFindingRawSchema);
 
 export type RiskFinding = z.infer<typeof RiskFindingRawSchema>;
 
-const ProjectEnvelopeRawSchema = z.object({
+const ProjectEnvelopeRawSchema = isolatedObjectSchema({
   formatVersion: z.literal(PROJECT_FORMAT_VERSION),
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
@@ -424,7 +441,7 @@ export const ProjectEnvelopeSchema = boundedCompositeSchema(ProjectEnvelopeRawSc
 
 export type OpenTradProjectEnvelope = z.infer<typeof ProjectEnvelopeRawSchema>;
 
-const ProjectEnvelopeInputRawSchema = z.object({
+const ProjectEnvelopeInputRawSchema = isolatedObjectSchema({
   formatVersion: z.literal(PROJECT_FORMAT_VERSION),
   templateId: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_ID),
   templateVersion: z.literal(STANDARD_GOODS_QUOTE_TEMPLATE_VERSION),
