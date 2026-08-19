@@ -24,6 +24,7 @@ interface SnapshotState {
 
 interface SnapshotPolicy {
   arrayLimits?: Readonly<Record<string, number>>;
+  maxTotalValues?: number;
 }
 
 const boundaryErrors = new WeakSet<object>();
@@ -219,7 +220,7 @@ function snapshotValue(
   parentTag?: string,
 ): unknown {
   state.totalValues += 1;
-  if (state.totalValues > MAX_TOTAL_VALUES) {
+  if (state.totalValues > (state.policy.maxTotalValues ?? MAX_TOTAL_VALUES)) {
     throw new InputBoundaryError("Input exceeds the aggregate value budget");
   }
 

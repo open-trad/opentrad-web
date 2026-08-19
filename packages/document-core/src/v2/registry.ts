@@ -4,13 +4,14 @@ import {
   type TemplateIdV2,
   type TemplateVersionV2,
 } from "./common.js";
+import type { RiskFindingV2 } from "./risk.js";
 
 export interface TemplateRegistration<Draft = unknown, Model = unknown> {
   readonly definition: TemplateDefinitionV2;
   readonly parseDraft: (value: unknown) => Draft;
   readonly createDraft: (input: { id: string; now: string | Date }) => Draft;
   readonly compile: (draft: Draft) => Model;
-  readonly preflight: (draft: Draft) => readonly unknown[];
+  readonly preflight: (draft: Draft) => readonly RiskFindingV2[];
 }
 
 interface TemplateRegistrationShape {
@@ -18,7 +19,7 @@ interface TemplateRegistrationShape {
   readonly parseDraft: (value: unknown) => unknown;
   readonly createDraft: (input: { id: string; now: string | Date }) => unknown;
   readonly compile: (draft: never) => unknown;
-  readonly preflight: (draft: never) => readonly unknown[];
+  readonly preflight: (draft: never) => readonly RiskFindingV2[];
 }
 
 type PublishedRegistration<Registration extends TemplateRegistrationShape> = {
