@@ -139,6 +139,16 @@ describe("V2 common schemas", () => {
     ).toThrow();
   });
 
+  it("rejects trailing isolated high surrogates in public localized and template text", () => {
+    expect(() => LocalizedTextSchema.parse({ zhCN: "无效末尾\ud800" })).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...createDefinition(),
+        summary: "无效末尾\ud800",
+      }),
+    ).toThrow();
+  });
+
   it("rejects markup, accessors, cyclic input and custom prototypes without executing getters", () => {
     expect(() =>
       EntityPartyV2Schema.parse({

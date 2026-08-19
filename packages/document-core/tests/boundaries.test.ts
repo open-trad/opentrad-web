@@ -532,6 +532,14 @@ describe("bounded public composite schemas", () => {
     expect(parsed.draft.terms.notes).toBe(validText);
   });
 
+  it("rejects a trailing isolated high surrogate in draft parsing and project serialization", () => {
+    const input = draft();
+    input.terms.notes = "末尾无效字符\ud800";
+
+    expect(core.DocumentDraftSchema.safeParse(input).success).toBe(false);
+    expect(() => core.serializeProject(input)).toThrow();
+  });
+
   it("accepts a fully populated valid draft at the 100-line boundary", () => {
     const input = draft();
     input.meta.number = "报".repeat(64);

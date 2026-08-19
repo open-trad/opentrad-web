@@ -198,6 +198,25 @@ describe("ProjectEnvelopeV2", () => {
     ).toThrow();
   });
 
+  it("rejects a trailing isolated high surrogate while parsing a V2 project envelope", () => {
+    const envelope = {
+      ...createEnvelope(),
+      attachmentManifest: [
+        {
+          id: "product-image",
+          category: "technical" as const,
+          displayName: "无效末尾\ud800",
+          mediaType: "image/png" as const,
+          required: false,
+          status: "attached" as const,
+          includedInSubmission: false,
+        },
+      ],
+    };
+
+    expect(() => parseOpenTradProject(JSON.stringify(envelope))).toThrow();
+  });
+
   it("normalizes explicitly undefined optional attachment fields to omission", () => {
     const attachment = {
       id: "qualification-certificate",
