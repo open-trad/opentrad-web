@@ -55,7 +55,13 @@ export function QuoteEditorPage() {
           <h1>标准商品报价单</h1>
         </div>
         <div className="editor-actions">
-          <button type="button" className="secondary-button">
+          <button
+            type="button"
+            className="secondary-button"
+            aria-label="保存草稿，第二阶段开放"
+            title="保存草稿将在第二阶段开放"
+            disabled
+          >
             <Save size={16} /> 保存草稿
           </button>
           {isMobileEditor && (
@@ -143,7 +149,13 @@ export function QuoteEditorPage() {
           </form>
           <div className="form-footer">
             <span>所有信息仅保存在当前设备</span>
-            <button type="button" className="primary-button">
+            <button
+              type="button"
+              className="primary-button"
+              aria-label="下一步，第二阶段开放"
+              title="后续编辑步骤将在第二阶段开放"
+              disabled
+            >
               下一步 <ChevronRight size={16} />
             </button>
           </div>

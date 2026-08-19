@@ -17,9 +17,30 @@ const localCapabilities = [
   "PNG / JPG / WebP / AVIF 图片互转",
 ];
 const serverCapabilities = ["Office 转 PDF", "OCR 文字识别", "复杂表格处理", "复杂版式重排"];
+const maxLocalFileSize = 25 * 1024 * 1024;
 
 export function ConvertPage() {
   const [localFile, setLocalFile] = useState<File | null>(null);
+  const [localFileError, setLocalFileError] = useState<string | null>(null);
+
+  const selectLocalFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.currentTarget.files?.[0] ?? null;
+    setLocalFileError(null);
+
+    if (!selectedFile) {
+      setLocalFile(null);
+      return;
+    }
+
+    if (selectedFile.size > maxLocalFileSize) {
+      setLocalFile(null);
+      setLocalFileError("文件超过 25 MiB，请选择更小的文件");
+      event.currentTarget.value = "";
+      return;
+    }
+
+    setLocalFile(selectedFile);
+  };
 
   return (
     <div className="workspace-page convert-page">
@@ -53,12 +74,13 @@ export function ConvertPage() {
               type="file"
               aria-label="选择本地转换文件"
               accept=".txt,.md,.markdown,.html,.htm,.docx,.pdf,.png,.jpg,.jpeg,.webp,.avif"
-              onChange={(event) => setLocalFile(event.target.files?.[0] ?? null)}
+              onChange={selectLocalFile}
             />
             <FileUp size={31} />
             <strong>{localFile ? localFile.name : "点击或拖拽文件到此处"}</strong>
             <span>支持 TXT、Markdown、HTML、DOCX、PDF 与常用图片；具体操作按格式显示</span>
             <span>单个文件不超过 25 MiB</span>
+            {localFileError && <span role="alert">{localFileError}</span>}
             <em>{localFile ? "文件已在本机就绪" : "选择文件"}</em>
           </label>
           <div className="boundary-note">

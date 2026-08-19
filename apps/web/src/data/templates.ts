@@ -8,7 +8,7 @@ export type DocumentTemplate = {
   pages: number;
   description: string;
   accent: "green" | "blue" | "copper";
-  to: string;
+  editorPath?: string;
 };
 
 export const templates: DocumentTemplate[] = [
@@ -20,7 +20,7 @@ export const templates: DocumentTemplate[] = [
     pages: 2,
     description: "适用于常规商品询报价，字段清晰完整。",
     accent: "green",
-    to: "/editor/standard-goods-quote",
+    editorPath: "/editor/standard-goods-quote",
   },
   {
     id: "cross-border-quote",
@@ -30,7 +30,6 @@ export const templates: DocumentTemplate[] = [
     pages: 3,
     description: "包含币种、贸易术语和交付信息。",
     accent: "blue",
-    to: "/editor/standard-goods-quote",
   },
   {
     id: "sales-contract",
@@ -40,7 +39,6 @@ export const templates: DocumentTemplate[] = [
     pages: 6,
     description: "面向国际货物销售的标准条款结构。",
     accent: "green",
-    to: "/templates?category=合同",
   },
   {
     id: "service-contract",
@@ -50,7 +48,6 @@ export const templates: DocumentTemplate[] = [
     pages: 4,
     description: "清晰约定服务范围、交付和付款节点。",
     accent: "blue",
-    to: "/templates?category=合同",
   },
   {
     id: "technical-tender",
@@ -60,7 +57,6 @@ export const templates: DocumentTemplate[] = [
     pages: 18,
     description: "技术响应、实施计划与团队能力框架。",
     accent: "copper",
-    to: "/templates?category=标书",
   },
   {
     id: "business-tender",
@@ -70,7 +66,6 @@ export const templates: DocumentTemplate[] = [
     pages: 15,
     description: "商务资质、报价清单和投标函结构。",
     accent: "copper",
-    to: "/templates?category=标书",
   },
   {
     id: "commercial-invoice",
@@ -80,7 +75,6 @@ export const templates: DocumentTemplate[] = [
     pages: 1,
     description: "出口结算与清关常用商业发票。",
     accent: "blue",
-    to: "/templates?category=发票",
   },
   {
     id: "packing-list",
@@ -90,6 +84,5 @@ export const templates: DocumentTemplate[] = [
     pages: 2,
     description: "记录箱数、尺寸、毛重和净重。",
     accent: "green",
-    to: "/templates?category=装箱单",
   },
 ];

@@ -49,7 +49,13 @@ export function AppHeader() {
           ))}
         </nav>
 
-        <button className="language-button" type="button" aria-label="当前语言：简体中文">
+        <button
+          className="language-button"
+          type="button"
+          aria-label="简体中文，第二阶段开放"
+          title="语言切换将在第二阶段开放"
+          disabled
+        >
           <Languages size={16} />
           <span>简体中文</span>
         </button>

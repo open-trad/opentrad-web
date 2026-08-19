@@ -4,6 +4,7 @@ import { ConvertPage } from "./pages/ConvertPage";
 import { HomePage } from "./pages/HomePage";
 import { InfoPage } from "./pages/InfoPage";
 import { QuoteEditorPage } from "./pages/QuoteEditorPage";
+import { TemplateDetailPage } from "./pages/TemplateDetailPage";
 import { TemplatesPage } from "./pages/TemplatesPage";
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/templates" element={<TemplatesPage />} />
+            <Route path="/templates/:templateId" element={<TemplateDetailPage />} />
             <Route path="/editor/standard-goods-quote" element={<QuoteEditorPage />} />
             <Route path="/convert" element={<ConvertPage />} />
             <Route

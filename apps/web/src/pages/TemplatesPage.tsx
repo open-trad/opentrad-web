@@ -13,15 +13,23 @@ const categories: Array<{ label: "全部模板" | TemplateCategory; count: numbe
 ];
 
 export function TemplatesPage() {
-  const [searchParams] = useSearchParams();
-  const initialCategory = searchParams.get("category");
-  const [category, setCategory] = useState(
-    categories.some((item) => item.label === initialCategory)
-      ? (initialCategory ?? "全部模板")
-      : "全部模板",
-  );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedCategory = searchParams.get("category");
+  const category = categories.some((item) => item.label === requestedCategory)
+    ? (requestedCategory ?? "全部模板")
+    : "全部模板";
   const [query, setQuery] = useState("");
   const [format, setFormat] = useState("全部版式");
+
+  const selectCategory = (nextCategory: string) => {
+    const nextSearchParams = new URLSearchParams(searchParams);
+    if (nextCategory === "全部模板") {
+      nextSearchParams.delete("category");
+    } else {
+      nextSearchParams.set("category", nextCategory);
+    }
+    setSearchParams(nextSearchParams);
+  };
 
   const visibleTemplates = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("zh-CN");
@@ -42,7 +50,7 @@ export function TemplatesPage() {
       <header className="page-heading section-container">
         <span className="eyebrow">单证模板库</span>
         <h1>模板中心</h1>
-        <p>专业的商贸单证模板，支持预览与一键使用</p>
+        <p>专业的商贸单证模板，支持分类浏览与开放状态说明</p>
       </header>
 
       <div className="template-layout section-container">
@@ -54,7 +62,7 @@ export function TemplatesPage() {
                 type="button"
                 className={category === item.label ? "active" : ""}
                 key={item.label}
-                onClick={() => setCategory(item.label)}
+                onClick={() => selectCategory(item.label)}
               >
                 <span>
                   <FileText size={16} /> {item.label}
@@ -117,8 +125,11 @@ export function TemplatesPage() {
                       <span>{template.format}</span>
                       <span>{template.pages} 页</span>
                     </div>
-                    <Link to={template.to} aria-label={`使用模板：${template.title}`}>
-                      使用模板
+                    <Link
+                      to={template.editorPath ?? `/templates/${template.id}`}
+                      aria-label={`${template.editorPath ? "使用模板" : "查看说明"}：${template.title}`}
+                    >
+                      {template.editorPath ? "使用模板" : "查看说明"}
                     </Link>
                   </div>
                 </article>

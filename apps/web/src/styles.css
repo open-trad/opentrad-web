@@ -77,6 +77,12 @@ button {
   color: inherit;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+}
+
 :focus-visible {
   outline: 3px solid rgba(36, 75, 130, 0.28);
   outline-offset: 2px;
@@ -804,6 +810,14 @@ button {
   color: var(--ink);
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  border-color: var(--line);
+  background: #e9e8e3;
+  box-shadow: none;
+  color: #6f767c;
+}
+
 .editor-workspace {
   display: grid;
   min-height: calc(100vh - 151px);
@@ -1266,6 +1280,12 @@ button {
   font-size: 9px;
 }
 
+.local-drop [role="alert"] {
+  color: #9b3e2e;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .file-drop em,
 .file-drop button {
   display: inline-flex;
@@ -1405,6 +1425,51 @@ button {
   font-size: 12px;
 }
 
+.template-detail-card .category-tag {
+  margin-bottom: 6px;
+}
+
+.template-detail-meta {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.template-detail-meta span {
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.availability-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 26px auto 0;
+  padding: 14px;
+  border: 1px solid #d5c7b8;
+  border-radius: var(--radius-small);
+  background: var(--copper-soft);
+  color: var(--copper);
+  text-align: left;
+}
+
+.availability-note span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.availability-note strong {
+  color: var(--copper);
+}
+
 @media (max-width: 1080px) {
   .header-inner {
     grid-template-columns: auto 1fr auto;
@@ -1426,6 +1491,16 @@ button {
   .a4-sheet {
     width: 88%;
     padding-inline: 28px;
+  }
+}
+
+@media (max-width: 960px) {
+  .editor-workspace {
+    grid-template-columns: 145px minmax(0, 1fr);
+  }
+
+  .preview-panel {
+    grid-column: 1 / -1;
   }
 }
 
@@ -1517,14 +1592,6 @@ button {
 
   .view-toggle {
     display: none;
-  }
-
-  .editor-workspace {
-    grid-template-columns: 145px minmax(0, 1fr);
-  }
-
-  .preview-panel {
-    grid-column: 1 / -1;
   }
 
   .conversion-grid {
