@@ -16,11 +16,11 @@ export function AppHeader() {
   return (
     <header className="site-header">
       <div className="header-inner">
-        <NavLink className="brand" to="/" aria-label="OpenTrad 开源商贸">
+        <NavLink className="brand" to="/">
           <img
             className="brand-avatar"
             src={`${import.meta.env.BASE_URL}brand/open-trad.png`}
-            alt="OpenTrad 组织头像"
+            alt=""
           />
           <span>OpenTrad</span>
           <em>开源商贸</em>

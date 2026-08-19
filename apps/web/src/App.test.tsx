@@ -23,10 +23,9 @@ describe("首页导航与工具入口", () => {
     expect(screen.queryByText(/智能填写/)).not.toBeInTheDocument();
 
     const brand = screen.getByRole("link", { name: "OpenTrad 开源商贸" });
-    expect(within(brand).getByRole("img", { name: "OpenTrad 组织头像" })).toHaveAttribute(
-      "src",
-      "/brand/open-trad.png",
-    );
+    const avatar = brand.querySelector("img");
+    expect(avatar).toHaveAttribute("src", "/brand/open-trad.png");
+    expect(avatar).toHaveAttribute("alt", "");
     expect(within(brand).getByText("OpenTrad")).toBeVisible();
     expect(within(brand).getByText("开源商贸")).toBeVisible();
 
