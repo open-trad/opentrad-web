@@ -22,7 +22,7 @@ describe("首页导航与工具入口", () => {
     expect(screen.queryByText("全球贸易文档工作台")).not.toBeInTheDocument();
     expect(screen.queryByText(/智能填写/)).not.toBeInTheDocument();
 
-    const brand = screen.getByRole("link", { name: /OpenTrad 开源商贸/ });
+    const brand = screen.getByRole("link", { name: "OpenTrad 开源商贸" });
     expect(within(brand).getByRole("img", { name: "OpenTrad 组织头像" })).toHaveAttribute(
       "src",
       "/brand/open-trad.png",
