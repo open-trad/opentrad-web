@@ -85,6 +85,22 @@ importers:
         specifier: 3.2.6
         version: 3.2.6(@types/node@24.3.0)(jsdom@26.1.0)
 
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 24.3.0
+        version: 24.3.0
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: 3.2.6
+        version: 3.2.6(@types/node@24.3.0)(jsdom@26.1.0)
+
   packages/document-core:
     dependencies:
       zod:
