@@ -2,11 +2,13 @@ import { v2 } from "@opentrad/document-core";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getDraftField, setDraftField } from "./fieldPaths";
 import { type FormIssue, SchemaForm } from "./SchemaForm";
 
 afterEach(cleanup);
+
+const BID_TEMPLATE_IDS = v2.TEMPLATE_IDS_V2.filter((templateId) => templateId.startsWith("bid."));
 
 function Harness({
   templateId,
@@ -36,6 +38,77 @@ function Harness({
 }
 
 describe("manifest-driven schema form", () => {
+  it.each(BID_TEMPLATE_IDS)(
+    "stages %s guarantee facts and commits the complete combination exactly once",
+    async (templateId) => {
+      const user = userEvent.setup();
+      const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
+      let draft = registration.createDraft({
+        id: `guarantee-${templateId}`,
+        now: "2026-08-20T00:00:00.000Z",
+      });
+      draft = setDraftField(draft, "attachments", [
+        {
+          id: "solicitation-main",
+          category: "other",
+          displayName: "招标文件.pdf",
+          mediaType: "application/pdf",
+          pageCount: 8,
+          required: true,
+          status: "attached",
+          includedInSubmission: false,
+        },
+      ]);
+      draft = registration.parseDraft(
+        setDraftField(draft, "evidenceRefs", [
+          {
+            id: "solicitation-source",
+            kind: "solicitation",
+            attachmentId: "solicitation-main",
+            page: 1,
+            sourceRef: "招标文件保证要求章节",
+          },
+        ]),
+      );
+      render(<Harness templateId={templateId} initialDraft={draft} />);
+
+      const required = screen.getByRole("checkbox", { name: /要求投标保证/u });
+      await user.click(required);
+      expect(required).toBeChecked();
+
+      const amount = document.querySelector<HTMLInputElement>(
+        '[data-field-path="source.guaranteeRequirement.amountMinor"]',
+      );
+      expect(amount).not.toBeNull();
+      if (!amount) throw new Error("缺少保证要求金额输入");
+      await user.clear(amount);
+      await user.type(amount, "100.00");
+      await user.selectOptions(
+        screen.getByRole("listbox", { name: /保证要求来源/u }),
+        "solicitation-source",
+      );
+      await user.click(screen.getByRole("button", { name: "添加保证方式" }));
+      await user.type(screen.getByRole("textbox", { name: "新增保证方式" }), "银行保函");
+
+      const beforeConfirm = JSON.parse(screen.getByTestId("draft-state").textContent ?? "null");
+      expect(getDraftField(beforeConfirm, "source.guaranteeRequirement")).toEqual({
+        required: false,
+        allowedMethods: [],
+        sourceRefIds: [],
+      });
+
+      await user.click(screen.getByRole("button", { name: "确认添加保证方式" }));
+      const committed = JSON.parse(screen.getByTestId("draft-state").textContent ?? "null");
+      expect(getDraftField(committed, "source.guaranteeRequirement")).toEqual({
+        required: true,
+        allowedMethods: ["银行保函"],
+        amountMinor: "10000",
+        sourceRefIds: ["solicitation-source"],
+      });
+      expect(screen.queryByRole("button", { name: "定位第一个错误" })).not.toBeInTheDocument();
+    },
+  );
+
   it("exposes a safe add state for all 116 manifest repeatables from createDraft", () => {
     let total = 0;
     let fixed = 0;
@@ -59,6 +132,10 @@ describe("manifest-driven schema form", () => {
           continue;
         }
         expect(add, `${registration.definition.id}:${field.path}`).toBeInTheDocument();
+        if (field.path === "source.guaranteeRequirement.allowedMethods") {
+          expect(add, `${registration.definition.id}:${field.path}`).toBeEnabled();
+          continue;
+        }
         let directlyAddable = false;
         try {
           const item = registration.createRepeatableItem(field.path, {
@@ -77,9 +154,13 @@ describe("manifest-driven schema form", () => {
           blocked += 1;
         }
         if (directlyAddable) {
-          expect(add, `${registration.definition.id}:${field.path}`).toBeEnabled();
+          if (add?.hasAttribute("disabled")) {
+            throw new Error(`${registration.definition.id}:${field.path} should be enabled`);
+          }
         } else {
-          expect(add, `${registration.definition.id}:${field.path}`).toBeDisabled();
+          if (!add?.hasAttribute("disabled")) {
+            throw new Error(`${registration.definition.id}:${field.path} should be disabled`);
+          }
           expect(add, `${registration.definition.id}:${field.path}`).toHaveAccessibleDescription(
             /请先(?:创建|附加)/u,
           );
@@ -127,6 +208,11 @@ describe("manifest-driven schema form", () => {
     render(<Harness templateId={registration.definition.id} initialDraft={draft} />);
 
     const addMatrix = screen.getByRole("button", { name: "添加技术响应矩阵" });
+    expect(addMatrix).toBeDisabled();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "选择技术响应矩阵来源" }),
+      "requirement-canonical",
+    );
     expect(addMatrix).toBeEnabled();
     await user.click(addMatrix);
 
@@ -141,6 +227,94 @@ describe("manifest-driven schema form", () => {
     expect(matrix).toBeDisabled();
     expect(matrix).toHaveAccessibleDescription(/请先创建.*要求/u);
   });
+
+  it("derives a large dependent factory selector from manifest sources without render parsing", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("bid.government.goods.v1", "1.0.0");
+    let draft = registration.createDraft({ id: "large-matrix", now: "2026-08-20T00:00:00Z" });
+    draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(draft, "attachments", [
+          {
+            id: "solicitation-file",
+            category: "other",
+            displayName: "招标文件.pdf",
+            mediaType: "application/pdf",
+            pageCount: 8,
+            required: true,
+            status: "attached",
+            includedInSubmission: false,
+          },
+        ]),
+        "evidenceRefs",
+        [
+          {
+            id: "solicitation-source",
+            kind: "solicitation",
+            attachmentId: "solicitation-file",
+            page: 1,
+            sourceRef: "招标文件第一章",
+          },
+        ],
+      ),
+    );
+    const requirementSeed = registration.createRepeatableItem("requirements", {
+      id: "requirement-0",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    const requirements = Array.from({ length: 100 }, (_, index) => ({
+      ...requirementSeed,
+      id: `requirement-${index}`,
+    }));
+    draft = registration.parseDraft(setDraftField(draft, "requirements", requirements));
+    const deviationSeed = registration.createRepeatableItem("technicalDeviations", {
+      id: "requirement-0",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    const deviations = Array.from({ length: 99 }, (_, index) => ({
+      ...deviationSeed,
+      requirementId: `requirement-${index}`,
+    }));
+    draft = registration.parseDraft(setDraftField(draft, "technicalDeviations", deviations));
+
+    const manifest = registration.definition.fieldManifest.filter(
+      (field) => field.path === "technicalDeviations",
+    );
+    const createRepeatableItem = vi.fn(registration.createRepeatableItem);
+    const parseDraft = vi.fn(registration.parseDraft);
+    const trackedRegistration = {
+      ...registration,
+      definition: { ...registration.definition, fieldManifest: manifest },
+      createRepeatableItem,
+      parseDraft,
+    };
+    createRepeatableItem.mockClear();
+    parseDraft.mockClear();
+    const startedAt = performance.now();
+    render(
+      <SchemaForm
+        registration={trackedRegistration}
+        draft={draft}
+        onDraftChange={() => undefined}
+      />,
+    );
+    const renderDuration = performance.now() - startedAt;
+
+    expect(createRepeatableItem).not.toHaveBeenCalled();
+    expect(parseDraft).not.toHaveBeenCalled();
+    expect(renderDuration).toBeLessThan(5_000);
+
+    const source = screen.getByRole("combobox", { name: "选择技术偏差来源" });
+    expect(source).toHaveValue("");
+    expect(within(source).getAllByRole("option")).toHaveLength(2);
+    await user.selectOptions(source, "requirement-99");
+    await user.click(screen.getByRole("button", { name: "添加技术偏差" }));
+
+    expect(createRepeatableItem).toHaveBeenCalledTimes(1);
+    expect(parseDraft).toHaveBeenCalledTimes(1);
+  }, 20_000);
 
   it("renders Chinese and English inputs for all 62 localized-text fields", () => {
     let localizedFields = 0;

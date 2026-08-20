@@ -3089,6 +3089,43 @@ button:disabled {
   margin-bottom: 12px;
 }
 
+.document-editor-v2 .repeatable-factory-source-v2 {
+  display: grid;
+  max-width: 420px;
+  gap: 6px;
+  margin: 12px 0 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.document-editor-v2 .repeatable-factory-source-v2 select,
+.document-editor-v2 .repeatable-pending-value-v2 input {
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.document-editor-v2 .repeatable-factory-source-v2 select {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+.document-editor-v2 .repeatable-pending-value-v2 {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.document-editor-v2 .repeatable-pending-value-v2 input {
+  flex: 1 1 180px;
+  padding: 8px 10px;
+}
+
 .document-editor-v2 .repeatable-row-actions-v2,
 .document-editor-v2 .nested-list-v2 > div,
 .document-editor-v2__export-actions,

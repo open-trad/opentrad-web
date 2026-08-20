@@ -144,7 +144,7 @@ async function zipFile(
     attachments,
     registry: v2.V2_TEMPLATE_REGISTRY,
   });
-  return new File([await blob.arrayBuffer()], "本地项目.opentrad.zip", {
+  return new File([await blob.arrayBuffer()], "本地项目.opentrad", {
     type: PROJECT_V2_ZIP_MIME,
   });
 }
@@ -272,6 +272,8 @@ describe("generic V2 document editor page", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const { repository } = renderEditor("quotation.service.project.v1");
     const input = await screen.findByLabelText("导入本地项目 ZIP");
+    expect(input.getAttribute("accept")?.split(",")).toContain(".opentrad");
+    expect(input).toHaveAttribute("accept", expect.stringContaining(PROJECT_V2_ZIP_MIME));
     const registration = v2.V2_TEMPLATE_REGISTRY.get("quotation.service.project.v1", "1.0.0");
     const base = projectEnvelope("quotation.service.project.v1", "import-service");
     const importedDraft = registration.parseDraft(

@@ -482,7 +482,7 @@ function EditorWorkspace({
               ref={importInputRef}
               type="file"
               aria-label="导入本地项目 ZIP"
-              accept={`.zip,${PROJECT_V2_ZIP_MIME}`}
+              accept={`.opentrad,.zip,${PROJECT_V2_ZIP_MIME}`}
               disabled={importBusy}
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0];

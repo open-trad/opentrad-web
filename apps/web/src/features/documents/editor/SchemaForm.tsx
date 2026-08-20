@@ -11,6 +11,13 @@ type RepeatableItemField = v2.TemplateRepeatableItemFieldV1;
 type EditorField = TemplateFieldManifestEntryV1 | RepeatableItemField;
 type Registration = ReturnType<typeof v2.V2_TEMPLATE_REGISTRY.get> | TemplateRegistration;
 
+const GUARANTEE_ROOT_PATH = "source.guaranteeRequirement";
+const GUARANTEE_METHODS_PATH = `${GUARANTEE_ROOT_PATH}.allowedMethods`;
+
+function isGuaranteePath(path: string): boolean {
+  return path === GUARANTEE_ROOT_PATH || path.startsWith(`${GUARANTEE_ROOT_PATH}.`);
+}
+
 export interface FormIssue {
   readonly path: string;
   readonly message: string;
@@ -117,44 +124,6 @@ function ownLocalizedText(value: unknown): { readonly zhCN: string; readonly enU
   };
 }
 
-function repeatableIdentityCandidates(
-  registration: Registration,
-  draft: unknown,
-): readonly string[] {
-  const output: string[] = [];
-  const add = (value: unknown) => {
-    if (typeof value === "string" && value.length > 0 && !output.includes(value))
-      output.push(value);
-  };
-  for (const manifestField of registration.definition.fieldManifest) {
-    if (manifestField.control === "select" && "optionSourcePath" in manifestField) {
-      const source = getDraftField(draft, manifestField.optionSourcePath);
-      if (Array.isArray(source)) {
-        for (const item of source) add(getDraftField(item, manifestField.optionValuePath));
-      }
-    }
-    if (manifestField.control === "attachment") {
-      const descriptors = getDraftField(draft, manifestField.descriptorPath);
-      if (Array.isArray(descriptors))
-        for (const descriptor of descriptors) add(getDraftField(descriptor, "id"));
-      const references = getDraftField(draft, manifestField.path);
-      if (Array.isArray(references)) references.forEach(add);
-      else add(references);
-    }
-    if (
-      manifestField.control === "repeatable" &&
-      manifestField.item.kind === "object" &&
-      manifestField.item.idPath
-    ) {
-      const items = getDraftField(draft, manifestField.path);
-      if (Array.isArray(items)) {
-        for (const item of items) add(getDraftField(item, manifestField.item.idPath));
-      }
-    }
-  }
-  return output;
-}
-
 function repeatableBlockedReason(path: string): string {
   if (/matrix|deviation/iu.test(path)) return "请先创建对应要求，再添加此项。";
   if (/performance|caseStudies|experience/iu.test(path)) return "请先创建项目业绩，再添加此项。";
@@ -162,23 +131,149 @@ function repeatableBlockedReason(path: string): string {
   return "请先创建所需来源或附件，再添加此项。";
 }
 
-function resolveRepeatableFactory(
+interface RepeatableFactoryPlan {
+  readonly generatedIdentity: boolean;
+  readonly sourceOptions: readonly { readonly label: string; readonly value: string }[];
+  readonly reason?: string;
+}
+
+interface ExactFactorySourceBinding {
+  readonly sourcePath: string;
+  readonly identityPath: string;
+  readonly labelPath: string;
+}
+
+const EXACT_FACTORY_SOURCE_BINDINGS: Readonly<
+  Record<string, Readonly<Record<string, ExactFactorySourceBinding>>>
+> = Object.freeze({
+  "bid.government.goods.v1": Object.freeze({
+    technicalMatrix: {
+      sourcePath: "requirements",
+      identityPath: "id",
+      labelPath: "requirementText",
+    },
+    businessMatrix: {
+      sourcePath: "requirements",
+      identityPath: "id",
+      labelPath: "requirementText",
+    },
+  }),
+  "bid.government.services.v1": Object.freeze({
+    performanceEvidence: {
+      sourcePath: "projectReferences",
+      identityPath: "id",
+      labelPath: "projectName",
+    },
+  }),
+  "bid.construction.works.v1": Object.freeze({
+    "projectManager.experience": {
+      sourcePath: "projectReferences",
+      identityPath: "id",
+      labelPath: "projectName",
+    },
+  }),
+  "bid.enterprise.goods.v1": Object.freeze({
+    requirementMatrix: {
+      sourcePath: "requirements",
+      identityPath: "id",
+      labelPath: "requirementText",
+    },
+    contractAcceptanceDeviations: {
+      sourcePath: "businessDeviations",
+      identityPath: "requirementId",
+      labelPath: "requirement",
+    },
+  }),
+  "bid.enterprise.services.v1": Object.freeze({
+    caseStudies: {
+      sourcePath: "projectReferences",
+      identityPath: "id",
+      labelPath: "projectName",
+    },
+    contractDeviations: {
+      sourcePath: "businessDeviations",
+      identityPath: "requirementId",
+      labelPath: "requirement",
+    },
+  }),
+});
+
+function exactFactorySourceOptions(
+  registration: Registration,
+  fieldPath: string,
+  draft: unknown,
+): readonly { readonly label: string; readonly value: string }[] | undefined {
+  const binding = EXACT_FACTORY_SOURCE_BINDINGS[registration.definition.id]?.[fieldPath];
+  if (!binding) return undefined;
+  const source = getDraftField(draft, binding.sourcePath);
+  if (!Array.isArray(source)) return [];
+  return source.flatMap((item) => {
+    const value = getDraftField(item, binding.identityPath);
+    const label = getDraftField(item, binding.labelPath);
+    return typeof value === "string" && typeof label === "string" ? [{ value, label }] : [];
+  });
+}
+
+function planRepeatableFactory(
   registration: Registration,
   field: Extract<TemplateFieldManifestEntryV1, { control: "repeatable" }>,
   draft: unknown,
-  generatedId: string,
-  now: string,
-): { readonly item?: unknown; readonly reason?: string } {
-  const candidates = [generatedId, ...repeatableIdentityCandidates(registration, draft)];
-  for (const id of new Set(candidates)) {
-    try {
-      const item = registration.createRepeatableItem(field.path, { id, now, draft });
-      return { item };
-    } catch {
-      // A factory may require an existing canonical source identity; try the next declared id.
+  items: readonly unknown[],
+): RepeatableFactoryPlan {
+  if (field.item.kind !== "object") {
+    return { generatedIdentity: true, sourceOptions: [] };
+  }
+
+  let identityOptions: readonly { readonly label: string; readonly value: string }[] | undefined;
+  for (const itemField of field.item.fields) {
+    if (itemField.control === "select" && "optionSourcePath" in itemField) {
+      const options = dynamicOptions(itemField, draft);
+      const minimum =
+        ("minItems" in itemField ? itemField.minItems : undefined) ?? (itemField.required ? 1 : 0);
+      if (minimum > 0 && options.length === 0) {
+        return {
+          generatedIdentity: false,
+          sourceOptions: [],
+          reason: repeatableBlockedReason(field.path),
+        };
+      }
+      if (field.item.idPath === itemField.path) identityOptions = options;
+    }
+    if (itemField.control === "attachment" && itemField.required) {
+      const descriptors = getDraftField(draft, itemField.descriptorPath);
+      if (!Array.isArray(descriptors) || descriptors.length === 0) {
+        return {
+          generatedIdentity: false,
+          sourceOptions: [],
+          reason: repeatableBlockedReason(field.path),
+        };
+      }
     }
   }
-  return { reason: repeatableBlockedReason(field.path) };
+
+  const exactSourceOptions = exactFactorySourceOptions(registration, field.path, draft);
+  const sourceOptions = exactSourceOptions ?? identityOptions;
+  if (sourceOptions) {
+    const used = new Set(
+      items.flatMap((item) => {
+        const identity =
+          field.item.kind === "object" && field.item.idPath
+            ? getDraftField(item, field.item.idPath)
+            : undefined;
+        return typeof identity === "string" ? [identity] : [];
+      }),
+    );
+    const available = sourceOptions.filter((option) => !used.has(option.value));
+    return {
+      generatedIdentity: false,
+      sourceOptions: available,
+      ...(available.length === 0
+        ? { reason: `暂无可添加的${field.label}来源；请先创建新的来源。` }
+        : {}),
+    };
+  }
+
+  return { generatedIdentity: true, sourceOptions: [] };
 }
 
 interface FieldControlProps {
@@ -453,15 +548,27 @@ function RepeatableControl({
   const [sessionKeys, setSessionKeys] = useState(() =>
     items.map((_, index) => stableId(prefix, index)),
   );
+  const [pendingGuaranteeMethod, setPendingGuaranteeMethod] = useState<string | null>(null);
+  const [selectedFactorySource, setSelectedFactorySource] = useState("");
+  const [factoryError, setFactoryError] = useState<string | undefined>(undefined);
   const fixed = field.minItems === field.maxItems;
+  const stagedGuaranteeMethods = field.path === GUARANTEE_METHODS_PATH;
   const blockedReasonId = `${prefix}-add-reason`;
-  const factoryPreview = resolveRepeatableFactory(
-    registration,
-    field,
-    draft,
-    `web-probe-${field.path.replaceAll(".", "-")}`,
-    "2026-08-20T00:00:00.000Z",
+  const factoryPlan = useMemo(
+    () => planRepeatableFactory(registration, field, draft, items),
+    [draft, field, items, registration],
   );
+  const selectedSourceAvailable = factoryPlan.sourceOptions.some(
+    (option) => option.value === selectedFactorySource,
+  );
+  const canAddFromFactory =
+    !factoryPlan.reason && (factoryPlan.generatedIdentity || selectedSourceAvailable);
+  const addReason =
+    factoryError ??
+    factoryPlan.reason ??
+    (!factoryPlan.generatedIdentity && !selectedSourceAvailable
+      ? `请选择${field.label}来源后再添加。`
+      : undefined);
 
   const itemKey = (item: unknown, index: number): string => {
     if (field.item.kind === "object" && field.item.idPath) {
@@ -634,30 +741,87 @@ function RepeatableControl({
           </fieldset>
         );
       })}
+      {stagedGuaranteeMethods && pendingGuaranteeMethod !== null ? (
+        <div className="repeatable-pending-value-v2">
+          <input
+            type="text"
+            aria-label="新增保证方式"
+            value={pendingGuaranteeMethod}
+            onChange={(event) => setPendingGuaranteeMethod(event.currentTarget.value)}
+          />
+          <button
+            type="button"
+            disabled={pendingGuaranteeMethod.trim().length === 0}
+            onClick={() => {
+              const method = pendingGuaranteeMethod.trim();
+              if (!method) return;
+              setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
+              setPendingGuaranteeMethod(null);
+              commitItems([...items, method]);
+            }}
+          >
+            确认添加保证方式
+          </button>
+          <button type="button" onClick={() => setPendingGuaranteeMethod(null)}>
+            取消
+          </button>
+        </div>
+      ) : null}
+      {!stagedGuaranteeMethods && factoryPlan.sourceOptions.length > 0 ? (
+        <label className="repeatable-factory-source-v2">
+          <span>新增{field.label}来源</span>
+          <select
+            aria-label={`选择${field.label}来源`}
+            value={selectedSourceAvailable ? selectedFactorySource : ""}
+            onChange={(event) => {
+              setFactoryError(undefined);
+              setSelectedFactorySource(event.currentTarget.value);
+            }}
+          >
+            <option value="">请选择</option>
+            {factoryPlan.sourceOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       {!fixed && items.length < field.maxItems ? (
         <button
           type="button"
-          disabled={!factoryPreview.item}
-          aria-describedby={!factoryPreview.item ? blockedReasonId : undefined}
+          disabled={!stagedGuaranteeMethods && !canAddFromFactory}
+          aria-describedby={
+            !stagedGuaranteeMethods && !canAddFromFactory ? blockedReasonId : undefined
+          }
           onClick={() => {
-            const resolved = resolveRepeatableFactory(
-              registration,
-              field,
-              draft,
-              crypto.randomUUID(),
-              new Date().toISOString(),
-            );
-            if (!resolved.item) return;
-            setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
-            commitItems([...items, resolved.item]);
+            if (stagedGuaranteeMethods) {
+              setPendingGuaranteeMethod("");
+              return;
+            }
+            const id = factoryPlan.generatedIdentity ? crypto.randomUUID() : selectedFactorySource;
+            if (!id || !canAddFromFactory) return;
+            try {
+              const item = registration.createRepeatableItem(field.path, {
+                id,
+                now: new Date().toISOString(),
+                draft,
+              });
+              setFactoryError(undefined);
+              setSelectedFactorySource("");
+              setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
+              commitItems([...items, item]);
+            } catch {
+              setFactoryError("当前来源无法创建此项，请检查来源内容后重试。");
+            }
           }}
         >
           <Plus size={15} aria-hidden="true" /> 添加{field.label}
         </button>
       ) : null}
-      {!fixed && items.length < field.maxItems && !factoryPreview.item ? (
+      {!stagedGuaranteeMethods && !fixed && items.length < field.maxItems && addReason ? (
         <small id={blockedReasonId} className="document-field-help-v2">
-          {factoryPreview.reason}
+          {addReason}
         </small>
       ) : null}
     </section>
@@ -674,7 +838,13 @@ export function SchemaForm({
 }: SchemaFormProps) {
   const [localIssues, setLocalIssues] = useState<readonly FormIssue[]>([]);
   const [rawValues, setRawValues] = useState<Readonly<Record<string, unknown>>>({});
+  const pendingGuaranteeRef = useRef<unknown | undefined>(undefined);
+  const [pendingGuarantee, setPendingGuarantee] = useState<unknown | undefined>(undefined);
   const allIssues = [...issues, ...localIssues];
+  const displayDraft =
+    pendingGuarantee === undefined
+      ? draft
+      : setDraftField(draft, GUARANTEE_ROOT_PATH, pendingGuarantee);
   const sections = useMemo(() => {
     const output = new Map<string, TemplateFieldManifestEntryV1[]>();
     for (const field of registration.definition.fieldManifest) {
@@ -698,10 +868,36 @@ export function SchemaForm({
     }
   };
 
+  const stageGuaranteeCandidate = (candidate: unknown): void => {
+    const group = getDraftField(candidate, GUARANTEE_ROOT_PATH);
+    const rebased = setDraftField(draft, GUARANTEE_ROOT_PATH, group);
+    try {
+      const parsed = registration.parseDraft(rebased);
+      pendingGuaranteeRef.current = undefined;
+      setPendingGuarantee(undefined);
+      setRawValues((current) =>
+        Object.fromEntries(Object.entries(current).filter(([path]) => !isGuaranteePath(path))),
+      );
+      setLocalIssues([]);
+      onValidationChange?.([]);
+      onDraftChange(parsed);
+    } catch (error) {
+      pendingGuaranteeRef.current = group;
+      setPendingGuarantee(group);
+      const nextIssues = errorIssues(error);
+      setLocalIssues(nextIssues);
+      onValidationChange?.(nextIssues);
+    }
+  };
+
   const updateRaw = (field: EditorField, path: string, raw: unknown): void => {
     setRawValues((current) => ({ ...current, [path]: raw }));
     try {
-      const currentValue = getDraftField(draft, path);
+      const sourceDraft =
+        isGuaranteePath(path) && pendingGuaranteeRef.current !== undefined
+          ? setDraftField(draft, GUARANTEE_ROOT_PATH, pendingGuaranteeRef.current)
+          : draft;
+      const currentValue = getDraftField(sourceDraft, path);
       const parsedRaw = parseRawFieldValue(
         field as TemplateFieldManifestEntryV1,
         raw,
@@ -709,9 +905,10 @@ export function SchemaForm({
       );
       const candidate =
         field.control === "select" && !field.required && raw === ""
-          ? updateDraftFromRaw(draft, { ...field, path } as TemplateFieldManifestEntryV1, raw)
-          : setDraftField(draft, path, parsedRaw);
-      acceptCandidate(candidate);
+          ? updateDraftFromRaw(sourceDraft, { ...field, path } as TemplateFieldManifestEntryV1, raw)
+          : setDraftField(sourceDraft, path, parsedRaw);
+      if (isGuaranteePath(path)) stageGuaranteeCandidate(candidate);
+      else acceptCandidate(candidate);
     } catch (error) {
       const nextIssues = [{ path, message: error instanceof Error ? error.message : "字段值无效" }];
       setLocalIssues(nextIssues);
@@ -749,18 +946,20 @@ export function SchemaForm({
           <legend>{section}</legend>
           <div className="schema-section-grid-v2">
             {fields.map((field) => {
-              if (!isVisible(field, draft)) return null;
+              if (!isVisible(field, displayDraft)) return null;
               if (field.control === "repeatable") {
                 return (
                   <RepeatableControl
                     key={field.path}
                     field={field}
                     registration={registration}
-                    draft={draft}
+                    draft={displayDraft}
                     issues={allIssues}
                     rawValues={rawValues}
                     onRawValue={(itemField, path, raw) => updateRaw(itemField, path, raw)}
-                    onCandidate={acceptCandidate}
+                    onCandidate={
+                      isGuaranteePath(field.path) ? stageGuaranteeCandidate : acceptCandidate
+                    }
                     onAttachmentFiles={onAttachmentFiles}
                   />
                 );
@@ -770,8 +969,8 @@ export function SchemaForm({
                   key={field.path}
                   field={field}
                   path={field.path}
-                  value={getDraftField(draft, field.path)}
-                  rootDraft={draft}
+                  value={getDraftField(displayDraft, field.path)}
+                  rootDraft={displayDraft}
                   issue={allIssues.find((entry) => entry.path === field.path)}
                   rawOverride={rawValues[field.path]}
                   onRawChange={(raw) => updateRaw(field, field.path, raw)}
