@@ -46,6 +46,28 @@ const FRAMEWORK_SECTIONS = [
   "signatures",
 ] as const;
 
+const OEM_PROCESSING_SECTIONS = [
+  "cover",
+  "meta",
+  "parties",
+  "commissioned-products",
+  "technical-documents",
+  "sample-approval",
+  "materials",
+  "tooling",
+  "production-schedule",
+  "fees-payment",
+  "quality-inspection",
+  "nonconformance-recall",
+  "engineering-change",
+  "ip-license",
+  "confidentiality-subcontracting",
+  "termination-compensation",
+  "general-terms",
+  "attachments",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -234,5 +256,73 @@ describe("contract.supply.framework.v1", () => {
         signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "seller" }],
       }),
     ).toThrow();
+  });
+});
+
+describe("contract.oem.processing.v1", () => {
+  it("pins sources, projects exact processing-fee calculation and compiles stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.oem.processing.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("contract-oem-processing"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "contract.oem.processing.v1",
+      version: "1.0.0",
+      category: "contract",
+      basisDate: "2026-08-19",
+      languages: ["zh-CN"],
+      allowedLayouts: ["classic-formal.v1"],
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+      sourceKeys: ["prc-civil-code", "samr-entrustment-2025"],
+      disclaimerProfile: "contract",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(OEM_PROCESSING_SECTIONS);
+    expect(JSON.stringify(model)).toContain("CNY 500.00");
+    expect(JSON.stringify(model)).toContain("TECH-S1-R3");
+    expect(model.disclaimers).toEqual(["contract-generation-note"]);
+  });
+
+  it("enforces supplied-material, IP, subcontracting, change and termination conditions in shared analysis", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.oem.processing.v1", "1.0.0");
+    const base = fixture("contract-oem-processing") as Record<string, unknown>;
+    const technical = base.technical as Record<string, unknown>;
+    const materials = base.materials as Record<string, unknown>;
+    const intellectualProperty = base.intellectualProperty as Record<string, unknown>;
+    const risky = {
+      ...base,
+      technical: { ...technical, engineeringChange: "" },
+      materials: { ...materials, mode: "principal-supplied", yieldTarget: "", scrapHandling: "", returnMethod: "" },
+      intellectualProperty: { ...intellectualProperty, backgroundIp: "", foregroundIp: "" },
+      subcontracting: "",
+      terminationCompensation: "",
+    };
+    expect(registration.preflight(risky).map((finding) => [finding.code, finding.impact])).toEqual([
+      ["OEM_MATERIAL_YIELD_MISSING", "blockSubmission"],
+      ["OEM_MATERIAL_SCRAP_MISSING", "blockSubmission"],
+      ["OEM_MATERIAL_RETURN_MISSING", "blockSubmission"],
+      ["OEM_BACKGROUND_IP_MISSING", "blockSubmission"],
+      ["OEM_FOREGROUND_IP_MISSING", "blockSubmission"],
+      ["OEM_SUBCONTRACTING_MISSING", "blockSubmission"],
+      ["OEM_ENGINEERING_CHANGE_MISSING", "blockSubmission"],
+      ["OEM_TERMINATION_COMPENSATION_MISSING", "blockSubmission"],
+    ]);
+    expect(DocumentModelV2Schema.parse(registration.compile(risky)).watermarks).toHaveLength(1);
+    expect(() => registration.preflight({ ...base, unknown: true })).toThrow();
+    expect(() => registration.compile({ ...base, unknown: true })).toThrow();
+  });
+
+  it("cross-validates drawings and signer roles and requires exact payment and complete tooling rows", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.oem.processing.v1", "1.0.0");
+    const base = fixture("contract-oem-processing") as Record<string, unknown>;
+    const technical = base.technical as Record<string, unknown>;
+    const production = base.production as Record<string, unknown>;
+    const schedule = production.paymentSchedule as Array<Record<string, unknown>>;
+    const tooling = base.tooling as Array<Record<string, unknown>>;
+    expect(() => registration.parseDraft({ ...base, technical: { ...technical, drawingAttachmentIds: ["missing"] } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, tooling: [{ ...tooling[0], maintenance: "" }] })).toThrow();
+    expect(() => registration.parseDraft({ ...base, production: { ...production, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "supplier" }] })).toThrow();
+    const created = registration.createDraft({ id: "oem-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    expect((created.production as Record<string, unknown>).currency).toBeUndefined();
+    expect((created.production as Record<string, unknown>).taxMode).toBeUndefined();
   });
 });
