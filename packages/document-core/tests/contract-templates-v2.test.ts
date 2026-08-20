@@ -68,6 +68,27 @@ const OEM_PROCESSING_SECTIONS = [
   "signatures",
 ] as const;
 
+const COMMERCIAL_SERVICE_SECTIONS = [
+  "cover",
+  "meta",
+  "parties",
+  "service-matter",
+  "work-requirements",
+  "term-location",
+  "deliverables-reporting",
+  "client-dependencies",
+  "subcontract-parallel-engagement",
+  "fees-expenses-payment",
+  "acceptance",
+  "ip-data-confidentiality",
+  "agency-third-party",
+  "rights-obligations",
+  "breach",
+  "termination-at-will",
+  "general-terms",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -324,5 +345,70 @@ describe("contract.oem.processing.v1", () => {
     const created = registration.createDraft({ id: "oem-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
     expect((created.production as Record<string, unknown>).currency).toBeUndefined();
     expect((created.production as Record<string, unknown>).taxMode).toBeUndefined();
+  });
+});
+
+describe("contract.service.commercial.v1", () => {
+  it("pins sources, projects ServiceLineV2 money and compiles Chinese-only stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.service.commercial.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("contract-commercial-service"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "contract.service.commercial.v1",
+      version: "1.0.0",
+      category: "contract",
+      basisDate: "2026-08-19",
+      languages: ["zh-CN"],
+      allowedLayouts: ["modern-business.v1", "classic-formal.v1"],
+      defaultLayout: "modern-business.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+      sourceKeys: ["samr-entrustment-2025", "prc-civil-code"],
+      disclaimerProfile: "contract",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(COMMERCIAL_SERVICE_SECTIONS);
+    expect(JSON.stringify(model)).toContain("CNY 1,000.00");
+    expect(JSON.stringify(model)).not.toContain('"enUS"');
+    expect(model.disclaimers).toEqual(["contract-generation-note"]);
+  });
+
+  it("blocks incomplete personal-data, agency and termination-at-will terms via shared analysis", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.service.commercial.v1", "1.0.0");
+    const base = fixture("contract-commercial-service") as Record<string, unknown>;
+    const rights = base.rights as Record<string, unknown>;
+    const agency = base.agency as Record<string, unknown>;
+    const terminationAtWill = base.terminationAtWill as Record<string, unknown>;
+    const risky = {
+      ...base,
+      rights: { ...rights, personalDataTerms: "仅说明处理目的" },
+      agency: { ...agency, thirdPartyAuthority: "" },
+      terminationAtWill: { ...terminationAtWill, handling: "", compensation: "" },
+    };
+    expect(registration.preflight(risky).map((finding) => [finding.code, finding.impact])).toEqual([
+      ["SERVICE_PERSONAL_DATA_TERMS_INCOMPLETE", "blockSubmission"],
+      ["SERVICE_AGENCY_AUTHORITY_MISSING", "blockSubmission"],
+      ["SERVICE_TERMINATION_HANDLING_MISSING", "blockSubmission"],
+      ["SERVICE_TERMINATION_COMPENSATION_MISSING", "blockSubmission"],
+    ]);
+    expect(DocumentModelV2Schema.parse(registration.compile(risky)).watermarks).toHaveLength(1);
+    expect(() => registration.preflight({ ...base, unknown: true })).toThrow();
+    expect(() => registration.compile({ ...base, unknown: true })).toThrow();
+  });
+
+  it("validates service ids, dates, custom IP, payment proportions and signer roles", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.service.commercial.v1", "1.0.0");
+    const base = fixture("contract-commercial-service") as Record<string, unknown>;
+    const engagement = base.engagement as Record<string, unknown>;
+    const fees = base.fees as Record<string, unknown>;
+    const lines = fees.lines as Array<Record<string, unknown>>;
+    const schedule = fees.paymentSchedule as Array<Record<string, unknown>>;
+    const rights = base.rights as Record<string, unknown>;
+    expect(() => registration.parseDraft({ ...base, engagement: { ...engagement, endDate: "2026-08-01" } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, fees: { ...fees, lines: [lines[0], lines[0]] } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, fees: { ...fees, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, rights: { ...rights, ipOwnership: "custom", ipCustomText: "" } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "customer" }] })).toThrow();
+    const created = registration.createDraft({ id: "service-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    expect((created.fees as Record<string, unknown>).currency).toBeUndefined();
+    expect((created.fees as Record<string, unknown>).taxMode).toBeUndefined();
   });
 });
