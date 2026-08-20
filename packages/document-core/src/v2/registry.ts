@@ -253,24 +253,69 @@ function objectListIdentities(items: readonly unknown[], idPath: string): Map<st
   return identities;
 }
 
-function addedStringListItem(before: readonly unknown[], after: readonly unknown[]): string {
+function assertRepeatableItemShape(valueKind: "object-list" | "string-list", item: unknown): void {
+  if (valueKind === "string-list") {
+    if (typeof item !== "string") throw new Error("invalid");
+    return;
+  }
+  if (
+    item === null ||
+    typeof item !== "object" ||
+    Array.isArray(item) ||
+    Object.getPrototypeOf(item) !== null
+  ) {
+    throw new Error("invalid");
+  }
+}
+
+function assertRepeatableListShape(
+  valueKind: "object-list" | "string-list",
+  items: readonly unknown[],
+): void {
+  for (const item of items) assertRepeatableItemShape(valueKind, item);
+}
+
+function canonicalSafeValue(value: unknown): string {
+  if (value === null) return "null";
+  if (typeof value === "string") return `s:${JSON.stringify(value)}`;
+  if (typeof value === "boolean") return value ? "b:1" : "b:0";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("invalid");
+    return `n:${Object.is(value, -0) ? "-0" : String(value)}`;
+  }
+  if (value === undefined) return "u:";
+  if (typeof value !== "object") throw new Error("invalid");
+  if (Array.isArray(value)) return `a:[${value.map(canonicalSafeValue).join(",")}]`;
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string")) throw new Error("invalid");
+  return `o:{${(keys as string[])
+    .sort()
+    .map(
+      (key) => `${JSON.stringify(key)}:${canonicalSafeValue(ownDataProperty(value, key)?.value)}`,
+    )
+    .join(",")}}`;
+}
+
+function addedStructuralListItem(before: readonly unknown[], after: readonly unknown[]): unknown {
   const remaining = new Map<string, number>();
   for (const item of before) {
-    if (typeof item !== "string") throw new Error("invalid");
-    remaining.set(item, (remaining.get(item) ?? 0) + 1);
+    const identity = canonicalSafeValue(item);
+    remaining.set(identity, (remaining.get(identity) ?? 0) + 1);
   }
-  let added: string | undefined;
+  let added: unknown;
+  let hasAdded = false;
   for (const item of after) {
-    if (typeof item !== "string") throw new Error("invalid");
-    const count = remaining.get(item) ?? 0;
+    const identity = canonicalSafeValue(item);
+    const count = remaining.get(identity) ?? 0;
     if (count > 0) {
-      remaining.set(item, count - 1);
+      remaining.set(identity, count - 1);
       continue;
     }
-    if (added !== undefined) throw new Error("invalid");
+    if (hasAdded) throw new Error("invalid");
     added = item;
+    hasAdded = true;
   }
-  if (added === undefined || [...remaining.values()].some((count) => count !== 0)) {
+  if (!hasAdded || [...remaining.values()].some((count) => count !== 0)) {
     throw new Error("invalid");
   }
   return added;
@@ -296,14 +341,16 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
       const inputSnapshot = safeSnapshot(safeInput.draft);
       const parsedDraft = safeSnapshot(candidate.parseDraft(inputSnapshot));
       const parsedItems = plainArrayAt(parsedDraft, path);
+      assertRepeatableListShape(field.valueKind, parsedItems);
       if (parsedItems.length >= field.maxItems) throw new Error("invalid");
       let originalIdentities: Map<string, unknown> | undefined;
       let idPath: string | undefined;
       if (field.valueKind === "object-list") {
         idPath = field.item.idPath;
-        if (!idPath) throw new Error("invalid");
-        originalIdentities = objectListIdentities(parsedItems, idPath);
-        if (originalIdentities.has(safeInput.id)) throw new Error("invalid");
+        if (idPath) {
+          originalIdentities = objectListIdentities(parsedItems, idPath);
+          if (originalIdentities.has(safeInput.id)) throw new Error("invalid");
+        }
       }
       const now =
         typeof safeInput.now === "string"
@@ -315,17 +362,21 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
         now,
       });
       const item = safeSnapshot(rawItem);
+      assertRepeatableItemShape(field.valueKind, item);
       if (
         field.valueKind === "object-list" &&
-        readOwnPath(item, idPath as string) !== safeInput.id
+        idPath &&
+        readOwnPath(item, idPath) !== safeInput.id
       ) {
         throw new Error("invalid");
       }
-      if (field.valueKind === "string-list" && typeof item !== "string") throw new Error("invalid");
       const nextDraft = safeSnapshot(parsedDraft);
-      plainArrayAt(nextDraft, path).push(item);
+      const nextItems = plainArrayAt(nextDraft, path);
+      nextItems.push(item);
+      assertRepeatableListShape(field.valueKind, nextItems);
       const parsedCandidate = safeSnapshot(candidate.parseDraft(nextDraft));
       const candidateItems = plainArrayAt(parsedCandidate, path);
+      assertRepeatableListShape(field.valueKind, candidateItems);
       if (
         candidateItems.length !== parsedItems.length + 1 ||
         candidateItems.length > field.maxItems
@@ -333,8 +384,8 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
         throw new Error("invalid");
       }
       let parsedItem: unknown;
-      if (field.valueKind === "object-list") {
-        const candidateIdentities = objectListIdentities(candidateItems, idPath as string);
+      if (field.valueKind === "object-list" && idPath) {
+        const candidateIdentities = objectListIdentities(candidateItems, idPath);
         if (
           candidateIdentities.size !== (originalIdentities?.size ?? 0) + 1 ||
           ![...(originalIdentities?.keys() ?? [])].every((identity) =>
@@ -346,7 +397,7 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
         }
         parsedItem = candidateIdentities.get(safeInput.id);
       } else {
-        parsedItem = addedStringListItem(parsedItems, candidateItems);
+        parsedItem = addedStructuralListItem(parsedItems, candidateItems);
       }
       if (parsedItem === undefined) throw new Error("invalid");
       deepFreeze(parsedItem);

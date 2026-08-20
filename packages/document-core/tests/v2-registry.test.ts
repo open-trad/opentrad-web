@@ -209,6 +209,36 @@ function createEditorRegistration(
   return registration;
 }
 
+function createIdlessObjectListRegistration(
+  factory: (
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: TestDraft },
+  ) => unknown,
+) {
+  const registration = createEditorRegistration(factory);
+  const definition = {
+    ...registration.definition,
+    fieldManifest: registration.definition.fieldManifest.map((field) => {
+      if (
+        field.path !== "items" ||
+        field.control !== "repeatable" ||
+        field.item.kind !== "object"
+      ) {
+        return field;
+      }
+      const { idPath: _idPath, ...item } = field.item;
+      return { ...field, item };
+    }),
+  };
+  Object.defineProperty(registration, "definition", {
+    configurable: true,
+    enumerable: true,
+    value: definition,
+    writable: true,
+  });
+  return registration;
+}
+
 function assertReadonlyPublicTypes(
   definition: TemplateDefinitionV2,
   registration: TemplateRegistration<TestDraft>,
@@ -895,6 +925,150 @@ describe("V2 template registry", () => {
         draft,
       }),
     ).toEqual({ id: "item-0", name: "新增项目" });
+  });
+
+  it("locates one structural addition after an idless object-list parser reorders rows", () => {
+    const registration = createIdlessObjectListRegistration(() => ({
+      id: "factory-value",
+      name: "新增项目",
+    }));
+    registration.parseDraft = (value: unknown) => {
+      const draft = structuredClone(value as TestDraft);
+      draft.items?.sort((left, right) => left.id.localeCompare(right.id));
+      return draft;
+    };
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(
+      published.createRepeatableItem("items", {
+        id: "session-row-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toEqual({ id: "factory-value", name: "新增项目" });
+  });
+
+  it("accepts one duplicate-equal structural addition for an idless object list", () => {
+    const registration = createIdlessObjectListRegistration(() => ({
+      id: "item-1",
+      name: "首项",
+    }));
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(
+      published.createRepeatableItem("items", {
+        id: "session-row-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toEqual({ id: "item-1", name: "首项" });
+  });
+
+  it("rejects delete-one-add-two parser output for an idless object list", () => {
+    const registration = createIdlessObjectListRegistration(() => ({
+      id: "factory-value",
+      name: "新增项目",
+    }));
+    registration.parseDraft = (value: unknown) => {
+      const draft = structuredClone(value as TestDraft);
+      if (draft.items?.length === 2) {
+        draft.items = [
+          draft.items[1] as { id: string; name: string },
+          { id: "replacement", name: "替换旧项" },
+        ];
+      }
+      return draft;
+    };
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(() =>
+      published.createRepeatableItem("items", {
+        id: "session-row-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects scalar, null and array rows for an idless object-list factory", () => {
+    const draft = createEditorRegistration().createDraft({
+      id: "draft-1",
+      now: "2026-08-20T00:00:00Z",
+    });
+    for (const invalid of ["scalar", null, ["array"]]) {
+      const registration = createIdlessObjectListRegistration(() => invalid);
+      registration.parseDraft = (value: unknown) => value as TestDraft;
+      const published = createTemplateRegistry([registration as never]).get(
+        "quotation.service.project.v1",
+        "1.0.0",
+      );
+      expect(() =>
+        published.createRepeatableItem("items", {
+          id: "session-row-2",
+          now: "2026-08-20T00:00:00Z",
+          draft,
+        }),
+      ).toThrow();
+    }
+  });
+
+  it("rejects parsers that transform an object-list addition into a scalar", () => {
+    const registration = createIdlessObjectListRegistration(() => ({
+      id: "factory-value",
+      name: "新增项目",
+    }));
+    registration.parseDraft = (value: unknown) => {
+      const draft = value as TestDraft;
+      if (draft.items?.length === 2) {
+        draft.items = [draft.items[0] as { id: string; name: string }, "scalar" as never];
+      }
+      return draft;
+    };
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+    expect(() =>
+      published.createRepeatableItem("items", {
+        id: "session-row-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects parsers that transform a string-list addition into an object", () => {
+    const registration = createEditorRegistration(() => "新增标签");
+    registration.parseDraft = (value: unknown) => {
+      const draft = value as TestDraft;
+      if (draft.tags?.length === 1) draft.tags = [{ value: "新增标签" } as never];
+      return draft;
+    };
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+    expect(() =>
+      published.createRepeatableItem("tags", {
+        id: "session-row-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
   });
 
   it("snapshots caller-owned drafts before identity parsers and mutating factories", () => {
