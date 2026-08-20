@@ -21,11 +21,20 @@ import {
   requiredBidContentFindings,
 } from "../bid-common.js";
 import {
+  bidBaseEditorFields,
+  bidDeviationItemSpec,
+  bidGoodsOfferLineItemSpec,
+  bidRequirementItemSpec,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   bidFinding,
   bidLocalized,
   bidText,
   commonBidFindings,
   createBidBaseDraft,
+  createBidBaseRepeatableItem,
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
@@ -170,62 +179,69 @@ export const ENTERPRISE_GOODS_BID_DEFINITION = {
   sourceKeys: ["prc-tendering-law"],
   disclaimerProfile: "bid",
   fieldManifest: [
-    {
+    ...bidBaseEditorFields({
+      sourceSection: "source-baseline",
+      bidderSection: "bidder",
+      qualificationSection: "qualifications",
+      priceSection: "goods-offer",
+      deviationSection: "deviations",
+      casesSection: "performance",
+      finalReviewSection: "final-checklist",
+    }),
+    textEditorField({
       path: "executiveSummary",
       section: "executive-summary",
       label: "方案摘要",
-      control: "textarea",
       required: true,
-    },
-    {
+      multiline: true,
+    }),
+    repeatableEditorField({
       path: "goodsOfferLines",
       section: "goods-offer",
       label: "货物方案",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: bidGoodsOfferLineItemSpec(),
+    }),
+    repeatableEditorField({
       path: "requirementMatrix",
       section: "requirements-matrix",
       label: "需求响应矩阵",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "commercialOffer",
+      minItems: 0,
+      maxItems: 100,
+      item: bidRequirementItemSpec(),
+    }),
+    ...[
+      ["commercialOffer", "commercial-terms", "商业方案", true],
+      ["technicalOffer", "technical-solution", "技术方案", true],
+      ["deliveryPlan", "delivery", "交付方案", true],
+      ["qualityAssurance", "quality-acceptance", "质量保证", true],
+      ["inspectionAcceptance", "quality-acceptance", "检验验收", true],
+      ["warranty", "warranty-aftersales", "质保方案", true],
+      ["afterSales", "warranty-aftersales", "售后方案", true],
+      ["supplyContinuity", "supply-continuity", "供应连续性", false],
+      ["inventoryPlan", "supply-continuity", "库存方案", false],
+      ["manufacturerSupport", "supply-continuity", "厂商支持", false],
+    ].map(([path, section, label, required]) =>
+      textEditorField({
+        path: String(path),
+        section: String(section),
+        label: String(label),
+        required: Boolean(required),
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
+      path: "contractAcceptanceDeviations",
       section: "commercial-terms",
-      label: "商业方案",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "deliveryPlan",
-      section: "delivery",
-      label: "交付方案",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "qualityAssurance",
-      section: "quality-acceptance",
-      label: "质量保证",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "inspectionAcceptance",
-      section: "quality-acceptance",
-      label: "检验验收",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "afterSales",
-      section: "warranty-aftersales",
-      label: "售后方案",
-      control: "textarea",
-      required: true,
-    },
+      label: "合同接受偏差",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: bidDeviationItemSpec(),
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -720,6 +736,43 @@ export const ENTERPRISE_GOODS_BID_REGISTRATION: TemplateRegistration<
   definition: ENTERPRISE_GOODS_BID_DEFINITION,
   parseDraft,
   createDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    const common = createBidBaseRepeatableItem(path, input);
+    if (common !== undefined) return common;
+    if (path === "goodsOfferLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        brand: "待填写",
+        model: "待填写",
+        manufacturer: "待填写",
+        origin: "待填写",
+        specification: "待填写",
+        quantity: "1",
+        unit: "件",
+        unitPriceMinor: "0",
+        taxRateBps: 0,
+      };
+    }
+    if (path === "requirementMatrix") {
+      const item = (input.draft as EnterpriseGoodsBidDraftV1).requirements.find(
+        (entry) => entry.id === input.id,
+      );
+      if (!item) throw new Error("缺少对应要求");
+      return item;
+    }
+    if (path === "contractAcceptanceDeviations") {
+      const item = (input.draft as EnterpriseGoodsBidDraftV1).businessDeviations.find(
+        (entry) => entry.requirementId === input.id,
+      );
+      if (!item) throw new Error("缺少对应商务偏差");
+      return item;
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile,
   preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseDraft(value);

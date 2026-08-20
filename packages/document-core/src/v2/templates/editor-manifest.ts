@@ -192,6 +192,35 @@ export function selectEditorField(input: {
   };
 }
 
+export function dynamicMultiSelectEditorField(input: {
+  readonly path: string;
+  readonly section: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly minItems: number;
+  readonly maxItems: number;
+  readonly optionSourcePath: string;
+  readonly optionValuePath: string;
+  readonly optionLabelPath: string;
+  readonly optionFilter?: TemplateFieldVisibleWhenV1;
+}): TemplateFieldManifestEntryV1 {
+  return {
+    path: input.path,
+    section: input.section,
+    label: input.label,
+    control: "select",
+    valueKind: "string-list",
+    required: input.required,
+    multiple: true,
+    minItems: input.minItems,
+    maxItems: input.maxItems,
+    optionSourcePath: input.optionSourcePath,
+    optionValuePath: input.optionValuePath,
+    optionLabelPath: input.optionLabelPath,
+    ...(input.optionFilter ? { optionFilter: input.optionFilter } : {}),
+  };
+}
+
 export function repeatableEditorField(input: {
   readonly path: string;
   readonly section: string;
@@ -261,6 +290,7 @@ export function itemTextField(input: {
   readonly required: boolean;
   readonly localized?: boolean;
   readonly multiline?: boolean;
+  readonly visibleWhen?: TemplateFieldVisibleWhenV1;
 }): TemplateRepeatableItemFieldV1 {
   return {
     path: input.path,
@@ -268,6 +298,7 @@ export function itemTextField(input: {
     control: input.multiline ? "textarea" : "text",
     valueKind: input.localized ? "localized-text" : "string",
     required: input.required,
+    ...condition(input.visibleWhen),
   };
 }
 
@@ -326,12 +357,318 @@ export function itemSelectField(input: {
   };
 }
 
+export function itemDynamicSelectField(input: {
+  readonly path: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly optionSourcePath: string;
+  readonly optionValuePath: string;
+  readonly optionLabelPath: string;
+  readonly optionFilter?: TemplateFieldVisibleWhenV1;
+}): TemplateRepeatableItemFieldV1 {
+  return {
+    path: input.path,
+    label: input.label,
+    control: "select",
+    valueKind: "string",
+    required: input.required,
+    multiple: false,
+    optionSourcePath: input.optionSourcePath,
+    optionValuePath: input.optionValuePath,
+    optionLabelPath: input.optionLabelPath,
+    ...(input.optionFilter ? { optionFilter: input.optionFilter } : {}),
+  };
+}
+
+export function itemDynamicMultiSelectField(input: {
+  readonly path: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly minItems: number;
+  readonly maxItems: number;
+  readonly optionSourcePath: string;
+  readonly optionValuePath: string;
+  readonly optionLabelPath: string;
+  readonly optionFilter?: TemplateFieldVisibleWhenV1;
+}): TemplateRepeatableItemFieldV1 {
+  return {
+    path: input.path,
+    label: input.label,
+    control: "select",
+    valueKind: "string-list",
+    required: input.required,
+    multiple: true,
+    minItems: input.minItems,
+    maxItems: input.maxItems,
+    optionSourcePath: input.optionSourcePath,
+    optionValuePath: input.optionValuePath,
+    optionLabelPath: input.optionLabelPath,
+    ...(input.optionFilter ? { optionFilter: input.optionFilter } : {}),
+  };
+}
+
+export function itemStringListField(input: {
+  readonly path: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly minItems: number;
+  readonly maxItems: number;
+  readonly multiline?: boolean;
+}): TemplateRepeatableItemFieldV1 {
+  return {
+    path: input.path,
+    label: input.label,
+    control: "repeatable",
+    valueKind: "string-list",
+    required: input.required,
+    minItems: input.minItems,
+    maxItems: input.maxItems,
+    item: {
+      kind: "value",
+      label: input.label,
+      control: input.multiline ? "textarea" : "text",
+      valueKind: "string",
+    },
+  };
+}
+
 export function itemCheckboxField(
   path: string,
   label: string,
   required: boolean,
 ): TemplateRepeatableItemFieldV1 {
   return { path, label, control: "checkbox", valueKind: "boolean", required };
+}
+
+export function itemAttachmentField(input: {
+  readonly path: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly multiple: boolean;
+  readonly maxItems: number;
+  readonly role: "source" | "submission" | "supporting";
+  readonly category: "qualification" | "technical" | "commercial" | "other";
+  readonly includeInSubmissionDefault: boolean;
+  readonly visibleWhen?: TemplateFieldVisibleWhenV1;
+}): TemplateRepeatableItemFieldV1 {
+  return {
+    path: input.path,
+    label: input.label,
+    control: "attachment",
+    valueKind: input.multiple ? "attachment-id-list" : "attachment-id",
+    required: input.required,
+    cardinality: input.multiple ? "multiple" : "single",
+    maxItems: input.maxItems,
+    descriptorPath: "attachments",
+    role: input.role,
+    category: input.category,
+    allowedMediaTypes: ATTACHMENT_MEDIA_TYPES,
+    pdfPageCount: "user-confirmed",
+    includeInSubmissionDefault: input.includeInSubmissionDefault,
+    ...condition(input.visibleWhen),
+  };
+}
+
+export function bidRequirementItemSpec(): TemplateObjectListItemSpecV1 {
+  return {
+    kind: "object",
+    idPath: "id",
+    fields: [
+      itemDynamicMultiSelectField({
+        path: "sourceRefIds",
+        label: "招标文件来源",
+        required: true,
+        minItems: 1,
+        maxItems: 100,
+        optionSourcePath: "evidenceRefs",
+        optionValuePath: "id",
+        optionLabelPath: "sourceRef",
+        optionFilter: { path: "kind", equals: "solicitation" },
+      }),
+      itemSelectField({
+        path: "category",
+        label: "类别",
+        required: true,
+        options: [
+          { value: "qualification", label: "资格" },
+          { value: "commercial", label: "商务" },
+          { value: "technical", label: "技术" },
+          { value: "service", label: "服务" },
+          { value: "price", label: "价格" },
+          { value: "submission", label: "提交" },
+        ],
+      }),
+      itemTextField({
+        path: "requirementText",
+        label: "要求内容",
+        required: true,
+        multiline: true,
+      }),
+      itemCheckboxField("substantial", "实质性要求", true),
+      itemSelectField({
+        path: "responseStatus",
+        label: "响应状态",
+        required: true,
+        options: [
+          { value: "not-started", label: "未开始" },
+          { value: "drafted", label: "已起草" },
+          { value: "reviewed", label: "已复核" },
+        ],
+      }),
+      itemTextField({ path: "responseText", label: "响应内容", required: true, multiline: true }),
+      itemTextField({ path: "offeredValue", label: "响应值", required: false }),
+      itemSelectField({
+        path: "compliance",
+        label: "符合性",
+        required: true,
+        options: [
+          { value: "yes", label: "符合" },
+          { value: "partial", label: "部分符合" },
+          { value: "no", label: "不符合" },
+          { value: "unreviewed", label: "未复核" },
+        ],
+      }),
+      itemDynamicMultiSelectField({
+        path: "evidenceRefIds",
+        label: "证明材料引用",
+        required: false,
+        minItems: 0,
+        maxItems: 100,
+        optionSourcePath: "evidenceRefs",
+        optionValuePath: "id",
+        optionLabelPath: "label",
+        optionFilter: { path: "kind", equals: "proof" },
+      }),
+      itemTextField({ path: "owner", label: "责任人", required: false }),
+      itemSelectField({
+        path: "reviewStatus",
+        label: "复核结论",
+        required: true,
+        options: [
+          { value: "pending", label: "待复核" },
+          { value: "accepted", label: "接受" },
+          { value: "rejected", label: "拒绝" },
+        ],
+      }),
+    ],
+  };
+}
+
+export function bidDeviationItemSpec(): TemplateObjectListItemSpecV1 {
+  return {
+    kind: "object",
+    idPath: "requirementId",
+    fields: [
+      itemDynamicSelectField({
+        path: "requirementId",
+        label: "要求",
+        required: true,
+        optionSourcePath: "requirements",
+        optionValuePath: "id",
+        optionLabelPath: "requirementText",
+      }),
+      itemDynamicMultiSelectField({
+        path: "sourceRefIds",
+        label: "招标文件来源",
+        required: true,
+        minItems: 1,
+        maxItems: 100,
+        optionSourcePath: "evidenceRefs",
+        optionValuePath: "id",
+        optionLabelPath: "sourceRef",
+        optionFilter: { path: "kind", equals: "solicitation" },
+      }),
+      itemSelectField({
+        path: "type",
+        label: "偏差类型",
+        required: true,
+        options: [
+          { value: "business", label: "商务" },
+          { value: "technical", label: "技术" },
+        ],
+      }),
+      itemTextField({ path: "requirement", label: "原要求", required: true, multiline: true }),
+      itemTextField({ path: "response", label: "响应", required: true, multiline: true }),
+      itemTextField({ path: "deviation", label: "偏差说明", required: true, multiline: true }),
+    ],
+  };
+}
+
+export function bidProjectReferenceItemSpec(): TemplateObjectListItemSpecV1 {
+  return {
+    kind: "object",
+    idPath: "id",
+    fields: [
+      itemTextField({ path: "projectName", label: "项目名称", required: true }),
+      itemTextField({ path: "customer", label: "客户", required: true }),
+      itemTextField({ path: "period", label: "期间", required: true }),
+      itemTextField({ path: "scope", label: "范围", required: true, multiline: true }),
+      itemAttachmentField({
+        path: "evidenceAttachmentId",
+        label: "业绩证明",
+        required: false,
+        multiple: false,
+        maxItems: 1,
+        role: "supporting",
+        category: "qualification",
+        includeInSubmissionDefault: true,
+      }),
+      itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+    ],
+  };
+}
+
+export function bidGoodsOfferLineItemSpec(): TemplateObjectListItemSpecV1 {
+  return {
+    kind: "object",
+    idPath: "id",
+    fields: [
+      itemTextField({ path: "name", label: "名称", required: true }),
+      itemTextField({ path: "brand", label: "品牌", required: true }),
+      itemTextField({ path: "model", label: "型号", required: true }),
+      itemTextField({ path: "manufacturer", label: "制造商", required: true }),
+      itemTextField({ path: "origin", label: "产地", required: true }),
+      itemTextField({ path: "specification", label: "规格参数", required: true, multiline: true }),
+      itemNumberField({ path: "quantity", label: "数量", required: true }),
+      itemTextField({ path: "unit", label: "单位", required: true }),
+      itemMoneyField("unitPriceMinor", "单价", true),
+      itemPercentField("taxRateBps", "税率", true),
+      itemTextField({
+        path: "policyAttributes",
+        label: "政策属性",
+        required: false,
+        multiline: true,
+      }),
+    ],
+  };
+}
+
+export function bidServicePriceLineItemSpec(
+  milestoneSourcePath: string,
+): TemplateObjectListItemSpecV1 {
+  return {
+    kind: "object",
+    idPath: "id",
+    fields: [
+      itemTextField({ path: "serviceName", label: "服务名称", required: true }),
+      itemTextField({ path: "englishName", label: "英文名称", required: false }),
+      itemTextField({ path: "deliverable", label: "交付内容", required: true, multiline: true }),
+      itemTextField({ path: "unit", label: "单位", required: true }),
+      itemNumberField({ path: "quantity", label: "数量", required: true }),
+      itemMoneyField("unitPriceMinor", "单价", true),
+      itemPercentField("discountBps", "折扣", true),
+      itemPercentField("taxRateBps", "税率", true),
+      itemNumberField({ path: "estimatedHours", label: "预计工时", required: false }),
+      itemDynamicSelectField({
+        path: "milestoneId",
+        label: "里程碑",
+        required: false,
+        optionSourcePath: milestoneSourcePath,
+        optionValuePath: "id",
+        optionLabelPath: "name",
+      }),
+    ],
+  };
 }
 
 export function quoteMetaEditorFields(input: {
@@ -751,5 +1088,617 @@ export function contractGeneralTermsEditorFields(input: {
     field("severability", "可分割性", true),
     field("entireAgreement", "完整协议", true),
     field("otherTerms", "其他约定", false),
+  ];
+}
+
+export function bidBaseEditorFields(input: {
+  readonly sourceSection: string;
+  readonly bidderSection: string;
+  readonly qualificationSection: string;
+  readonly priceSection: string;
+  readonly deviationSection: string;
+  readonly casesSection: string;
+  readonly finalReviewSection: string;
+  readonly guaranteeSection?: string;
+}): readonly TemplateFieldManifestEntryV1[] {
+  const text = (
+    path: string,
+    section: string,
+    label: string,
+    required: boolean,
+    multiline = false,
+  ) => textEditorField({ path, section, label, required, multiline });
+  const source = input.sourceSection;
+  const bidder = input.bidderSection;
+  const finalReview = input.finalReviewSection;
+  return [
+    text("source.issuer", source, "采购人/招标人", true),
+    text("source.agency", source, "采购代理机构", false),
+    text("source.projectName", source, "项目名称", true),
+    text("source.projectNumber", source, "项目编号", true),
+    text("source.packageNumber", source, "包号", false),
+    text("source.versionLabel", source, "招标文件版本", true),
+    dateEditorField("source.issueDate", source, "发布日期", true),
+    repeatableEditorField({
+      path: "source.clarificationIds",
+      section: source,
+      label: "澄清编号",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: { kind: "value", label: "澄清编号", control: "text", valueKind: "string" },
+    }),
+    attachmentEditorField({
+      path: "source.versionEvidence.mainSolicitationAttachmentId",
+      section: source,
+      label: "项目招标文件",
+      required: true,
+      multiple: false,
+      maxItems: 1,
+      role: "source",
+      category: "other",
+      includeInSubmissionDefault: false,
+    }),
+    repeatableEditorField({
+      path: "source.versionEvidence.clarificationAttachments",
+      section: source,
+      label: "澄清附件",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "clarificationId",
+        fields: [
+          itemAttachmentField({
+            path: "attachmentId",
+            label: "澄清附件",
+            required: true,
+            multiple: false,
+            maxItems: 1,
+            role: "source",
+            category: "other",
+            includeInSubmissionDefault: false,
+          }),
+        ],
+      },
+    }),
+    checkboxEditorField({
+      path: "source.versionEvidence.allClarificationsIncluded",
+      section: source,
+      label: "已纳入全部澄清",
+      required: true,
+    }),
+    checkboxEditorField({
+      path: "source.versionEvidence.userConfirmedExactVersion",
+      section: source,
+      label: "用户确认版本准确",
+      required: true,
+    }),
+    datetimeEditorField("source.bidDeadline", source, "投标截止时间", true),
+    datetimeEditorField("source.openingTime", source, "开标时间", false),
+    text("source.openingPlace", source, "开标地点", false),
+    numberEditorField({
+      path: "source.bidValidityDays",
+      section: source,
+      label: "投标有效期天数",
+      required: true,
+      integer: true,
+    }),
+    selectEditorField({
+      path: "source.submissionMode",
+      section: source,
+      label: "提交方式",
+      required: true,
+      options: [
+        { value: "paper", label: "纸质" },
+        { value: "electronic", label: "电子" },
+        { value: "both", label: "纸质与电子" },
+      ],
+    }),
+    text("source.signatureRules", source, "签署规则", true, true),
+    text("source.sealingRules", source, "密封规则", false, true),
+    selectEditorField({
+      path: "source.currency",
+      section: source,
+      label: "币种",
+      required: true,
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
+      path: "source.taxBasis",
+      section: source,
+      label: "计税口径",
+      required: true,
+      options: [...TAX_MODE_OPTIONS, { value: "as-specified", label: "按招标文件" }],
+    }),
+    selectEditorField({
+      path: "source.evaluationMethod",
+      section: source,
+      label: "评审方法",
+      required: true,
+      options: [
+        { value: "lowest-price", label: "最低价法" },
+        { value: "comprehensive-score", label: "综合评分法" },
+        { value: "comprehensive-evaluation", label: "综合评估法" },
+        { value: "other", label: "其他" },
+      ],
+    }),
+    moneyEditorField("source.maximumPriceMinor", source, "最高限价", false),
+    checkboxEditorField({
+      path: "source.jointVentureAllowed",
+      section: source,
+      label: "允许联合体",
+      required: true,
+    }),
+    checkboxEditorField({
+      path: "source.subcontractAllowed",
+      section: source,
+      label: "允许分包",
+      required: true,
+    }),
+    numberEditorField({
+      path: "source.submissionCopies.original",
+      section: source,
+      label: "正本份数",
+      required: true,
+      integer: true,
+    }),
+    numberEditorField({
+      path: "source.submissionCopies.copies",
+      section: source,
+      label: "副本份数",
+      required: true,
+      integer: true,
+    }),
+    numberEditorField({
+      path: "source.submissionCopies.electronic",
+      section: source,
+      label: "电子份数",
+      required: true,
+      integer: true,
+    }),
+    checkboxEditorField({
+      path: "source.guaranteeRequirement.required",
+      section: input.guaranteeSection ?? source,
+      label: "要求投标保证",
+      required: true,
+    }),
+    repeatableEditorField({
+      path: "source.guaranteeRequirement.allowedMethods",
+      section: input.guaranteeSection ?? source,
+      label: "保证方式",
+      required: false,
+      minItems: 0,
+      maxItems: 10,
+      item: { kind: "value", label: "保证方式", control: "text", valueKind: "string" },
+    }),
+    moneyEditorField(
+      "source.guaranteeRequirement.amountMinor",
+      input.guaranteeSection ?? source,
+      "保证金额",
+      false,
+    ),
+    dynamicMultiSelectEditorField({
+      path: "source.guaranteeRequirement.sourceRefIds",
+      section: input.guaranteeSection ?? source,
+      label: "保证要求来源引用",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      optionSourcePath: "evidenceRefs",
+      optionValuePath: "id",
+      optionLabelPath: "sourceRef",
+      optionFilter: { path: "kind", equals: "solicitation" },
+    }),
+    ...entityPartyEditorFields({ prefix: "bidder", section: bidder, label: "投标人" }),
+    text("authorizedRepresentative", bidder, "授权代表", false),
+    repeatableEditorField({
+      path: "consortiumMembers",
+      section: bidder,
+      label: "联合体成员",
+      required: false,
+      minItems: 0,
+      maxItems: 20,
+      item: {
+        kind: "object",
+        fields: [
+          itemTextField({ path: "legalName", label: "名称", required: true }),
+          itemTextField({ path: "englishName", label: "英文名称", required: false }),
+          itemSelectField({
+            path: "entityType",
+            label: "主体类型",
+            required: true,
+            options: ENTITY_TYPE_OPTIONS,
+          }),
+          itemTextField({ path: "registrationId", label: "登记号", required: false }),
+          itemTextField({ path: "taxId", label: "税号", required: false }),
+          itemTextField({ path: "registeredAddress", label: "注册地址", required: false }),
+          itemTextField({ path: "postalAddress", label: "通讯地址", required: false }),
+          itemTextField({ path: "legalRepresentative", label: "法定代表人", required: false }),
+          itemTextField({ path: "authorizedRepresentative", label: "授权代表", required: false }),
+          itemTextField({ path: "contactName", label: "联系人", required: true }),
+          itemTextField({ path: "phone", label: "电话", required: false }),
+          itemTextField({ path: "email", label: "邮箱", required: false }),
+          itemTextField({ path: "bankAccountName", label: "账户名", required: false }),
+          itemTextField({ path: "bankName", label: "开户行", required: false }),
+          itemTextField({ path: "bankAccount", label: "账号", required: false }),
+          itemTextField({ path: "swiftCode", label: "SWIFT", required: false }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "requirements",
+      section: source,
+      label: "招标要求",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemDynamicMultiSelectField({
+            path: "sourceRefIds",
+            label: "招标文件来源",
+            required: true,
+            minItems: 1,
+            maxItems: 100,
+            optionSourcePath: "evidenceRefs",
+            optionValuePath: "id",
+            optionLabelPath: "sourceRef",
+            optionFilter: { path: "kind", equals: "solicitation" },
+          }),
+          itemSelectField({
+            path: "category",
+            label: "类别",
+            required: true,
+            options: [
+              { value: "qualification", label: "资格" },
+              { value: "commercial", label: "商务" },
+              { value: "technical", label: "技术" },
+              { value: "service", label: "服务" },
+              { value: "price", label: "价格" },
+              { value: "submission", label: "提交" },
+            ],
+          }),
+          itemTextField({
+            path: "requirementText",
+            label: "要求内容",
+            required: true,
+            multiline: true,
+          }),
+          itemCheckboxField("substantial", "实质性要求", true),
+          itemSelectField({
+            path: "responseStatus",
+            label: "响应状态",
+            required: true,
+            options: [
+              { value: "not-started", label: "未开始" },
+              { value: "drafted", label: "已起草" },
+              { value: "reviewed", label: "已复核" },
+            ],
+          }),
+          itemTextField({
+            path: "responseText",
+            label: "响应内容",
+            required: true,
+            multiline: true,
+          }),
+          itemTextField({ path: "offeredValue", label: "响应值", required: false }),
+          itemSelectField({
+            path: "compliance",
+            label: "符合性",
+            required: true,
+            options: [
+              { value: "yes", label: "符合" },
+              { value: "partial", label: "部分符合" },
+              { value: "no", label: "不符合" },
+              { value: "unreviewed", label: "未复核" },
+            ],
+          }),
+          itemDynamicMultiSelectField({
+            path: "evidenceRefIds",
+            label: "证明材料引用",
+            required: false,
+            minItems: 0,
+            maxItems: 100,
+            optionSourcePath: "evidenceRefs",
+            optionValuePath: "id",
+            optionLabelPath: "label",
+            optionFilter: { path: "kind", equals: "proof" },
+          }),
+          itemTextField({ path: "owner", label: "责任人", required: false }),
+          itemSelectField({
+            path: "reviewStatus",
+            label: "复核结论",
+            required: true,
+            options: [
+              { value: "pending", label: "待复核" },
+              { value: "accepted", label: "接受" },
+              { value: "rejected", label: "拒绝" },
+            ],
+          }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "qualifications",
+      section: input.qualificationSection,
+      label: "资格项",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemDynamicMultiSelectField({
+            path: "sourceRefIds",
+            label: "招标文件来源",
+            required: true,
+            minItems: 1,
+            maxItems: 100,
+            optionSourcePath: "evidenceRefs",
+            optionValuePath: "id",
+            optionLabelPath: "sourceRef",
+            optionFilter: { path: "kind", equals: "solicitation" },
+          }),
+          itemTextField({ path: "name", label: "资格名称", required: true }),
+          itemCheckboxField("required", "必须", true),
+          itemTextField({ path: "issuer", label: "发证机构", required: false }),
+          itemTextField({ path: "certificateNumber", label: "证书编号", required: false }),
+          itemDateField("validUntil", "有效期至", false),
+          itemAttachmentField({
+            path: "attachmentId",
+            label: "证明附件",
+            required: false,
+            multiple: false,
+            maxItems: 1,
+            role: "supporting",
+            category: "qualification",
+            includeInSubmissionDefault: true,
+            visibleWhen: { path: "status", equals: "attached" },
+          }),
+          itemSelectField({
+            path: "status",
+            label: "状态",
+            required: true,
+            options: [
+              { value: "missing", label: "缺失" },
+              { value: "attached", label: "已附" },
+              { value: "not-applicable", label: "不适用" },
+            ],
+          }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "evidenceRefs",
+      section: source,
+      label: "证据引用",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemSelectField({
+            path: "kind",
+            label: "证据类型",
+            required: true,
+            options: [
+              { value: "solicitation", label: "招标文件" },
+              { value: "proof", label: "证明材料" },
+            ],
+          }),
+          itemTextField({
+            path: "sourceRef",
+            label: "来源定位",
+            required: false,
+            visibleWhen: { path: "kind", equals: "solicitation" },
+          }),
+          itemAttachmentField({
+            path: "attachmentId",
+            label: "附件",
+            required: true,
+            multiple: false,
+            maxItems: 1,
+            role: "supporting",
+            category: "other",
+            includeInSubmissionDefault: true,
+          }),
+          itemNumberField({ path: "page", label: "页码", required: true, integer: true }),
+          itemTextField({
+            path: "label",
+            label: "证据标签",
+            required: false,
+            visibleWhen: { path: "kind", equals: "proof" },
+          }),
+        ],
+      },
+    }),
+    ...["businessDeviations", "technicalDeviations"].map((path) =>
+      repeatableEditorField({
+        path,
+        section: input.deviationSection,
+        label: path === "businessDeviations" ? "商务偏差" : "技术偏差",
+        required: false,
+        minItems: 0,
+        maxItems: 100,
+        item: {
+          kind: "object",
+          idPath: "requirementId",
+          fields: [
+            itemDynamicSelectField({
+              path: "requirementId",
+              label: "要求",
+              required: true,
+              optionSourcePath: "requirements",
+              optionValuePath: "id",
+              optionLabelPath: "requirementText",
+            }),
+            itemDynamicMultiSelectField({
+              path: "sourceRefIds",
+              label: "招标文件来源",
+              required: true,
+              minItems: 1,
+              maxItems: 100,
+              optionSourcePath: "evidenceRefs",
+              optionValuePath: "id",
+              optionLabelPath: "sourceRef",
+              optionFilter: { path: "kind", equals: "solicitation" },
+            }),
+            itemSelectField({
+              path: "type",
+              label: "偏差类型",
+              required: true,
+              options: [
+                { value: "business", label: "商务" },
+                { value: "technical", label: "技术" },
+              ],
+            }),
+            itemTextField({
+              path: "requirement",
+              label: "原要求",
+              required: true,
+              multiline: true,
+            }),
+            itemTextField({ path: "response", label: "响应", required: true, multiline: true }),
+            itemTextField({
+              path: "deviation",
+              label: "偏差说明",
+              required: true,
+              multiline: true,
+            }),
+          ],
+        },
+      }),
+    ),
+    repeatableEditorField({
+      path: "projectReferences",
+      section: input.casesSection,
+      label: "项目业绩",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "projectName", label: "项目名称", required: true }),
+          itemTextField({ path: "customer", label: "客户", required: true }),
+          itemTextField({ path: "period", label: "期间", required: true }),
+          itemTextField({ path: "scope", label: "范围", required: true, multiline: true }),
+          itemAttachmentField({
+            path: "evidenceAttachmentId",
+            label: "业绩证明",
+            required: false,
+            multiple: false,
+            maxItems: 1,
+            role: "supporting",
+            category: "qualification",
+            includeInSubmissionDefault: true,
+          }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    moneyEditorField("priceDeclaration.itemizedTotalMinor", input.priceSection, "明细合计", true),
+    moneyEditorField(
+      "priceDeclaration.bidLetterTotalMinor",
+      input.priceSection,
+      "投标函总价",
+      true,
+    ),
+    moneyEditorField(
+      "priceDeclaration.openingTotalMinor",
+      input.priceSection,
+      "开标一览总价",
+      true,
+    ),
+    checkboxEditorField({
+      path: "priceDeclaration.userConfirmed",
+      section: input.priceSection,
+      label: "用户确认价格一致",
+      required: true,
+    }),
+    text("bidGuarantee.method", input.guaranteeSection ?? source, "保证方式", false),
+    moneyEditorField(
+      "bidGuarantee.amountMinor",
+      input.guaranteeSection ?? source,
+      "保证金额",
+      false,
+    ),
+    text("bidGuarantee.reference", input.guaranteeSection ?? source, "保证编号", false),
+    attachmentEditorField({
+      path: "bidGuarantee.attachmentId",
+      section: input.guaranteeSection ?? source,
+      label: "保证附件",
+      required: false,
+      multiple: false,
+      maxItems: 1,
+      role: "supporting",
+      category: "commercial",
+      includeInSubmissionDefault: true,
+    }),
+    checkboxEditorField({
+      path: "bidGuarantee.userConfirmed",
+      section: input.guaranteeSection ?? source,
+      label: "用户确认保证信息",
+      required: false,
+    }),
+    repeatableEditorField({
+      path: "signSealChecklist",
+      section: finalReview,
+      label: "签章检查清单",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemDynamicMultiSelectField({
+            path: "sourceRefIds",
+            label: "招标文件来源",
+            required: true,
+            minItems: 1,
+            maxItems: 100,
+            optionSourcePath: "evidenceRefs",
+            optionValuePath: "id",
+            optionLabelPath: "sourceRef",
+            optionFilter: { path: "kind", equals: "solicitation" },
+          }),
+          itemTextField({ path: "label", label: "检查项", required: true }),
+          itemCheckboxField("required", "必须", true),
+          itemCheckboxField("confirmed", "已确认", true),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "finalReviewers",
+      section: finalReview,
+      label: "最终复核人",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        fields: [
+          itemTextField({ path: "name", label: "姓名", required: true }),
+          itemTextField({ path: "role", label: "角色", required: true }),
+          {
+            path: "reviewedAt",
+            label: "复核时间",
+            control: "datetime",
+            valueKind: "offset-datetime",
+            required: true,
+          },
+        ],
+      },
+    }),
   ];
 }

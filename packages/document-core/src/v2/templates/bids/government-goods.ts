@@ -23,6 +23,16 @@ import {
   RequirementResponseV1Schema,
   requiredBidContentFindings,
 } from "../bid-common.js";
+import {
+  bidBaseEditorFields,
+  bidGoodsOfferLineItemSpec,
+  bidRequirementItemSpec,
+  itemAttachmentField,
+  itemCheckboxField,
+  itemTextField,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -602,62 +612,84 @@ export const GOVERNMENT_GOODS_BID_DEFINITION = {
   sourceKeys: ["mof-order-87", "mof-demand-management"],
   disclaimerProfile: "bid",
   fieldManifest: [
-    {
-      path: "source.versionEvidence.mainSolicitationAttachmentId",
-      section: "source-baseline",
-      label: "项目招标文件",
-      control: "attachment",
-      required: true,
-    },
-    {
+    ...bidBaseEditorFields({
+      sourceSection: "source-baseline",
+      bidderSection: "legal-representative",
+      qualificationSection: "qualifications",
+      priceSection: "opening-price",
+      deviationSection: "deviations",
+      casesSection: "qualifications",
+      finalReviewSection: "final-checklist",
+    }),
+    textEditorField({
+      path: "coreProduct",
+      section: "itemized-price",
+      label: "核心产品",
+      required: false,
+    }),
+    repeatableEditorField({
       path: "goodsOfferLines",
       section: "itemized-price",
       label: "货物明细",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "technicalMatrix",
-      section: "technical-response",
-      label: "技术响应矩阵",
-      control: "repeatable",
-      required: true,
-    },
-    {
-      path: "businessMatrix",
-      section: "business-response",
-      label: "商务响应矩阵",
-      control: "repeatable",
-      required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: bidGoodsOfferLineItemSpec(),
+    }),
+    ...(["technicalMatrix", "businessMatrix"] as const).map((path) =>
+      repeatableEditorField({
+        path,
+        section: path === "technicalMatrix" ? "technical-response" : "business-response",
+        label: path === "technicalMatrix" ? "技术响应矩阵" : "商务响应矩阵",
+        required: true,
+        minItems: 0,
+        maxItems: 100,
+        item: bidRequirementItemSpec(),
+      }),
+    ),
+    ...(
+      ["delivery", "installation", "training", "acceptance", "warranty", "afterSales"] as const
+    ).map((path) =>
+      textEditorField({
+        path: `plans.${path}`,
+        section: ["delivery", "installation"].includes(path)
+          ? "delivery-installation"
+          : ["training", "acceptance"].includes(path)
+            ? "training-acceptance"
+            : "warranty-aftersales",
+        label: path,
+        required: !["installation", "training"].includes(path),
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
       path: "policyDeclarations",
       section: "policy-declarations",
       label: "政府采购政策声明",
-      control: "repeatable",
       required: false,
-    },
-    {
-      path: "plans.delivery",
-      section: "delivery-installation",
-      label: "交付方案",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "plans.acceptance",
-      section: "training-acceptance",
-      label: "验收方案",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "plans.warranty",
-      section: "warranty-aftersales",
-      label: "质保方案",
-      control: "textarea",
-      required: true,
-    },
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "policyName", label: "政策名称", required: true }),
+          itemTextField({ path: "statement", label: "声明", required: true, multiline: true }),
+          itemAttachmentField({
+            path: "evidenceAttachmentIds",
+            label: "政策证明附件",
+            required: false,
+            multiple: true,
+            maxItems: 100,
+            role: "supporting",
+            category: "qualification",
+            includeInSubmissionDefault: true,
+          }),
+          itemCheckboxField("applicable", "适用", true),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -1255,6 +1287,99 @@ function compileGovernmentGoodsDraft(
   }) as DocumentModelV2;
 }
 
+export function createBidBaseRepeatableItem(
+  path: string,
+  input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+): unknown {
+  const draft = input.draft as BidDraftBaseV1;
+  const firstSourceRef = draft.evidenceRefs.find((item) => item.kind === "solicitation");
+  const firstAttachment = draft.attachments.find((item) => item.status === "attached");
+  if (path === "source.clarificationIds") return "待填写";
+  if (path === "source.versionEvidence.clarificationAttachments") {
+    const attachmentId = draft.source.versionEvidence.mainSolicitationAttachmentId;
+    if (!attachmentId) throw new Error("缺少澄清附件来源");
+    return { clarificationId: input.id, attachmentId };
+  }
+  if (path === "source.guaranteeRequirement.allowedMethods") return "待填写";
+  if (path === "consortiumMembers") {
+    return { legalName: "待填写", entityType: "company", contactName: "待填写" };
+  }
+  if (path === "requirements") {
+    if (!firstSourceRef) throw new Error("缺少招标文件来源引用");
+    return {
+      id: input.id,
+      sourceRefIds: [firstSourceRef.id],
+      category: "technical",
+      requirementText: "待填写",
+      substantial: false,
+      responseStatus: "not-started",
+      responseText: "",
+      compliance: "unreviewed",
+      evidenceRefIds: [],
+      reviewStatus: "pending",
+    };
+  }
+  if (path === "qualifications") {
+    if (!firstSourceRef) throw new Error("缺少招标文件来源引用");
+    return {
+      id: input.id,
+      sourceRefIds: [firstSourceRef.id],
+      name: "待填写",
+      required: true,
+      status: "missing",
+      userConfirmedTruth: false,
+    };
+  }
+  if (path === "evidenceRefs") {
+    if (!firstAttachment) throw new Error("缺少附件");
+    return {
+      id: input.id,
+      kind: "proof",
+      attachmentId: firstAttachment.id,
+      page: 1,
+      label: "待填写",
+    };
+  }
+  if (path === "businessDeviations" || path === "technicalDeviations") {
+    const requirement = draft.requirements.find((item) => item.id === input.id);
+    if (!requirement) throw new Error("缺少对应要求");
+    return {
+      requirementId: input.id,
+      type: path === "businessDeviations" ? "business" : "technical",
+      sourceRefIds: requirement.sourceRefIds,
+      requirement: requirement.requirementText,
+      response: requirement.responseText || "待填写",
+      deviation: "待填写",
+    };
+  }
+  if (path === "projectReferences") {
+    return {
+      id: input.id,
+      projectName: "待填写",
+      customer: "待填写",
+      period: "待填写",
+      scope: "待填写",
+      userConfirmedTruth: false,
+    };
+  }
+  if (path === "signSealChecklist") {
+    if (!firstSourceRef) throw new Error("缺少招标文件来源引用");
+    return {
+      id: input.id,
+      sourceRefIds: [firstSourceRef.id],
+      label: "待填写",
+      required: true,
+      confirmed: false,
+    };
+  }
+  if (path === "finalReviewers") {
+    const reviewedAt = new Date(input.now);
+    if (!Number.isFinite(reviewedAt.getTime())) throw new Error("复核时间无效");
+    return { name: "待填写", role: "待填写", reviewedAt: reviewedAt.toISOString() };
+  }
+  return undefined;
+}
+
 export const GOVERNMENT_GOODS_BID_REGISTRATION: TemplateRegistration<
   GovernmentGoodsBidDraftV1,
   DocumentModelV2
@@ -1262,6 +1387,46 @@ export const GOVERNMENT_GOODS_BID_REGISTRATION: TemplateRegistration<
   definition: GOVERNMENT_GOODS_BID_DEFINITION,
   parseDraft: parseGovernmentGoodsDraft,
   createDraft: createGovernmentGoodsDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    const common = createBidBaseRepeatableItem(path, input);
+    if (common !== undefined) return common;
+    if (path === "goodsOfferLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        brand: "待填写",
+        model: "待填写",
+        manufacturer: "待填写",
+        origin: "待填写",
+        specification: "待填写",
+        quantity: "1",
+        unit: "件",
+        unitPriceMinor: "0",
+        taxRateBps: 0,
+      };
+    }
+    if (path === "technicalMatrix" || path === "businessMatrix") {
+      const requirement = (input.draft as GovernmentGoodsBidDraftV1).requirements.find(
+        (item) => item.id === input.id,
+      );
+      if (!requirement) throw new Error("缺少对应要求");
+      return requirement;
+    }
+    if (path === "policyDeclarations") {
+      return {
+        id: input.id,
+        policyName: "待填写",
+        statement: "待填写",
+        evidenceAttachmentIds: [],
+        applicable: false,
+        userConfirmedTruth: false,
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileGovernmentGoodsDraft,
   preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseGovernmentGoodsDraft(value);

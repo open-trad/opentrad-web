@@ -13,6 +13,18 @@ import {
   evaluateBidDeadline,
   requiredBidContentFindings,
 } from "../bid-common.js";
+import {
+  bidBaseEditorFields,
+  bidDeviationItemSpec,
+  bidProjectReferenceItemSpec,
+  bidServicePriceLineItemSpec,
+  itemCheckboxField,
+  itemDateField,
+  itemSelectField,
+  itemTextField,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
 import { type ServiceLineV2, ServiceLineV2Schema } from "../quote-common.js";
 import {
   bidFinding,
@@ -20,6 +32,7 @@ import {
   bidText,
   commonBidFindings,
   createBidBaseDraft,
+  createBidBaseRepeatableItem,
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
@@ -221,77 +234,191 @@ export const ENTERPRISE_SERVICES_BID_DEFINITION = {
   sourceKeys: ["prc-tendering-law"],
   disclaimerProfile: "bid",
   fieldManifest: [
-    { path: "scope", section: "scope", label: "服务范围", control: "textarea", required: true },
-    {
-      path: "methodology",
-      section: "methodology",
-      label: "服务方法",
-      control: "textarea",
-      required: true,
-    },
-    {
+    ...bidBaseEditorFields({
+      sourceSection: "source-baseline",
+      bidderSection: "bidder",
+      qualificationSection: "qualifications",
+      priceSection: "commercial-offer",
+      deviationSection: "deviations",
+      casesSection: "case-studies",
+      finalReviewSection: "final-checklist",
+    }),
+    ...[
+      ["executiveSummary", "executive-summary", "建议书摘要", true],
+      ["customerUnderstanding", "customer-understanding", "客户理解", true],
+      ["objectives", "customer-understanding", "服务目标", true],
+      ["scope", "scope", "服务范围", true],
+      ["methodology", "methodology", "服务方法", true],
+      ["governance", "team-governance", "治理机制", true],
+      ["communicationPlan", "team-governance", "沟通方案", true],
+      ["qualityPlan", "sla-quality", "质量方案", true],
+      ["securityPrivacy", "security-privacy", "安全与隐私", false],
+    ].map(([path, section, label, required]) =>
+      textEditorField({
+        path: String(path),
+        section: String(section),
+        label: String(label),
+        required: Boolean(required),
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
       path: "deliverables",
       section: "deliverables",
       label: "交付物",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemDateField("dueDate", "交付日期", true),
+          itemTextField({
+            path: "acceptanceStandard",
+            label: "验收标准",
+            required: true,
+            multiline: true,
+          }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "milestones",
+      section: "deliverables",
+      label: "里程碑",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemDateField("date", "日期", true),
+          itemTextField({ path: "dependency", label: "依赖", required: false, multiline: true }),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "team",
       section: "team-governance",
       label: "服务团队",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "governance",
-      section: "team-governance",
-      label: "治理机制",
-      control: "textarea",
-      required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "姓名", required: true }),
+          itemTextField({ path: "role", label: "角色", required: true }),
+          itemTextField({ path: "qualification", label: "资质", required: true, multiline: true }),
+          itemTextField({ path: "experience", label: "经验", required: true, multiline: true }),
+          itemTextField({ path: "allocation", label: "投入安排", required: true }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "sla",
       section: "sla-quality",
       label: "服务水平",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "metric", label: "指标", required: true }),
+          itemTextField({ path: "target", label: "目标", required: true }),
+          itemTextField({
+            path: "measurement",
+            label: "测量方式",
+            required: true,
+            multiline: true,
+          }),
+          itemTextField({ path: "remedy", label: "补救措施", required: false, multiline: true }),
+        ],
+      },
+    }),
+    ...(["assumptions", "dependencies", "exclusions"] as const).map((path) =>
+      repeatableEditorField({
+        path,
+        section: "assumptions-dependencies-exclusions",
+        label: path === "assumptions" ? "假设" : path === "dependencies" ? "依赖" : "排除项",
+        required: false,
+        minItems: 0,
+        maxItems: 100,
+        item: { kind: "value", label: "内容", control: "textarea", valueKind: "string" },
+      }),
+    ),
+    repeatableEditorField({
       path: "servicePriceLines",
       section: "commercial-offer",
       label: "服务报价",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: bidServicePriceLineItemSpec("milestones"),
+    }),
+    repeatableEditorField({
+      path: "caseStudies",
+      section: "case-studies",
+      label: "案例",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: bidProjectReferenceItemSpec(),
+    }),
+    repeatableEditorField({
       path: "riskRegister",
       section: "risks",
       label: "风险登记",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "assumptions",
-      section: "assumptions-dependencies-exclusions",
-      label: "假设",
-      control: "repeatable",
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "risk", label: "风险", required: true, multiline: true }),
+          itemSelectField({
+            path: "probability",
+            label: "概率",
+            required: true,
+            options: [
+              { value: "low", label: "低" },
+              { value: "medium", label: "中" },
+              { value: "high", label: "高" },
+            ],
+          }),
+          itemSelectField({
+            path: "impact",
+            label: "影响",
+            required: true,
+            options: [
+              { value: "low", label: "低" },
+              { value: "medium", label: "中" },
+              { value: "high", label: "高" },
+            ],
+          }),
+          itemTextField({ path: "mitigation", label: "应对措施", required: true, multiline: true }),
+          itemTextField({ path: "owner", label: "责任人", required: true }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "contractDeviations",
+      section: "commercial-offer",
+      label: "合同偏差",
       required: false,
-    },
-    {
-      path: "dependencies",
-      section: "assumptions-dependencies-exclusions",
-      label: "依赖",
-      control: "repeatable",
-      required: false,
-    },
-    {
-      path: "exclusions",
-      section: "assumptions-dependencies-exclusions",
-      label: "排除项",
-      control: "repeatable",
-      required: false,
-    },
+      minItems: 0,
+      maxItems: 100,
+      item: bidDeviationItemSpec(),
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -936,6 +1063,71 @@ export const ENTERPRISE_SERVICES_BID_REGISTRATION: TemplateRegistration<
   definition: ENTERPRISE_SERVICES_BID_DEFINITION,
   parseDraft,
   createDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    const common = createBidBaseRepeatableItem(path, input);
+    if (common !== undefined) return common;
+    if (path === "deliverables") {
+      return { id: input.id, name: "待填写", dueDate: "2026-08-20", acceptanceStandard: "待填写" };
+    }
+    if (path === "milestones") return { id: input.id, name: "待填写", date: "2026-08-20" };
+    if (path === "team") {
+      return {
+        id: input.id,
+        name: "待填写",
+        role: "待填写",
+        qualification: "待填写",
+        experience: "待填写",
+        allocation: "待填写",
+        userConfirmedTruth: false,
+      };
+    }
+    if (path === "sla") {
+      return { id: input.id, metric: "待填写", target: "待填写", measurement: "待填写" };
+    }
+    if (path === "assumptions" || path === "dependencies" || path === "exclusions") {
+      return "待填写";
+    }
+    if (path === "servicePriceLines") {
+      return {
+        id: input.id,
+        serviceName: "待填写",
+        deliverable: "待填写",
+        unit: "项",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "caseStudies") {
+      const item = (input.draft as EnterpriseServicesBidDraftV1).projectReferences.find(
+        (entry) => entry.id === input.id,
+      );
+      if (!item) throw new Error("缺少对应项目业绩");
+      return item;
+    }
+    if (path === "riskRegister") {
+      return {
+        id: input.id,
+        risk: "待填写",
+        probability: "medium",
+        impact: "medium",
+        mitigation: "待填写",
+        owner: "待填写",
+      };
+    }
+    if (path === "contractDeviations") {
+      const item = (input.draft as EnterpriseServicesBidDraftV1).businessDeviations.find(
+        (entry) => entry.requirementId === input.id,
+      );
+      if (!item) throw new Error("缺少对应商务偏差");
+      return item;
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile,
   preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseDraft(value);

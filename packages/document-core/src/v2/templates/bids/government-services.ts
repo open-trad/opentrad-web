@@ -12,6 +12,18 @@ import {
   evaluateBidDeadline,
   requiredBidContentFindings,
 } from "../bid-common.js";
+import {
+  bidBaseEditorFields,
+  bidProjectReferenceItemSpec,
+  bidServicePriceLineItemSpec,
+  itemAttachmentField,
+  itemCheckboxField,
+  itemDateField,
+  itemStringListField,
+  itemTextField,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
 import { type ServiceLineV2, ServiceLineV2Schema } from "../quote-common.js";
 import {
   bidFinding,
@@ -19,6 +31,7 @@ import {
   bidText,
   commonBidFindings,
   createBidBaseDraft,
+  createBidBaseRepeatableItem,
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
@@ -244,62 +257,191 @@ export const GOVERNMENT_SERVICES_BID_DEFINITION = {
   sourceKeys: ["mof-order-87", "mof-demand-management"],
   disclaimerProfile: "bid",
   fieldManifest: [
-    {
-      path: "serviceUnderstanding",
-      section: "understanding-objectives",
-      label: "项目理解",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "methodology",
+    ...bidBaseEditorFields({
+      sourceSection: "source-baseline",
+      bidderSection: "bidder",
+      qualificationSection: "qualifications",
+      priceSection: "service-price",
+      deviationSection: "deviations",
+      casesSection: "performance-evidence",
+      finalReviewSection: "final-checklist",
+    }),
+    ...[
+      ["serviceUnderstanding", "understanding-objectives", "项目理解", true],
+      ["objectives", "understanding-objectives", "服务目标", true],
+      ["methodology", "methodology", "服务方法", true],
+      ["qualityPlan", "quality-sla", "质量方案", true],
+      ["riskPlan", "risk", "风险方案", true],
+      ["securityPlan", "security-privacy", "安全方案", false],
+      ["privacyPlan", "security-privacy", "隐私方案", false],
+      ["businessContinuity", "continuity", "业务连续性", false],
+      ["acceptancePlan", "acceptance", "验收方案", true],
+    ].map(([path, section, label, required]) =>
+      textEditorField({
+        path: String(path),
+        section: String(section),
+        label: String(label),
+        required: Boolean(required),
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
+      path: "workPackages",
       section: "methodology",
-      label: "服务方法",
-      control: "textarea",
-      required: true,
-    },
-    {
+      label: "工作包",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemTextField({ path: "activities", label: "活动", required: true, multiline: true }),
+          itemStringListField({
+            path: "deliverables",
+            label: "交付内容",
+            required: false,
+            minItems: 0,
+            maxItems: 100,
+          }),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "deliverables",
       section: "deliverables-schedule",
       label: "交付物",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "staffing",
-      section: "staffing",
-      label: "服务团队",
-      control: "repeatable",
-      required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemDateField("dueDate", "交付日期", true),
+          itemTextField({
+            path: "acceptanceStandard",
+            label: "验收标准",
+            required: true,
+            multiline: true,
+          }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "milestones",
+      section: "deliverables-schedule",
+      label: "里程碑",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemDateField("date", "日期", true),
+          itemTextField({ path: "dependency", label: "依赖", required: false, multiline: true }),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "sla",
       section: "quality-sla",
       label: "服务水平",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "acceptancePlan",
-      section: "acceptance",
-      label: "验收方案",
-      control: "textarea",
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "metric", label: "指标", required: true }),
+          itemTextField({ path: "target", label: "目标", required: true }),
+          itemTextField({
+            path: "measurement",
+            label: "测量方式",
+            required: true,
+            multiline: true,
+          }),
+          itemTextField({ path: "remedy", label: "补救措施", required: false, multiline: true }),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "staffing",
+      section: "staffing",
+      label: "服务团队",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "姓名", required: true }),
+          itemTextField({ path: "role", label: "角色", required: true }),
+          itemTextField({ path: "qualification", label: "资质", required: true, multiline: true }),
+          itemTextField({ path: "experience", label: "经验", required: true, multiline: true }),
+          itemTextField({ path: "allocation", label: "投入安排", required: true }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    textEditorField({
+      path: "projectManager",
+      section: "staffing",
+      label: "项目经理姓名",
+      required: true,
+    }),
+    repeatableEditorField({
       path: "servicePriceLines",
       section: "service-price",
       label: "服务报价",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: bidServicePriceLineItemSpec("milestones"),
+    }),
+    repeatableEditorField({
       path: "performanceEvidence",
       section: "performance-evidence",
       label: "业绩证据",
-      control: "repeatable",
       required: false,
-    },
+      minItems: 0,
+      maxItems: 100,
+      item: bidProjectReferenceItemSpec(),
+    }),
+    repeatableEditorField({
+      path: "policyDeclarations",
+      section: "policy-declarations",
+      label: "政府采购政策声明",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "policyName", label: "政策名称", required: true }),
+          itemTextField({ path: "statement", label: "声明", required: true, multiline: true }),
+          itemAttachmentField({
+            path: "evidenceAttachmentIds",
+            label: "政策证明附件",
+            required: false,
+            multiple: true,
+            maxItems: 100,
+            role: "supporting",
+            category: "qualification",
+            includeInSubmissionDefault: true,
+          }),
+          itemCheckboxField("applicable", "适用", true),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -994,6 +1136,66 @@ export const GOVERNMENT_SERVICES_BID_REGISTRATION: TemplateRegistration<
   definition: GOVERNMENT_SERVICES_BID_DEFINITION,
   parseDraft,
   createDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    const common = createBidBaseRepeatableItem(path, input);
+    if (common !== undefined) return common;
+    if (path === "workPackages") {
+      return { id: input.id, name: "待填写", activities: "待填写", deliverables: [] };
+    }
+    if (path === "deliverables") {
+      return { id: input.id, name: "待填写", dueDate: "2026-08-20", acceptanceStandard: "待填写" };
+    }
+    if (path === "milestones") {
+      return { id: input.id, name: "待填写", date: "2026-08-20" };
+    }
+    if (path === "sla") {
+      return { id: input.id, metric: "待填写", target: "待填写", measurement: "待填写" };
+    }
+    if (path === "staffing") {
+      return {
+        id: input.id,
+        name: "待填写",
+        role: "待填写",
+        qualification: "待填写",
+        experience: "待填写",
+        allocation: "待填写",
+        userConfirmedTruth: false,
+      };
+    }
+    if (path === "servicePriceLines") {
+      return {
+        id: input.id,
+        serviceName: "待填写",
+        deliverable: "待填写",
+        unit: "项",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "performanceEvidence") {
+      const item = (input.draft as GovernmentServicesBidDraftV1).projectReferences.find(
+        (entry) => entry.id === input.id,
+      );
+      if (!item) throw new Error("缺少对应项目业绩");
+      return item;
+    }
+    if (path === "policyDeclarations") {
+      return {
+        id: input.id,
+        policyName: "待填写",
+        statement: "待填写",
+        evidenceAttachmentIds: [],
+        applicable: false,
+        userConfirmedTruth: false,
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile,
   preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseDraft(value);

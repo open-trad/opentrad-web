@@ -13,11 +13,26 @@ import {
   requiredBidContentFindings,
 } from "../bid-common.js";
 import {
+  attachmentEditorField,
+  bidBaseEditorFields,
+  bidProjectReferenceItemSpec,
+  checkboxEditorField,
+  itemCheckboxField,
+  itemNumberField,
+  itemSelectField,
+  itemTextField,
+  moneyEditorField,
+  numberEditorField,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   bidFinding,
   bidLocalized,
   bidText,
   commonBidFindings,
   createBidBaseDraft,
+  createBidBaseRepeatableItem,
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
@@ -190,62 +205,167 @@ export const CONSTRUCTION_WORKS_BID_DEFINITION = {
   sourceKeys: ["prc-tendering-law", "ndrc-standard-construction", "ndrc-tenderer-responsibility"],
   disclaimerProfile: "bid",
   fieldManifest: [
-    {
+    ...bidBaseEditorFields({
+      sourceSection: "source-baseline",
+      bidderSection: "bidder",
+      qualificationSection: "qualifications",
+      priceSection: "priced-boq",
+      deviationSection: "deviations",
+      casesSection: "experience",
+      finalReviewSection: "final-checklist",
+      guaranteeSection: "bid-guarantee",
+    }),
+    textEditorField({
+      path: "projectScope",
+      section: "construction-organization",
+      label: "项目范围",
+      required: true,
+      multiline: true,
+    }),
+    attachmentEditorField({
       path: "billOfQuantitiesRef",
       section: "priced-boq",
       label: "实际工程量清单附件",
-      control: "attachment",
       required: true,
-    },
-    {
-      path: "bidPriceMinor",
-      section: "bid-letter-and-appendix",
-      label: "投标总价",
-      control: "money",
-      required: true,
-    },
-    {
+      multiple: false,
+      maxItems: 1,
+      role: "submission",
+      category: "commercial",
+      includeInSubmissionDefault: true,
+    }),
+    moneyEditorField("bidPriceMinor", "bid-letter-and-appendix", "投标总价", true),
+    numberEditorField({
       path: "durationDays",
       section: "schedule",
       label: "投标工期",
-      control: "number",
       required: true,
-    },
-    {
+      integer: true,
+    }),
+    textEditorField({
+      path: "qualityTarget",
+      section: "quality",
+      label: "质量目标",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
       path: "projectManager.name",
       section: "project-manager",
       label: "项目经理",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "projectManager.qualification",
+      section: "project-manager",
+      label: "项目经理资质",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "projectManager.certificateNumber",
+      section: "project-manager",
+      label: "项目经理证书号",
+      required: true,
+    }),
+    repeatableEditorField({
+      path: "projectManager.experience",
+      section: "project-manager",
+      label: "项目经理业绩",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: bidProjectReferenceItemSpec(),
+    }),
+    checkboxEditorField({
+      path: "projectManager.userConfirmedTruth",
+      section: "project-manager",
+      label: "用户确认项目经理信息真实",
+      required: true,
+    }),
+    repeatableEditorField({
       path: "keyTechnicalPersonnel",
       section: "key-personnel",
       label: "关键技术人员",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "姓名", required: true }),
+          itemTextField({ path: "role", label: "岗位", required: true }),
+          itemTextField({ path: "qualification", label: "资质", required: true, multiline: true }),
+          itemTextField({ path: "experience", label: "经验", required: true, multiline: true }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    repeatableEditorField({
+      path: "laborPlan",
+      section: "labor",
+      label: "劳动力计划",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        fields: [
+          itemTextField({ path: "trade", label: "工种", required: true }),
+          itemNumberField({ path: "count", label: "人数", required: true, integer: true }),
+          itemTextField({ path: "period", label: "投入期间", required: true }),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "equipmentList",
       section: "equipment",
       label: "施工机械",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "constructionOrganization",
-      section: "construction-organization",
-      label: "施工组织",
-      control: "textarea",
-      required: true,
-    },
-    {
-      path: "safetyPlan",
-      section: "safety-environment",
-      label: "安全方案",
-      control: "textarea",
-      required: true,
-    },
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "名称", required: true }),
+          itemTextField({ path: "model", label: "型号", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true, integer: true }),
+          itemSelectField({
+            path: "ownership",
+            label: "权属",
+            required: true,
+            options: [
+              { value: "owned", label: "自有" },
+              { value: "leased", label: "租赁" },
+              { value: "planned", label: "拟投入" },
+            ],
+          }),
+          itemTextField({ path: "availability", label: "可用性", required: true, multiline: true }),
+          itemCheckboxField("userConfirmedTruth", "用户确认真实", true),
+        ],
+      },
+    }),
+    ...[
+      ["constructionOrganization", "construction-organization", "施工组织", true],
+      ["schedulePlan", "schedule", "进度方案", true],
+      ["sitePlan", "site-plan", "现场方案", false],
+      ["qualityPlan", "quality", "质量方案", true],
+      ["safetyPlan", "safety-environment", "安全方案", true],
+      ["environmentPlan", "safety-environment", "环境方案", true],
+      ["emergencyPlan", "safety-environment", "应急方案", true],
+      ["subcontractPlan", "subcontract", "分包方案", false],
+      ["materialsPlan", "materials", "材料方案", false],
+      ["temporaryWorks", "site-plan", "临时工程", false],
+    ].map(([path, section, label, required]) =>
+      textEditorField({
+        path: String(path),
+        section: String(section),
+        label: String(label),
+        required: Boolean(required),
+        multiline: true,
+      }),
+    ),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -855,6 +975,45 @@ export const CONSTRUCTION_WORKS_BID_REGISTRATION: TemplateRegistration<
   definition: CONSTRUCTION_WORKS_BID_DEFINITION,
   parseDraft,
   createDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    const common = createBidBaseRepeatableItem(path, input);
+    if (common !== undefined) return common;
+    if (path === "projectManager.experience") {
+      const item = (input.draft as ConstructionWorksBidDraftV1).projectReferences.find(
+        (entry) => entry.id === input.id,
+      );
+      if (!item) throw new Error("缺少对应项目业绩");
+      return item;
+    }
+    if (path === "keyTechnicalPersonnel") {
+      return {
+        id: input.id,
+        name: "待填写",
+        role: "待填写",
+        qualification: "待填写",
+        experience: "待填写",
+        userConfirmedTruth: false,
+      };
+    }
+    if (path === "laborPlan") {
+      return { trade: "待填写", count: 1, period: "待填写" };
+    }
+    if (path === "equipmentList") {
+      return {
+        id: input.id,
+        name: "待填写",
+        model: "待填写",
+        quantity: 1,
+        ownership: "planned",
+        availability: "待填写",
+        userConfirmedTruth: false,
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile,
   preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseDraft(value);
