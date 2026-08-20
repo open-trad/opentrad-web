@@ -200,6 +200,20 @@ function createNestedDynamicEditorDefinition() {
       ...definition.fieldManifest.filter((field) => field.path !== "items"),
       references,
       {
+        path: "selectedReferenceIds",
+        section: "seller",
+        label: "已选引用",
+        control: "select" as const,
+        valueKind: "string-list" as const,
+        required: false,
+        multiple: true,
+        minItems: 0,
+        maxItems: 100,
+        optionSourcePath: "references",
+        optionValuePath: "id",
+        optionLabelPath: "label",
+      },
+      {
         ...items,
         item: {
           ...items.item,
@@ -260,6 +274,9 @@ function withDynamicSourcePath(
     ...definition,
     fieldManifest: definition.fieldManifest.map((field) => {
       if (field.path === "references") return { ...field, path: sourcePath };
+      if ("optionSourcePath" in field && field.optionSourcePath === "references") {
+        return { ...field, optionSourcePath: sourcePath };
+      }
       if (field.control !== "repeatable" || field.item.kind !== "object") return field;
       return {
         ...field,

@@ -792,7 +792,13 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
       );
       return;
     }
-    rejectPresentKeys(record, ["minItems", "item"], addIssue);
+    rejectPresentKeys(
+      record,
+      record.control === "select" && record.valueKind === "string-list"
+        ? ["item"]
+        : ["minItems", "item"],
+      addIssue,
+    );
     validateTypedScalarOrAttachment(record, addIssue);
   },
 );
