@@ -200,14 +200,35 @@ const EXACT_FACTORY_SOURCE_BINDINGS: Readonly<
 
 function exactFactorySourceOptions(
   registration: Registration,
-  fieldPath: string,
+  field: Extract<TemplateFieldManifestEntryV1, { control: "repeatable" }>,
   draft: unknown,
 ): readonly { readonly label: string; readonly value: string }[] | undefined {
-  const binding = EXACT_FACTORY_SOURCE_BINDINGS[registration.definition.id]?.[fieldPath];
+  const binding = EXACT_FACTORY_SOURCE_BINDINGS[registration.definition.id]?.[field.path];
   if (!binding) return undefined;
   const source = getDraftField(draft, binding.sourcePath);
   if (!Array.isArray(source)) return [];
+  const staticConstraints =
+    field.item.kind === "object"
+      ? field.item.fields.flatMap((itemField) => {
+          if (
+            itemField.control !== "select" ||
+            !("options" in itemField) ||
+            itemField.options?.length !== 1
+          ) {
+            return [];
+          }
+          const option = itemField.options[0];
+          return option ? [{ path: itemField.path, value: option.value }] : [];
+        })
+      : [];
   return source.flatMap((item) => {
+    if (
+      staticConstraints.some(
+        (constraint) => getDraftField(item, constraint.path) !== constraint.value,
+      )
+    ) {
+      return [];
+    }
     const value = getDraftField(item, binding.identityPath);
     const label = getDraftField(item, binding.labelPath);
     return typeof value === "string" && typeof label === "string" ? [{ value, label }] : [];
@@ -251,7 +272,7 @@ function planRepeatableFactory(
     }
   }
 
-  const exactSourceOptions = exactFactorySourceOptions(registration, field.path, draft);
+  const exactSourceOptions = exactFactorySourceOptions(registration, field, draft);
   const sourceOptions = exactSourceOptions ?? identityOptions;
   if (sourceOptions) {
     const used = new Set(

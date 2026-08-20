@@ -80,6 +80,39 @@ describe("safe manifest field paths", () => {
     expect(() => setDraftField(oversized, "value", true)).toThrow("字段数据不安全");
   });
 
+  it("caches only recursively frozen safe reads and still observes mutable changes", () => {
+    const deepFrozen = Object.freeze({
+      project: Object.freeze({ projectName: "冻结名称" }),
+    });
+    const structuredCloneSpy = vi.spyOn(globalThis, "structuredClone");
+
+    expect(getDraftField(deepFrozen, "project.projectName")).toBe("冻结名称");
+    expect(getDraftField(deepFrozen, "project.projectName")).toBe("冻结名称");
+    expect(structuredCloneSpy).toHaveBeenCalledTimes(1);
+    expect(Object.isFrozen(getDraftField(deepFrozen, "project"))).toBe(true);
+
+    structuredCloneSpy.mockClear();
+    const shallowFrozen = Object.freeze({ project: { projectName: "初始名称" } });
+    expect(getDraftField(shallowFrozen, "project.projectName")).toBe("初始名称");
+    shallowFrozen.project.projectName = "变更名称";
+    expect(getDraftField(shallowFrozen, "project.projectName")).toBe("变更名称");
+    expect(structuredCloneSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("never caches or trusts frozen proxies and accessors", () => {
+    const proxy = new Proxy(Object.freeze({ projectName: "伪装冻结" }), {});
+    expect(() => getDraftField(proxy, "projectName")).toThrow("字段数据不安全");
+    expect(() => getDraftField(proxy, "projectName")).toThrow("字段数据不安全");
+
+    const getter = vi.fn(() => "不应读取");
+    const accessor = {};
+    Object.defineProperty(accessor, "projectName", { enumerable: true, get: getter });
+    Object.freeze(accessor);
+    expect(() => getDraftField(accessor, "projectName")).toThrow("字段数据不安全");
+    expect(() => getDraftField(accessor, "projectName")).toThrow("字段数据不安全");
+    expect(getter).not.toHaveBeenCalled();
+  });
+
   it("deletes only an own optional leaf without mutating its source", () => {
     const source = { meta: { optionalChoice: "old", retained: "keep" } };
 

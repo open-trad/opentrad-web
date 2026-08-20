@@ -13,8 +13,12 @@ type SafeRecord = Record<string, unknown>;
 
 interface CloneState {
   count: number;
+  cacheable: boolean;
   readonly stack: WeakSet<object>;
+  readonly pairs: Array<readonly [object, object]>;
 }
+
+const READ_SNAPSHOT_CACHE = new WeakMap<object, unknown>();
 
 function dataDescriptor(value: object, key: PropertyKey): PropertyDescriptor | undefined {
   const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
@@ -51,6 +55,7 @@ function cloneSafeValue(value: unknown, state: CloneState, depth = 0): unknown {
   try {
     prototype = Object.getPrototypeOf(value);
     keys = Reflect.ownKeys(value);
+    if (!Object.isFrozen(value)) state.cacheable = false;
   } catch {
     return invalidData();
   }
@@ -69,6 +74,7 @@ function cloneSafeValue(value: unknown, state: CloneState, depth = 0): unknown {
         if (!descriptor) invalidData();
         output.push(cloneSafeValue(descriptor.value, state, depth + 1));
       }
+      state.pairs.push([value, output]);
       return output;
     }
 
@@ -80,6 +86,7 @@ function cloneSafeValue(value: unknown, state: CloneState, depth = 0): unknown {
       if (!descriptor) invalidData();
       output[key] = cloneSafeValue(descriptor.value, state, depth + 1);
     }
+    state.pairs.push([value, output]);
     return output;
   } finally {
     state.stack.delete(value);
@@ -96,8 +103,47 @@ function assertNotProxy(value: unknown): void {
 }
 
 function safeSnapshot<T>(value: T): T {
-  const output = cloneSafeValue(value, { count: 0, stack: new WeakSet<object>() });
+  const output = cloneSafeValue(value, {
+    count: 0,
+    cacheable: true,
+    stack: new WeakSet<object>(),
+    pairs: [],
+  });
   assertNotProxy(value);
+  return output as T;
+}
+
+function freezeSnapshot(value: unknown, seen = new WeakSet<object>()): void {
+  if (value === null || typeof value !== "object" || seen.has(value)) return;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = dataDescriptor(value, key);
+    if (descriptor) freezeSnapshot(descriptor.value, seen);
+  }
+  Object.freeze(value);
+}
+
+function safeReadSnapshot<T>(value: T): T {
+  if (value !== null && typeof value === "object") {
+    const cached = READ_SNAPSHOT_CACHE.get(value);
+    if (cached !== undefined) return cached as T;
+  }
+
+  const state: CloneState = {
+    count: 0,
+    cacheable: true,
+    stack: new WeakSet<object>(),
+    pairs: [],
+  };
+  const output = cloneSafeValue(value, state);
+  assertNotProxy(value);
+  if (state.cacheable && output !== null && typeof output === "object") {
+    freezeSnapshot(output);
+    for (const [source, snapshot] of state.pairs) {
+      READ_SNAPSHOT_CACHE.set(source, snapshot);
+      READ_SNAPSHOT_CACHE.set(snapshot, snapshot);
+    }
+  }
   return output as T;
 }
 
@@ -165,7 +211,7 @@ function setPathValue(target: unknown, segments: readonly string[], value: unkno
 
 export function getDraftField(source: unknown, path: string): unknown {
   const segments = parsePath(path);
-  let current = safeSnapshot(source) as unknown;
+  let current = safeReadSnapshot(source) as unknown;
   for (const segment of segments) {
     if (current === null || typeof current !== "object") return undefined;
     if (Array.isArray(current) && !ARRAY_INDEX.test(segment)) {

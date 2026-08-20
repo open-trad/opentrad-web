@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getDraftField, setDraftField } from "./fieldPaths";
 import { type FormIssue, SchemaForm } from "./SchemaForm";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const BID_TEMPLATE_IDS = v2.TEMPLATE_IDS_V2.filter((templateId) => templateId.startsWith("bid."));
 
@@ -220,6 +223,89 @@ describe("manifest-driven schema form", () => {
     expect(screen.getByTestId("draft-state")).toHaveTextContent("requirement-canonical");
   });
 
+  it("filters exact factory sources by static item constraints and exhausts compatible rows", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("bid.government.goods.v1", "1.0.0");
+    let draft = registration.createDraft({ id: "category-sources", now: "2026-08-20T00:00:00Z" });
+    draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(draft, "attachments", [
+          {
+            id: "solicitation-file",
+            category: "other",
+            displayName: "招标文件.pdf",
+            mediaType: "application/pdf",
+            pageCount: 8,
+            required: true,
+            status: "attached",
+            includedInSubmission: false,
+          },
+        ]),
+        "evidenceRefs",
+        [
+          {
+            id: "solicitation-source",
+            kind: "solicitation",
+            attachmentId: "solicitation-file",
+            page: 1,
+            sourceRef: "招标文件第一章",
+          },
+        ],
+      ),
+    );
+    const seed = registration.createRepeatableItem("requirements", {
+      id: "technical-source",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    draft = registration.parseDraft(
+      setDraftField(draft, "requirements", [
+        { ...seed, id: "technical-source", category: "technical", requirementText: "技术参数" },
+        {
+          ...seed,
+          id: "commercial-source",
+          category: "commercial",
+          requirementText: "付款条款",
+        },
+        {
+          ...seed,
+          id: "qualification-source",
+          category: "qualification",
+          requirementText: "资格条件",
+        },
+      ]),
+    );
+    render(<Harness templateId={registration.definition.id} initialDraft={draft} />);
+
+    const technicalSource = screen.getByRole("combobox", { name: "选择技术响应矩阵来源" });
+    const businessSource = screen.getByRole("combobox", { name: "选择商务响应矩阵来源" });
+    expect(
+      within(technicalSource)
+        .getAllByRole("option")
+        .map((option) => option.getAttribute("value")),
+    ).toEqual(["", "technical-source"]);
+    expect(
+      within(businessSource)
+        .getAllByRole("option")
+        .map((option) => option.getAttribute("value")),
+    ).toEqual(["", "commercial-source"]);
+
+    await user.selectOptions(technicalSource, "technical-source");
+    await user.click(screen.getByRole("button", { name: "添加技术响应矩阵" }));
+    await user.selectOptions(businessSource, "commercial-source");
+    await user.click(screen.getByRole("button", { name: "添加商务响应矩阵" }));
+
+    expect(
+      screen.queryByRole("combobox", { name: "选择技术响应矩阵来源" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "选择商务响应矩阵来源" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加技术响应矩阵" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "添加商务响应矩阵" })).toBeDisabled();
+    expect(screen.getByTestId("draft-state")).toHaveTextContent("qualification-source");
+  });
+
   it("disables dependent factory actions until a canonical source exists", () => {
     render(<Harness templateId="bid.government.goods.v1" />);
 
@@ -292,6 +378,7 @@ describe("manifest-driven schema form", () => {
     };
     createRepeatableItem.mockClear();
     parseDraft.mockClear();
+    const structuredCloneSpy = vi.spyOn(globalThis, "structuredClone");
     const startedAt = performance.now();
     render(
       <SchemaForm
@@ -304,7 +391,8 @@ describe("manifest-driven schema form", () => {
 
     expect(createRepeatableItem).not.toHaveBeenCalled();
     expect(parseDraft).not.toHaveBeenCalled();
-    expect(renderDuration).toBeLessThan(5_000);
+    expect(structuredCloneSpy).toHaveBeenCalledTimes(1);
+    expect(renderDuration).toBeLessThan(2_000);
 
     const source = screen.getByRole("combobox", { name: "选择技术偏差来源" });
     expect(source).toHaveValue("");
