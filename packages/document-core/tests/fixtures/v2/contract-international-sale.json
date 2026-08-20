@@ -13,15 +13,51 @@
     "languagePriority": "en-US",
     "layoutStyleId": "international-compact.v1"
   },
-  "seller": { "legalName": "上海示例出口有限公司", "englishName": "Shanghai Example Export Co., Ltd.", "entityType": "company", "contactName": "Ms. Zhang", "registeredAddress": "上海市示例路1号", "email": "seller@example.com" },
-  "buyer": { "legalName": "示例进口有限公司", "englishName": "Example Imports Limited", "entityType": "company", "contactName": "Mr. Lee", "registeredAddress": "88 Example Road, Singapore", "email": "buyer@example.com" },
+  "seller": {
+    "legalName": "上海示例出口有限公司",
+    "englishName": "Shanghai Example Export Co., Ltd.",
+    "entityType": "company",
+    "contactName": "Ms. Zhang",
+    "registeredAddress": "上海市示例路1号",
+    "email": "seller@example.com"
+  },
+  "buyer": {
+    "legalName": "示例进口有限公司",
+    "englishName": "Example Imports Limited",
+    "entityType": "company",
+    "contactName": "Mr. Lee",
+    "registeredAddress": "88 Example Road, Singapore",
+    "email": "buyer@example.com"
+  },
   "goodsLines": [
-    { "id": "goods-1", "name": "工业泵", "englishName": "Industrial Pump", "specification": "P-100", "unit": "set", "quantity": "5", "unitPriceMinor": "10000", "discountBps": 0, "taxRateBps": 0, "countryOfOrigin": "China", "hsCodeUserSupplied": "8413.70" }
+    {
+      "id": "goods-1",
+      "name": "工业泵",
+      "englishName": "Industrial Pump",
+      "specification": { "zhCN": "P-100", "enUS": "P-100" },
+      "unit": { "zhCN": "套", "enUS": "set" },
+      "quantity": "5",
+      "unitPriceMinor": "10000",
+      "discountBps": 0,
+      "taxRateBps": 0,
+      "countryOfOrigin": "China",
+      "hsCodeUserSupplied": "8413.70"
+    }
   ],
-  "price": { "currency": "USD", "taxMode": "tax-exempt", "adjustment": { "zhCN": "固定价格，不作调整", "enUS": "The price is fixed and not subject to adjustment." } },
+  "price": {
+    "currency": "USD",
+    "taxMode": "tax-exempt",
+    "adjustment": {
+      "zhCN": "固定价格，不作调整",
+      "enUS": "The price is fixed and not subject to adjustment."
+    }
+  },
   "trade": {
     "incotermsRule": "CIP",
-    "namedPlace": { "zhCN": "新加坡樟宜航空货运中心", "enUS": "Changi Airfreight Centre, Singapore" },
+    "namedPlace": {
+      "zhCN": "新加坡樟宜航空货运中心",
+      "enUS": "Changi Airfreight Centre, Singapore"
+    },
     "incotermsEdition": "2020",
     "transportMode": "multimodal",
     "shipmentWindow": { "zhCN": "2026年9月1日至15日", "enUS": "1-15 September 2026" },
@@ -29,7 +65,10 @@
     "transshipment": true,
     "exportClearanceParty": "seller",
     "importClearanceParty": "buyer",
-    "insurance": { "zhCN": "卖方按CIP约定投保并提供保险凭证", "enUS": "The Seller shall procure insurance required by CIP and provide evidence of cover." },
+    "insurance": {
+      "zhCN": "卖方按CIP约定投保并提供保险凭证",
+      "enUS": "The Seller shall procure insurance required by CIP and provide evidence of cover."
+    },
     "shippingDocuments": [
       { "zhCN": "商业发票", "enUS": "Commercial invoice" },
       { "zhCN": "装箱单", "enUS": "Packing list" },
@@ -37,37 +76,94 @@
     ]
   },
   "acceptance": {
-    "inspection": { "zhCN": "买方在到货后十日内检验数量和外观", "enUS": "The Buyer shall inspect quantity and apparent condition within ten days after arrival." },
-    "claimsPeriod": { "zhCN": "质量索赔应在发现后五日内书面提出并附证据", "enUS": "Quality claims shall be made in writing with evidence within five days after discovery." },
-    "titleTransfer": { "zhCN": "全部价款到账时所有权转移", "enUS": "Title passes upon receipt of the full price." },
-    "riskTransfer": { "zhCN": "风险按约定的CIP规则转移", "enUS": "Risk passes in accordance with the agreed CIP rule." }
+    "inspection": {
+      "zhCN": "买方在到货后十日内检验数量和外观",
+      "enUS": "The Buyer shall inspect quantity and apparent condition within ten days after arrival."
+    },
+    "claimsPeriod": {
+      "zhCN": "质量索赔应在发现后五日内书面提出并附证据",
+      "enUS": "Quality claims shall be made in writing with evidence within five days after discovery."
+    },
+    "titleTransfer": {
+      "zhCN": "全部价款到账时所有权转移",
+      "enUS": "Title passes upon receipt of the full price."
+    },
+    "riskTransfer": {
+      "zhCN": "风险按约定的CIP规则转移",
+      "enUS": "Risk passes in accordance with the agreed CIP rule."
+    }
   },
   "payment": {
     "method": "letter-of-credit",
-    "terms": { "zhCN": "装运前开立不可撤销信用证", "enUS": "An irrevocable letter of credit shall be issued before shipment." },
-    "letterOfCreditTerms": { "zhCN": "信用证应允许分批议付并于装运后21日有效", "enUS": "The credit shall permit partial drawings and remain valid for 21 days after shipment." },
-    "bankCharges": { "zhCN": "开证行费用由买方承担，卖方银行费用由卖方承担", "enUS": "Issuing-bank charges are for the Buyer; the Seller bears its bank charges." }
+    "terms": {
+      "zhCN": "装运前开立不可撤销信用证",
+      "enUS": "An irrevocable letter of credit shall be issued before shipment."
+    },
+    "letterOfCreditTerms": {
+      "zhCN": "信用证应允许分批议付并于装运后21日有效",
+      "enUS": "The credit shall permit partial drawings and remain valid for 21 days after shipment."
+    },
+    "bankCharges": {
+      "zhCN": "开证行费用由买方承担，卖方银行费用由卖方承担",
+      "enUS": "Issuing-bank charges are for the Buyer; the Seller bears its bank charges."
+    }
   },
   "performance": {
-    "packaging": { "zhCN": "适合国际空运的防潮包装", "enUS": "Moisture-resistant packaging suitable for international air transport." },
-    "shippingMarks": { "zhCN": "按买方书面唛头指示", "enUS": "Shipping marks shall follow the Buyer's written instructions." },
+    "packaging": {
+      "zhCN": "适合国际空运的防潮包装",
+      "enUS": "Moisture-resistant packaging suitable for international air transport."
+    },
+    "shippingMarks": {
+      "zhCN": "按买方书面唛头指示",
+      "enUS": "Shipping marks shall follow the Buyer's written instructions."
+    },
     "warranty": { "zhCN": "到货后十二个月", "enUS": "Twelve months after arrival." },
-    "intellectualProperty": { "zhCN": "各方保留其原有知识产权", "enUS": "Each party retains its background intellectual property." },
-    "sanctionsAndExportControlAcknowledgement": { "zhCN": "双方自行核验并遵守适用于自身交易行为的制裁与出口管制要求", "enUS": "Each party shall verify and comply with sanctions and export-control requirements applicable to its conduct." },
-    "forceMajeureAndHardship": { "zhCN": "受影响方及时通知并采取合理减损措施", "enUS": "The affected party shall give prompt notice and take reasonable mitigation measures." },
-    "breachRemedies": { "zhCN": "违约方赔偿可证明的直接损失", "enUS": "The breaching party shall compensate proven direct losses." }
+    "intellectualProperty": {
+      "zhCN": "各方保留其原有知识产权",
+      "enUS": "Each party retains its background intellectual property."
+    },
+    "sanctionsAndExportControlAcknowledgement": {
+      "zhCN": "双方自行核验并遵守适用于自身交易行为的制裁与出口管制要求",
+      "enUS": "Each party shall verify and comply with sanctions and export-control requirements applicable to its conduct."
+    },
+    "forceMajeureAndHardship": {
+      "zhCN": "受影响方及时通知并采取合理减损措施",
+      "enUS": "The affected party shall give prompt notice and take reasonable mitigation measures."
+    },
+    "breachRemedies": {
+      "zhCN": "违约方赔偿可证明的直接损失",
+      "enUS": "The breaching party shall compensate proven direct losses."
+    }
   },
   "legal": {
     "cisgChoice": "apply",
-    "governingLaw": { "zhCN": "除CISG调整事项外适用新加坡法律", "enUS": "Singapore law applies to matters not governed by the CISG." },
+    "governingLaw": {
+      "zhCN": "除CISG调整事项外适用新加坡法律",
+      "enUS": "Singapore law applies to matters not governed by the CISG."
+    },
     "disputeMethod": "arbitration",
-    "forum": { "zhCN": "新加坡国际仲裁中心，仲裁地新加坡", "enUS": "Singapore International Arbitration Centre, seat Singapore." },
-    "languagePriority": "en-US",
-    "notices": { "zhCN": "通知发送至合同所列电子邮箱并以送达回执为准", "enUS": "Notices shall be sent to the stated email addresses and evidenced by delivery receipt." }
+    "forum": {
+      "zhCN": "新加坡国际仲裁中心，仲裁地新加坡",
+      "enUS": "Singapore International Arbitration Centre, seat Singapore."
+    },
+    "notices": {
+      "zhCN": "通知发送至合同所列电子邮箱并以送达回执为准",
+      "enUS": "Notices shall be sent to the stated email addresses and evidenced by delivery receipt."
+    }
   },
   "signers": [
-    { "partyId": "seller", "role": { "zhCN": "卖方", "enUS": "Seller" }, "dateLabel": { "zhCN": "日期", "enUS": "Date" }, "sealLabel": { "zhCN": "盖章", "enUS": "Seal" } },
-    { "partyId": "buyer", "role": { "zhCN": "买方", "enUS": "Buyer" }, "dateLabel": { "zhCN": "日期", "enUS": "Date" }, "sealLabel": { "zhCN": "盖章", "enUS": "Seal" } }
+    {
+      "partyId": "seller",
+      "role": { "zhCN": "卖方", "enUS": "Seller" },
+      "dateLabel": { "zhCN": "日期", "enUS": "Date" },
+      "sealLabel": { "zhCN": "盖章", "enUS": "Seal" }
+    },
+    {
+      "partyId": "buyer",
+      "role": { "zhCN": "买方", "enUS": "Buyer" },
+      "dateLabel": { "zhCN": "日期", "enUS": "Date" },
+      "sealLabel": { "zhCN": "盖章", "enUS": "Seal" }
+    }
   ],
   "updatedAt": "2026-08-19T00:00:00.000Z"
 }

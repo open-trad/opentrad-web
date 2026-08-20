@@ -93,6 +93,7 @@
       "partyId": "seller",
       "role": { "zhCN": "卖方" },
       "signatoryName": "张经理",
+      "signatoryTitle": "总经理",
       "dateLabel": { "zhCN": "签署日期" },
       "sealLabel": { "zhCN": "盖章" }
     },

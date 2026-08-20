@@ -11,10 +11,29 @@
     "language": "zh-CN",
     "layoutStyleId": "classic-formal.v1"
   },
-  "principal": { "legalName": "深圳示例品牌有限公司", "entityType": "company", "contactName": "陈经理", "registeredAddress": "深圳市示例路1号" },
-  "processor": { "legalName": "东莞示例加工有限公司", "entityType": "company", "contactName": "林经理", "registeredAddress": "东莞市示例路2号" },
+  "principal": {
+    "legalName": "深圳示例品牌有限公司",
+    "entityType": "company",
+    "contactName": "陈经理",
+    "registeredAddress": "深圳市示例路1号"
+  },
+  "processor": {
+    "legalName": "东莞示例加工有限公司",
+    "entityType": "company",
+    "contactName": "林经理",
+    "registeredAddress": "东莞市示例路2号"
+  },
   "products": [
-    { "id": "product-1", "name": "智能传感器", "specification": "S1", "unit": "件", "quantity": "100", "unitPriceMinor": "0", "discountBps": 0, "taxRateBps": 0 }
+    {
+      "id": "product-1",
+      "name": "智能传感器",
+      "specification": "S1",
+      "unit": "件",
+      "quantity": "100",
+      "unitPriceMinor": "0",
+      "discountBps": 0,
+      "taxRateBps": 0
+    }
   ],
   "technical": {
     "packageVersion": "TECH-S1-R3",
@@ -30,14 +49,29 @@
     "returnMethod": "余料与报废品按月清点并退还委托方"
   },
   "tooling": [
-    { "id": "tool-1", "name": "注塑模具", "owner": "principal", "custody": "由加工方在合同期内保管", "maintenance": "加工方负责日常保养", "returnOrDisposal": "终止后十日内返还委托方" }
+    {
+      "id": "tool-1",
+      "name": "注塑模具",
+      "owner": "principal",
+      "custody": "由加工方在合同期内保管",
+      "maintenance": "加工方负责日常保养",
+      "returnOrDisposal": "终止后十日内返还委托方"
+    }
   ],
   "production": {
     "currency": "CNY",
     "taxMode": "tax-included",
     "schedule": "封样后30日完成首批生产",
     "processingFeeLines": [
-      { "id": "fee-1", "name": "组装加工费", "unit": "件", "quantity": "100", "unitPriceMinor": "500", "discountBps": 0, "taxRateBps": 1300 }
+      {
+        "id": "fee-1",
+        "name": "组装加工费",
+        "unit": "件",
+        "quantity": "100",
+        "unitPriceMinor": "500",
+        "discountBps": 0,
+        "taxRateBps": 1300
+      }
     ],
     "paymentSchedule": [
       { "id": "advance", "trigger": "订单确认", "amountBps": 3000, "dueDays": 5 },
@@ -73,11 +107,30 @@
     "entireAgreement": "正文、技术包与附件构成完整约定"
   },
   "signers": [
-    { "partyId": "principal", "role": { "zhCN": "委托方" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } },
-    { "partyId": "processor", "role": { "zhCN": "加工方" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } }
+    {
+      "partyId": "principal",
+      "role": { "zhCN": "委托方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    },
+    {
+      "partyId": "processor",
+      "role": { "zhCN": "加工方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    }
   ],
   "attachments": [
-    { "id": "drawing-r3", "category": "technical", "displayName": "S1图纸R3.pdf", "mediaType": "application/pdf", "pageCount": 8, "required": true, "status": "attached", "includedInSubmission": true }
+    {
+      "id": "drawing-r3",
+      "category": "technical",
+      "displayName": "S1图纸R3.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
   ],
   "updatedAt": "2026-08-19T00:00:00.000Z"
 }

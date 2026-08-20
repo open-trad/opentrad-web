@@ -86,11 +86,30 @@
     "entireAgreement": "合同、附件及已确认订单构成完整约定"
   },
   "signers": [
-    { "partyId": "supplier", "role": { "zhCN": "供应商" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } },
-    { "partyId": "purchaser", "role": { "zhCN": "采购方" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } }
+    {
+      "partyId": "supplier",
+      "role": { "zhCN": "供应商" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    },
+    {
+      "partyId": "purchaser",
+      "role": { "zhCN": "采购方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    }
   ],
   "attachments": [
-    { "id": "order-template", "category": "commercial", "displayName": "采购订单模板.pdf", "mediaType": "application/pdf", "pageCount": 2, "required": true, "status": "attached", "includedInSubmission": true }
+    {
+      "id": "order-template",
+      "category": "commercial",
+      "displayName": "采购订单模板.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 2,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
   ],
   "updatedAt": "2026-08-19T00:00:00.000Z"
 }

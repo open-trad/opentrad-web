@@ -1,13 +1,9 @@
 import { boundedCompositeSchema } from "../../../boundaries.js";
 import { isolatedArraySchema, isolatedObjectSchema } from "../../../safe-schema.js";
 import { z } from "../../../zod.js";
-import {
-  type EntityPartyV2,
-  EntityPartyV2Schema,
-  type LocalizedText,
-} from "../../common.js";
+import { type EntityPartyV2, EntityPartyV2Schema, type LocalizedText } from "../../common.js";
 import type { DocumentSignerV2, WatermarkPolicyV2 } from "../../document-model.js";
-import { AttachmentRefV1Schema, type AttachmentRefV1 } from "../../project.js";
+import { type AttachmentRefV1, AttachmentRefV1Schema } from "../../project.js";
 import { type RiskFindingV2, RiskFindingV2Schema } from "../../risk.js";
 import type { ContractSignerV1 } from "../contract-common.js";
 
@@ -49,10 +45,7 @@ export function contractText(maximumLength: number, required = false) {
 
 export function strictContractObject<const Shape extends z.ZodRawShape>(
   shape: Shape,
-  refine?: (
-    value: ObjectOutput<Shape>,
-    addIssue: (issue: SafeContractIssue) => void,
-  ) => void,
+  refine?: (value: ObjectOutput<Shape>, addIssue: (issue: SafeContractIssue) => void) => void,
 ) {
   const isolated = isolatedObjectSchema(shape, refine);
   const allowedKeys = new Set(Object.keys(shape));
@@ -125,7 +118,63 @@ export function frozenContractSchema<T extends z.ZodType>(
   return boundedCompositeSchema(frozen, policy);
 }
 
-export const ContractPartyV2Schema = EntityPartyV2Schema;
+const CONTRACT_PARTY_KEYS = new Set([
+  "legalName",
+  "englishName",
+  "entityType",
+  "registrationId",
+  "taxId",
+  "registeredAddress",
+  "postalAddress",
+  "legalRepresentative",
+  "authorizedRepresentative",
+  "contactName",
+  "phone",
+  "email",
+  "bankAccountName",
+  "bankName",
+  "bankAccount",
+  "swiftCode",
+]);
+
+export const ContractPartyV2Schema = z.transform<unknown, EntityPartyV2>((input, context) => {
+  try {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) {
+      context.addIssue({ code: "custom", message: "Contract party must be an object" });
+      return z.NEVER;
+    }
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) {
+      context.addIssue({ code: "custom", message: "Custom party prototypes are not allowed" });
+      return z.NEVER;
+    }
+    for (const key of Reflect.ownKeys(input)) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(input, key);
+      if (
+        typeof key !== "string" ||
+        !CONTRACT_PARTY_KEYS.has(key) ||
+        !descriptor ||
+        !("value" in descriptor)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Unknown or accessor contract-party key",
+          path: typeof key === "string" ? [key] : [],
+        });
+      }
+    }
+    if (context.issues.length > 0) return z.NEVER;
+    const parsed = EntityPartyV2Schema.safeParse(input);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) context.addIssue({ ...issue });
+      return z.NEVER;
+    }
+    return parsed.data as EntityPartyV2;
+  } catch {
+    context.addIssue({ code: "custom", message: "Contract-party validation failed safely" });
+    return z.NEVER;
+  }
+});
 
 const AttachmentRefsRawSchema = isolatedArraySchema(AttachmentRefV1Schema, {
   max: 100,
@@ -154,7 +203,10 @@ export function localized(zhCN: string, enUS?: string): LocalizedText {
 
 export function partyDetails(party: EntityPartyV2, bilingual = false): readonly LocalizedText[] {
   const values = [
-    party.registrationId && [`登记号：${party.registrationId}`, `Registration ID: ${party.registrationId}`],
+    party.registrationId && [
+      `登记号：${party.registrationId}`,
+      `Registration ID: ${party.registrationId}`,
+    ],
     party.taxId && [`税号：${party.taxId}`, `Tax ID: ${party.taxId}`],
     party.registeredAddress && [
       `注册地址：${party.registeredAddress}`,
@@ -189,8 +241,7 @@ export function contractWatermarks(
 ): readonly WatermarkPolicyV2[] {
   if (
     !findings.some(
-      (candidate) =>
-        candidate.impact === "watermark" || candidate.impact === "blockSubmission",
+      (candidate) => candidate.impact === "watermark" || candidate.impact === "blockSubmission",
     )
   ) {
     return [];
@@ -223,7 +274,9 @@ export function signerBlocks(
 ): readonly DocumentSignerV2[] {
   return signers.map((signer) => ({
     role: signer.role,
-    name: signer.signatoryName || parties[signer.partyId]?.legalName || signer.partyId,
+    name: `${signer.signatoryName || parties[signer.partyId]?.legalName || signer.partyId}${
+      signer.signatoryTitle ? `（${signer.signatoryTitle}）` : ""
+    }`,
     dateLabel: signer.dateLabel,
     sealLabel: signer.sealLabel,
   }));
@@ -274,10 +327,18 @@ export function validateAttachmentReferences(
   const seen = new Set<string>();
   attachmentIds.forEach((id, index) => {
     if (seen.has(id)) {
-      addIssue({ code: "custom", message: "Attachment references must be unique", path: [...path, index] });
+      addIssue({
+        code: "custom",
+        message: "Attachment references must be unique",
+        path: [...path, index],
+      });
     }
     if (!manifest.has(id)) {
-      addIssue({ code: "custom", message: "Attachment reference is missing from manifest", path: [...path, index] });
+      addIssue({
+        code: "custom",
+        message: "Attachment reference is missing from manifest",
+        path: [...path, index],
+      });
     }
     seen.add(id);
   });

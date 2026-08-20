@@ -143,6 +143,8 @@ describe("contract.sale.domestic-b2b.v1", () => {
     expect(model.sections.map((section) => section.id)).toEqual(DOMESTIC_SECTIONS);
     expect(model.disclaimers).toEqual(["contract-generation-note"]);
     expect(JSON.stringify(model)).toContain("CNY 200.00");
+    expect(JSON.stringify(model)).toContain("上海示例制造有限公司");
+    expect(JSON.stringify(model)).toContain("总经理");
     const titleRisk = model.sections.find((section) => section.id === "title-risk");
     expect(titleRisk?.blocks).toHaveLength(2);
     expect(JSON.stringify(titleRisk)).toContain("所有权转移");
@@ -260,6 +262,7 @@ describe("contract.supply.framework.v1", () => {
     const serialized = JSON.stringify(model);
     expect(serialized).toContain("预测和目录不当然构成采购义务");
     expect(serialized).toContain("CNY 500.00");
+    expect(serialized).toContain("tax-included");
     expect(serialized).toContain("供应中断风险");
     expect(serialized).not.toContain("commercialRiskConfirmed");
     expect(model.disclaimers).toEqual(["contract-generation-note"]);
@@ -278,7 +281,10 @@ describe("contract.supply.framework.v1", () => {
     ]);
     expect(DocumentModelV2Schema.parse(registration.compile(risky)).watermarks).toHaveLength(1);
     expect(registration.preflight(base)).toEqual([]);
-    const created = registration.createDraft({ id: "framework-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    const created = registration.createDraft({
+      id: "framework-created",
+      now: "2026-08-19T00:00:00Z",
+    }) as Record<string, unknown>;
     const pricing = created.pricing as Record<string, unknown>;
     expect(pricing.currency).toBeUndefined();
     expect(pricing.taxMode).toBeUndefined();
@@ -294,9 +300,15 @@ describe("contract.supply.framework.v1", () => {
     const base = fixture("contract-framework-supply") as Record<string, unknown>;
     const term = base.term as Record<string, unknown>;
     const lines = base.catalogLines as Array<Record<string, unknown>>;
-    expect(() => registration.parseDraft({ ...base, orderTemplateAttachmentId: "missing" })).toThrow();
-    expect(() => registration.parseDraft({ ...base, term: { ...term, endDate: "2026-08-01" } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, catalogLines: [lines[0], lines[0]] })).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, orderTemplateAttachmentId: "missing" }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, term: { ...term, endDate: "2026-08-01" } }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, catalogLines: [lines[0], lines[0]] }),
+    ).toThrow();
     expect(() =>
       registration.parseDraft({
         ...base,
@@ -324,6 +336,7 @@ describe("contract.oem.processing.v1", () => {
     });
     expect(model.sections.map((section) => section.id)).toEqual(OEM_PROCESSING_SECTIONS);
     expect(JSON.stringify(model)).toContain("CNY 500.00");
+    expect(JSON.stringify(model)).toContain("tax-included");
     expect(JSON.stringify(model)).toContain("TECH-S1-R3");
     expect(model.disclaimers).toEqual(["contract-generation-note"]);
   });
@@ -337,7 +350,13 @@ describe("contract.oem.processing.v1", () => {
     const risky = {
       ...base,
       technical: { ...technical, engineeringChange: "" },
-      materials: { ...materials, mode: "principal-supplied", yieldTarget: "", scrapHandling: "", returnMethod: "" },
+      materials: {
+        ...materials,
+        mode: "principal-supplied",
+        yieldTarget: "",
+        scrapHandling: "",
+        returnMethod: "",
+      },
       intellectualProperty: { ...intellectualProperty, backgroundIp: "", foregroundIp: "" },
       subcontracting: "",
       terminationCompensation: "",
@@ -364,11 +383,36 @@ describe("contract.oem.processing.v1", () => {
     const production = base.production as Record<string, unknown>;
     const schedule = production.paymentSchedule as Array<Record<string, unknown>>;
     const tooling = base.tooling as Array<Record<string, unknown>>;
-    expect(() => registration.parseDraft({ ...base, technical: { ...technical, drawingAttachmentIds: ["missing"] } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, tooling: [{ ...tooling[0], maintenance: "" }] })).toThrow();
-    expect(() => registration.parseDraft({ ...base, production: { ...production, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "supplier" }] })).toThrow();
-    const created = registration.createDraft({ id: "oem-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    const products = base.products as Array<Record<string, unknown>>;
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        technical: { ...technical, drawingAttachmentIds: ["missing"] },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, tooling: [{ ...tooling[0], maintenance: "" }] }),
+    ).toThrow();
+    expect(() => registration.parseDraft({ ...base, tooling: [tooling[0], tooling[0]] })).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, products: [products[0], products[0]] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        production: { ...production, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "supplier" }],
+      }),
+    ).toThrow();
+    const created = registration.createDraft({
+      id: "oem-contract-created",
+      now: "2026-08-19T00:00:00Z",
+    }) as Record<string, unknown>;
     expect((created.production as Record<string, unknown>).currency).toBeUndefined();
     expect((created.production as Record<string, unknown>).taxMode).toBeUndefined();
   });
@@ -393,6 +437,7 @@ describe("contract.service.commercial.v1", () => {
     });
     expect(model.sections.map((section) => section.id)).toEqual(COMMERCIAL_SERVICE_SECTIONS);
     expect(JSON.stringify(model)).toContain("CNY 1,000.00");
+    expect(JSON.stringify(model)).toContain("tax-included");
     expect(JSON.stringify(model)).not.toContain('"enUS"');
     expect(model.disclaimers).toEqual(["contract-generation-note"]);
   });
@@ -416,6 +461,14 @@ describe("contract.service.commercial.v1", () => {
       ["SERVICE_TERMINATION_COMPENSATION_MISSING", "blockSubmission"],
     ]);
     expect(DocumentModelV2Schema.parse(registration.compile(risky)).watermarks).toHaveLength(1);
+    expect(
+      registration
+        .preflight({
+          ...base,
+          agency: { ...agency, thirdPartyAuthority: "仅可代为联系第三方" },
+        })
+        .map((finding) => [finding.code, finding.impact]),
+    ).toEqual([["SERVICE_AGENCY_AUTHORITY_MISSING", "blockSubmission"]]);
     expect(() => registration.preflight({ ...base, unknown: true })).toThrow();
     expect(() => registration.compile({ ...base, unknown: true })).toThrow();
   });
@@ -428,12 +481,34 @@ describe("contract.service.commercial.v1", () => {
     const lines = fees.lines as Array<Record<string, unknown>>;
     const schedule = fees.paymentSchedule as Array<Record<string, unknown>>;
     const rights = base.rights as Record<string, unknown>;
-    expect(() => registration.parseDraft({ ...base, engagement: { ...engagement, endDate: "2026-08-01" } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, fees: { ...fees, lines: [lines[0], lines[0]] } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, fees: { ...fees, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, rights: { ...rights, ipOwnership: "custom", ipCustomText: "" } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "customer" }] })).toThrow();
-    const created = registration.createDraft({ id: "service-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    expect(() =>
+      registration.parseDraft({ ...base, engagement: { ...engagement, endDate: "2026-08-01" } }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, fees: { ...fees, lines: [lines[0], lines[0]] } }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        fees: { ...fees, paymentSchedule: [{ ...schedule[0], amountBps: 9999 }] },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        rights: { ...rights, ipOwnership: "custom", ipCustomText: "" },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "customer" }],
+      }),
+    ).toThrow();
+    const created = registration.createDraft({
+      id: "service-contract-created",
+      now: "2026-08-19T00:00:00Z",
+    }) as Record<string, unknown>;
     expect((created.fees as Record<string, unknown>).currency).toBeUndefined();
     expect((created.fees as Record<string, unknown>).taxMode).toBeUndefined();
   });
@@ -441,7 +516,10 @@ describe("contract.service.commercial.v1", () => {
 
 describe("contract.sale.international-bilingual.v1", () => {
   it("pins international sources and compiles exact money into stable bilingual sections", () => {
-    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const registration = V2_TEMPLATE_REGISTRY.get(
+      "contract.sale.international-bilingual.v1",
+      "1.0.0",
+    );
     const draft = registration.parseDraft(fixture("contract-international-sale"));
     const model = DocumentModelV2Schema.parse(registration.compile(draft));
     expect(registration.definition).toMatchObject({
@@ -461,6 +539,7 @@ describe("contract.sale.international-bilingual.v1", () => {
     expect(model.language).toBe("zh-en");
     expect(model.disclaimers).toEqual(["international-choice-warning"]);
     expect(JSON.stringify(model)).toContain("USD 500.00");
+    expect(JSON.stringify(model)).toContain("tax-exempt");
     expect(model.watermarks).toEqual([]);
 
     const pending: unknown[] = [model];
@@ -480,18 +559,23 @@ describe("contract.sale.international-bilingual.v1", () => {
   });
 
   it("blocks unresolved CISG, law, dispute and language priority with the draft watermark", () => {
-    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const registration = V2_TEMPLATE_REGISTRY.get(
+      "contract.sale.international-bilingual.v1",
+      "1.0.0",
+    );
     const base = fixture("contract-international-sale") as Record<string, unknown>;
+    const meta = base.meta as Record<string, unknown>;
     const legal = base.legal as Record<string, unknown>;
+    const { languagePriority: _languagePriority, ...metaWithoutLanguagePriority } = meta;
     const risky = {
       ...base,
+      meta: metaWithoutLanguagePriority,
       legal: {
         ...legal,
         cisgChoice: "undecided",
         governingLaw: undefined,
         disputeMethod: undefined,
         forum: undefined,
-        languagePriority: undefined,
       },
     };
     expect(registration.preflight(risky).map((finding) => [finding.code, finding.impact])).toEqual([
@@ -513,25 +597,68 @@ describe("contract.sale.international-bilingual.v1", () => {
   });
 
   it("requires authored English for parties, items, signers and every supplied clause", () => {
-    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const registration = V2_TEMPLATE_REGISTRY.get(
+      "contract.sale.international-bilingual.v1",
+      "1.0.0",
+    );
     const base = fixture("contract-international-sale") as Record<string, unknown>;
     const seller = base.seller as Record<string, unknown>;
     const line = (base.goodsLines as Array<Record<string, unknown>>)[0];
     const performance = base.performance as Record<string, unknown>;
     const warranty = performance.warranty as Record<string, unknown>;
     const signer = (base.signers as Array<Record<string, unknown>>)[0];
-    expect(() => registration.parseDraft({ ...base, seller: { ...seller, englishName: undefined } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, goodsLines: [{ ...line, englishName: undefined }] })).toThrow();
-    expect(() => registration.parseDraft({ ...base, performance: { ...performance, warranty: { zhCN: warranty.zhCN } } })).toThrow();
-    expect(() => registration.parseDraft({ ...base, signers: [{ ...signer, role: { zhCN: "卖方" } }] })).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, seller: { ...seller, englishName: undefined } }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, goodsLines: [{ ...line, englishName: undefined }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        performance: { ...performance, warranty: { zhCN: warranty.zhCN } },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, signers: [{ ...signer, role: { zhCN: "卖方" } }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, goodsLines: [{ ...line, netWeightKg: "0" }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        goodsLines: [{ ...line, hsCodeUserSupplied: "1234567890123" }],
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, goodsLines: [{ ...line, specification: "国标泵" }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, goodsLines: [{ ...line, unit: "台" }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        legal: { ...(base.legal as object), languagePriority: "en-US" },
+      }),
+    ).toThrow();
+    expect(() => registration.parseDraft({ ...base, goodsLines: [line, line] })).toThrow();
   });
 
   it("does not choose trade or legal terms and reparses every public operation", () => {
-    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
-    const created = registration.createDraft({ id: "international-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    const registration = V2_TEMPLATE_REGISTRY.get(
+      "contract.sale.international-bilingual.v1",
+      "1.0.0",
+    );
+    const created = registration.createDraft({
+      id: "international-created",
+      now: "2026-08-19T00:00:00Z",
+    }) as Record<string, unknown>;
     const price = created.price as Record<string, unknown>;
     const trade = created.trade as Record<string, unknown>;
     const legal = created.legal as Record<string, unknown>;
+    const meta = created.meta as Record<string, unknown>;
     expect(price.currency).toBeUndefined();
     expect(price.taxMode).toBeUndefined();
     expect(trade.incotermsRule).toBeUndefined();
@@ -541,7 +668,7 @@ describe("contract.sale.international-bilingual.v1", () => {
     expect(legal).toMatchObject({ cisgChoice: "undecided" });
     expect(legal.governingLaw).toBeUndefined();
     expect(legal.disputeMethod).toBeUndefined();
-    expect(legal.languagePriority).toBeUndefined();
+    expect(meta.languagePriority).toBeUndefined();
     expect(registration.preflight(created).map((finding) => finding.code)).toEqual(
       expect.arrayContaining([
         "CONTRACT_CURRENCY_MISSING",
@@ -557,7 +684,9 @@ describe("contract.sale.international-bilingual.v1", () => {
         "INTERNATIONAL_LANGUAGE_PRIORITY_UNDECIDED",
       ]),
     );
-    expect(JSON.stringify(created)).not.toMatch(/derivedTax|verifiedHs|cisgApplicable|automaticLaw/);
+    expect(JSON.stringify(created)).not.toMatch(
+      /derivedTax|verifiedHs|cisgApplicable|automaticLaw/,
+    );
     expect(() => registration.compile({ ...created, unknown: true })).toThrow();
     expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
   });
@@ -565,13 +694,159 @@ describe("contract.sale.international-bilingual.v1", () => {
   it("finishes the immutable registry at four quotations and five contracts with JSON-safe models", () => {
     const registrations = V2_TEMPLATE_REGISTRY.list();
     expect(registrations).toHaveLength(9);
-    expect(registrations.filter((item) => item.definition.category === "quotation")).toHaveLength(4);
+    expect(registrations.filter((item) => item.definition.category === "quotation")).toHaveLength(
+      4,
+    );
     expect(registrations.filter((item) => item.definition.category === "contract")).toHaveLength(5);
-    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
-    const model = DocumentModelV2Schema.parse(registration.compile(fixture("contract-international-sale")));
+    const registration = V2_TEMPLATE_REGISTRY.get(
+      "contract.sale.international-bilingual.v1",
+      "1.0.0",
+    );
+    const model = DocumentModelV2Schema.parse(
+      registration.compile(fixture("contract-international-sale")),
+    );
     const serialized = JSON.stringify(model);
     expect(serialized).not.toMatch(/bigint|blob:|data:|localBlobKey/);
     expect(Object.isFrozen(registration)).toBe(true);
     expect(Object.isFrozen(registration.definition)).toBe(true);
   });
+});
+
+describe("five contract schema security and budget matrix", () => {
+  const cases = [
+    {
+      id: "contract.sale.domestic-b2b.v1",
+      fixtureName: "contract-domestic-sale",
+      partyKey: "seller",
+      getLines: (base: Record<string, unknown>) =>
+        base.goodsLines as Array<Record<string, unknown>>,
+      withLines: (base: Record<string, unknown>, lines: unknown[]) => ({
+        ...base,
+        goodsLines: lines,
+      }),
+      overBudget: (base: Record<string, unknown>) => ({
+        ...base,
+        acceptance: { ...(base.acceptance as object), warranty: "保".repeat(10_001) },
+      }),
+    },
+    {
+      id: "contract.supply.framework.v1",
+      fixtureName: "contract-framework-supply",
+      partyKey: "supplier",
+      getLines: (base: Record<string, unknown>) =>
+        base.catalogLines as Array<Record<string, unknown>>,
+      withLines: (base: Record<string, unknown>, lines: unknown[]) => ({
+        ...base,
+        catalogLines: lines,
+      }),
+      overBudget: (base: Record<string, unknown>) => ({
+        ...base,
+        ordering: { ...(base.ordering as object), formation: "项".repeat(10_001) },
+      }),
+    },
+    {
+      id: "contract.oem.processing.v1",
+      fixtureName: "contract-oem-processing",
+      partyKey: "principal",
+      getLines: (base: Record<string, unknown>) => base.products as Array<Record<string, unknown>>,
+      withLines: (base: Record<string, unknown>, lines: unknown[]) => ({
+        ...base,
+        products: lines,
+      }),
+      overBudget: (base: Record<string, unknown>) => ({
+        ...base,
+        technical: { ...(base.technical as object), packageVersion: "版".repeat(10_001) },
+      }),
+    },
+    {
+      id: "contract.service.commercial.v1",
+      fixtureName: "contract-commercial-service",
+      partyKey: "client",
+      getLines: (base: Record<string, unknown>) =>
+        (base.fees as Record<string, unknown>).lines as Array<Record<string, unknown>>,
+      withLines: (base: Record<string, unknown>, lines: unknown[]) => ({
+        ...base,
+        fees: { ...(base.fees as object), lines },
+      }),
+      overBudget: (base: Record<string, unknown>) => ({
+        ...base,
+        engagement: { ...(base.engagement as object), scope: "域".repeat(10_001) },
+      }),
+    },
+    {
+      id: "contract.sale.international-bilingual.v1",
+      fixtureName: "contract-international-sale",
+      partyKey: "seller",
+      getLines: (base: Record<string, unknown>) =>
+        base.goodsLines as Array<Record<string, unknown>>,
+      withLines: (base: Record<string, unknown>, lines: unknown[]) => ({
+        ...base,
+        goodsLines: lines,
+      }),
+      overBudget: (base: Record<string, unknown>) => ({
+        ...base,
+        performance: {
+          ...(base.performance as object),
+          warranty: { zhCN: "保".repeat(10_001), enUS: "Warranty" },
+        },
+      }),
+    },
+  ] as const;
+
+  for (const contractCase of cases) {
+    it(`${contractCase.id} fails closed and enforces the 100-row bound`, () => {
+      const registration = V2_TEMPLATE_REGISTRY.get(contractCase.id, "1.0.0");
+      const base = fixture(contractCase.fixtureName) as Record<string, unknown>;
+      expect(() => registration.parseDraft({ ...base, unknown: true })).toThrow();
+      expect(() => registration.compile({ ...base, unknown: true })).toThrow();
+      expect(() => registration.preflight({ ...base, unknown: true })).toThrow();
+
+      const getter = vi.fn(() => base.meta);
+      const accessor = { ...base };
+      Object.defineProperty(accessor, "meta", { enumerable: true, get: getter });
+      expect(() => registration.parseDraft(accessor)).toThrow();
+      expect(getter).not.toHaveBeenCalled();
+      const party = base[contractCase.partyKey] as Record<string, unknown>;
+      expect(() =>
+        registration.parseDraft({
+          ...base,
+          [contractCase.partyKey]: { ...party, rolePrompt: "hidden" },
+        }),
+      ).toThrow();
+      const partyGetter = vi.fn(() => "secret");
+      const accessorParty = { ...party };
+      Object.defineProperty(accessorParty, "legalName", {
+        enumerable: true,
+        get: partyGetter,
+      });
+      expect(() =>
+        registration.parseDraft({ ...base, [contractCase.partyKey]: accessorParty }),
+      ).toThrow();
+      expect(partyGetter).not.toHaveBeenCalled();
+      expect(() =>
+        registration.parseDraft({
+          ...base,
+          [contractCase.partyKey]: Object.assign(Object.create({ inherited: true }), party),
+        }),
+      ).toThrow();
+      expect(() => contractCase.withLines(base, new Array(1))).toBeDefined();
+      expect(() => registration.parseDraft(contractCase.withLines(base, new Array(1)))).toThrow();
+      expect(() =>
+        registration.parseDraft(Object.assign(Object.create({ inherited: true }), base)),
+      ).toThrow();
+      const { proxy, revoke } = Proxy.revocable(base, {});
+      revoke();
+      expect(() => registration.parseDraft(proxy)).toThrow();
+      expect(() => registration.parseDraft(contractCase.overBudget(base))).toThrow();
+
+      const exemplar = contractCase.getLines(base)[0];
+      const lines100 = Array.from({ length: 100 }, (_, index) => ({
+        ...exemplar,
+        id: `line-${index}`,
+      }));
+      expect(() => registration.parseDraft(contractCase.withLines(base, lines100))).not.toThrow();
+      const lines101 = [...lines100, { ...exemplar, id: "line-100" }];
+      expect(() => registration.parseDraft(contractCase.withLines(base, lines101))).toThrow();
+    });
+  }
 });
