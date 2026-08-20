@@ -89,6 +89,32 @@ const COMMERCIAL_SERVICE_SECTIONS = [
   "signatures",
 ] as const;
 
+const INTERNATIONAL_SALE_SECTIONS = [
+  "bilingual-cover",
+  "meta",
+  "bilingual-parties",
+  "definitions",
+  "goods",
+  "price",
+  "incoterms-delivery-risk",
+  "shipment",
+  "clearance-insurance",
+  "documents",
+  "inspection-claims",
+  "title",
+  "payment-bank",
+  "packaging-marks",
+  "warranty-ip",
+  "compliance",
+  "force-majeure-hardship",
+  "breach-remedies",
+  "cisg-governing-law",
+  "dispute",
+  "language-priority",
+  "notices",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -410,5 +436,142 @@ describe("contract.service.commercial.v1", () => {
     const created = registration.createDraft({ id: "service-contract-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
     expect((created.fees as Record<string, unknown>).currency).toBeUndefined();
     expect((created.fees as Record<string, unknown>).taxMode).toBeUndefined();
+  });
+});
+
+describe("contract.sale.international-bilingual.v1", () => {
+  it("pins international sources and compiles exact money into stable bilingual sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("contract-international-sale"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "contract.sale.international-bilingual.v1",
+      version: "1.0.0",
+      category: "contract",
+      basisDate: "2026-08-19",
+      languages: ["zh-en"],
+      defaultLanguage: "zh-en",
+      allowedLayouts: ["international-compact.v1"],
+      defaultLayout: "international-compact.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+      sourceKeys: ["uncitral-cisg", "icc-incoterms-2020"],
+      disclaimerProfile: "international",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(INTERNATIONAL_SALE_SECTIONS);
+    expect(model.language).toBe("zh-en");
+    expect(model.disclaimers).toEqual(["international-choice-warning"]);
+    expect(JSON.stringify(model)).toContain("USD 500.00");
+    expect(model.watermarks).toEqual([]);
+
+    const pending: unknown[] = [model];
+    while (pending.length > 0) {
+      const current = pending.pop();
+      if (current === null || typeof current !== "object") continue;
+      const record = current as Record<PropertyKey, unknown>;
+      if (typeof record.zhCN === "string") {
+        expect(record.enUS, `missing English for ${record.zhCN}`).toEqual(expect.any(String));
+        expect((record.enUS as string).trim()).not.toBe("");
+      }
+      for (const key of Reflect.ownKeys(record)) {
+        const descriptor = Reflect.getOwnPropertyDescriptor(record, key);
+        if (descriptor && "value" in descriptor) pending.push(descriptor.value);
+      }
+    }
+  });
+
+  it("blocks unresolved CISG, law, dispute and language priority with the draft watermark", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const base = fixture("contract-international-sale") as Record<string, unknown>;
+    const legal = base.legal as Record<string, unknown>;
+    const risky = {
+      ...base,
+      legal: {
+        ...legal,
+        cisgChoice: "undecided",
+        governingLaw: undefined,
+        disputeMethod: undefined,
+        forum: undefined,
+        languagePriority: undefined,
+      },
+    };
+    expect(registration.preflight(risky).map((finding) => [finding.code, finding.impact])).toEqual([
+      ["INTERNATIONAL_CISG_UNDECIDED", "blockSubmission"],
+      ["INTERNATIONAL_GOVERNING_LAW_UNDECIDED", "blockSubmission"],
+      ["INTERNATIONAL_DISPUTE_METHOD_UNDECIDED", "blockSubmission"],
+      ["INTERNATIONAL_DISPUTE_FORUM_UNDECIDED", "blockSubmission"],
+      ["INTERNATIONAL_LANGUAGE_PRIORITY_UNDECIDED", "blockSubmission"],
+      ["HS_CODE_USER_SUPPLIED_UNVERIFIED", "advisory"],
+    ]);
+    const model = DocumentModelV2Schema.parse(registration.compile(risky));
+    expect(model.watermarks).toEqual([
+      {
+        id: "review-required",
+        text: { zhCN: "国际销售合同草案", enUS: "DRAFT INTERNATIONAL SALE CONTRACT" },
+        scope: "every-page",
+      },
+    ]);
+  });
+
+  it("requires authored English for parties, items, signers and every supplied clause", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const base = fixture("contract-international-sale") as Record<string, unknown>;
+    const seller = base.seller as Record<string, unknown>;
+    const line = (base.goodsLines as Array<Record<string, unknown>>)[0];
+    const performance = base.performance as Record<string, unknown>;
+    const warranty = performance.warranty as Record<string, unknown>;
+    const signer = (base.signers as Array<Record<string, unknown>>)[0];
+    expect(() => registration.parseDraft({ ...base, seller: { ...seller, englishName: undefined } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, goodsLines: [{ ...line, englishName: undefined }] })).toThrow();
+    expect(() => registration.parseDraft({ ...base, performance: { ...performance, warranty: { zhCN: warranty.zhCN } } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, signers: [{ ...signer, role: { zhCN: "卖方" } }] })).toThrow();
+  });
+
+  it("does not choose trade or legal terms and reparses every public operation", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const created = registration.createDraft({ id: "international-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    const price = created.price as Record<string, unknown>;
+    const trade = created.trade as Record<string, unknown>;
+    const legal = created.legal as Record<string, unknown>;
+    expect(price.currency).toBeUndefined();
+    expect(price.taxMode).toBeUndefined();
+    expect(trade.incotermsRule).toBeUndefined();
+    expect(trade.transportMode).toBeUndefined();
+    expect(trade.exportClearanceParty).toBeUndefined();
+    expect(trade.importClearanceParty).toBeUndefined();
+    expect(legal).toMatchObject({ cisgChoice: "undecided" });
+    expect(legal.governingLaw).toBeUndefined();
+    expect(legal.disputeMethod).toBeUndefined();
+    expect(legal.languagePriority).toBeUndefined();
+    expect(registration.preflight(created).map((finding) => finding.code)).toEqual(
+      expect.arrayContaining([
+        "CONTRACT_CURRENCY_MISSING",
+        "CONTRACT_TAX_MODE_MISSING",
+        "INCOTERMS_SELECTION_MISSING",
+        "INTERNATIONAL_TRANSPORT_MISSING",
+        "INTERNATIONAL_EXPORT_CLEARANCE_UNDECIDED",
+        "INTERNATIONAL_IMPORT_CLEARANCE_UNDECIDED",
+        "INTERNATIONAL_INSURANCE_MISSING",
+        "INTERNATIONAL_CISG_UNDECIDED",
+        "INTERNATIONAL_GOVERNING_LAW_UNDECIDED",
+        "INTERNATIONAL_DISPUTE_METHOD_UNDECIDED",
+        "INTERNATIONAL_LANGUAGE_PRIORITY_UNDECIDED",
+      ]),
+    );
+    expect(JSON.stringify(created)).not.toMatch(/derivedTax|verifiedHs|cisgApplicable|automaticLaw/);
+    expect(() => registration.compile({ ...created, unknown: true })).toThrow();
+    expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
+  });
+
+  it("finishes the immutable registry at four quotations and five contracts with JSON-safe models", () => {
+    const registrations = V2_TEMPLATE_REGISTRY.list();
+    expect(registrations).toHaveLength(9);
+    expect(registrations.filter((item) => item.definition.category === "quotation")).toHaveLength(4);
+    expect(registrations.filter((item) => item.definition.category === "contract")).toHaveLength(5);
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.international-bilingual.v1", "1.0.0");
+    const model = DocumentModelV2Schema.parse(registration.compile(fixture("contract-international-sale")));
+    const serialized = JSON.stringify(model);
+    expect(serialized).not.toMatch(/bigint|blob:|data:|localBlobKey/);
+    expect(Object.isFrozen(registration)).toBe(true);
+    expect(Object.isFrozen(registration.definition)).toBe(true);
   });
 });
