@@ -101,6 +101,22 @@ importers:
         specifier: 3.2.6
         version: 3.2.6(@types/node@24.3.0)(jsdom@26.1.0)
 
+  packages/conversion-local:
+    dependencies:
+      '@opentrad/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 24.3.0
+        version: 24.3.0
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: 3.2.6
+        version: 3.2.6(@types/node@24.3.0)(jsdom@26.1.0)
+
   packages/document-core:
     dependencies:
       zod:
