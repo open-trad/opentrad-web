@@ -27,6 +27,31 @@ const GOVERNMENT_GOODS_SECTIONS = [
   "signatures",
 ] as const;
 
+const GOVERNMENT_SERVICES_SECTIONS = [
+  "draft-cover",
+  "source-baseline",
+  "toc",
+  "bid-letter",
+  "authorization",
+  "qualifications",
+  "policy-declarations",
+  "opening-price",
+  "service-price",
+  "requirement-response",
+  "understanding-objectives",
+  "methodology",
+  "deliverables-schedule",
+  "staffing",
+  "quality-sla",
+  "risk-security-privacy",
+  "acceptance",
+  "performance-evidence",
+  "deviations",
+  "attachments",
+  "final-checklist",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -54,5 +79,28 @@ describe("bid.government.goods.v1", () => {
     expect(JSON.stringify(model)).toContain("CNY 10,000.00");
     expect(JSON.stringify(model)).toContain("中小企业政策");
     expect(JSON.stringify(model)).not.toContain("此项尚未核实，不得形成肯定声明");
+  });
+});
+
+describe("bid.government.services.v1", () => {
+  it("registers its source basis and compiles truthful staff and performance evidence", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("bid.government.services.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("bid-government-services"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+
+    expect(registration.definition).toMatchObject({
+      id: "bid.government.services.v1",
+      version: "1.0.0",
+      category: "bid",
+      basisDate: "2026-08-19",
+      defaultLayout: "classic-formal.v1",
+      sourceKeys: ["mof-order-87", "mof-demand-management"],
+      disclaimerProfile: "bid",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(GOVERNMENT_SERVICES_SECTIONS);
+    expect(model.watermarks).toEqual([]);
+    expect(JSON.stringify(model)).toContain("赵示例");
+    expect(JSON.stringify(model)).toContain("热线接通率");
+    expect(JSON.stringify(model)).toContain("CNY 10,000.00");
   });
 });

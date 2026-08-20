@@ -1,5 +1,6 @@
 import { createTemplateRegistry, type TemplateRegistration } from "../registry.js";
 import { GOVERNMENT_GOODS_BID_REGISTRATION } from "./bids/government-goods.js";
+import { GOVERNMENT_SERVICES_BID_REGISTRATION } from "./bids/government-services.js";
 import { COMMERCIAL_SERVICE_CONTRACT_REGISTRATION } from "./contracts/commercial-service.js";
 import { DOMESTIC_SALE_CONTRACT_REGISTRATION } from "./contracts/domestic-sale.js";
 import { FRAMEWORK_SUPPLY_CONTRACT_REGISTRATION } from "./contracts/framework-supply.js";
@@ -11,6 +12,7 @@ import { PROFORMA_INVOICE_REGISTRATION } from "./quotes/proforma-invoice.js";
 import { SERVICE_PROJECT_QUOTE_REGISTRATION } from "./quotes/service-project.js";
 
 export * from "./bids/government-goods.js";
+export * from "./bids/government-services.js";
 export * from "./contracts/commercial-service.js";
 export * from "./contracts/domestic-sale.js";
 export * from "./contracts/framework-supply.js";
@@ -34,4 +36,5 @@ export const V2_TEMPLATE_REGISTRY = createTemplateRegistry([
   INTERNATIONAL_SALE_CONTRACT_REGISTRATION,
   OEM_PROCESSING_CONTRACT_REGISTRATION,
   GOVERNMENT_GOODS_BID_REGISTRATION,
+  GOVERNMENT_SERVICES_BID_REGISTRATION,
 ] as unknown as readonly TemplateRegistration[]);
