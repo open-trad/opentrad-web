@@ -71,6 +71,37 @@ export interface TemplateFieldVisibleWhenV1 {
   readonly equals: string | boolean;
 }
 
+export interface TemplateDynamicOptionFilterV1 {
+  readonly path: string;
+  readonly equals: string | boolean;
+}
+
+interface TemplateDynamicSelectSourceV1 {
+  readonly optionSourcePath: string;
+  readonly optionValuePath: string;
+  readonly optionLabelPath: string;
+  readonly optionFilter?: TemplateDynamicOptionFilterV1;
+  readonly options?: never;
+}
+
+type TemplateDynamicSelectEditorShapeV1 =
+  | (TemplateDynamicSelectSourceV1 & {
+      readonly control: "select";
+      readonly valueKind: "string";
+      readonly multiple: false;
+      readonly minItems?: never;
+      readonly maxItems?: never;
+      readonly item?: never;
+    })
+  | (TemplateDynamicSelectSourceV1 & {
+      readonly control: "select";
+      readonly valueKind: "string-list";
+      readonly multiple: true;
+      readonly minItems: number;
+      readonly maxItems: number;
+      readonly item?: never;
+    });
+
 interface TemplateFieldBaseV1 {
   readonly path: string;
   readonly section: string;
@@ -142,6 +173,15 @@ interface TemplateRepeatableItemFieldBaseV1 {
 export type TemplateRepeatableItemFieldV1 = TemplateRepeatableItemFieldBaseV1 &
   (
     | TemplateScalarEditorShapeV1
+    | TemplateDynamicSelectEditorShapeV1
+    | {
+        readonly control: "repeatable";
+        readonly valueKind: "string-list";
+        readonly minItems: number;
+        readonly maxItems: number;
+        readonly item: TemplateStringListItemSpecV1;
+        readonly options?: never;
+      }
     | ({
         readonly control: "attachment";
         readonly valueKind: "attachment-id" | "attachment-id-list";
@@ -196,6 +236,7 @@ export type TemplateFieldManifestEntryV1 = TemplateFieldBaseV1 &
   (
     | TemplateLegacyFieldManifestEntryV1
     | TemplateScalarEditorShapeV1
+    | TemplateDynamicSelectEditorShapeV1
     | TemplateRepeatableFieldManifestEntryV1
     | TemplateAttachmentFieldManifestEntryV1
   );
@@ -384,6 +425,13 @@ const SCALAR_CONTROL_VALUE_KINDS: Readonly<Record<string, readonly string[]>> = 
   checkbox: Object.freeze(["boolean"]),
 });
 const LIST_METADATA_KEYS = ["minItems", "maxItems", "item"] as const;
+const DYNAMIC_SELECT_METADATA_KEYS = [
+  "multiple",
+  "optionSourcePath",
+  "optionValuePath",
+  "optionLabelPath",
+  "optionFilter",
+] as const;
 const ATTACHMENT_METADATA_KEYS = [
   "cardinality",
   "maxItems",
@@ -434,6 +482,88 @@ function validateOptions(
   );
 }
 
+function validateDynamicSelect(
+  field: Record<string, unknown>,
+  addIssue: (issue: SafeIssue) => void,
+): void {
+  for (const key of DYNAMIC_SELECT_METADATA_KEYS.slice(0, 4)) {
+    if (!hasOwnValue(field, key)) {
+      addIssue({ code: "custom", message: `Dynamic selects require ${key}`, path: [key] });
+    }
+  }
+  if (hasOwnValue(field, "options")) {
+    addIssue({
+      code: "custom",
+      message: "Dynamic selects may not define static options",
+      path: ["options"],
+    });
+  }
+  if (field.valueKind === "string") {
+    if (field.multiple !== false) {
+      addIssue({ code: "custom", message: "Dynamic string selects require multiple false" });
+    }
+    rejectPresentKeys(field, LIST_METADATA_KEYS, addIssue);
+  } else if (field.valueKind === "string-list") {
+    if (field.multiple !== true) {
+      addIssue({ code: "custom", message: "Dynamic string-list selects require multiple true" });
+    }
+    if (
+      typeof field.minItems !== "number" ||
+      typeof field.maxItems !== "number" ||
+      field.minItems > field.maxItems
+    ) {
+      addIssue({ code: "custom", message: "Dynamic multi-selects require ordered item bounds" });
+    }
+    rejectPresentKeys(field, ["item"], addIssue);
+  } else {
+    addIssue({ code: "custom", message: "Dynamic selects require string or string-list values" });
+  }
+  rejectPresentKeys(
+    field,
+    ATTACHMENT_METADATA_KEYS.filter((key) => key !== "maxItems"),
+    addIssue,
+  );
+}
+
+function validateNestedStringList(
+  field: Record<string, unknown>,
+  addIssue: (issue: SafeIssue) => void,
+): void {
+  if (field.valueKind !== "string-list") {
+    addIssue({ code: "custom", message: "Nested repeatables require string-list values" });
+  }
+  if (
+    typeof field.minItems !== "number" ||
+    typeof field.maxItems !== "number" ||
+    field.minItems > field.maxItems
+  ) {
+    addIssue({ code: "custom", message: "Nested repeatables require ordered item bounds" });
+  }
+  const item = field.item as Record<string, unknown> | undefined;
+  if (!item || item.kind !== "value" || item.valueKind !== "string") {
+    addIssue({
+      code: "custom",
+      message: "Nested string lists require a value item spec",
+      path: ["item"],
+    });
+  }
+  rejectPresentKeys(
+    field,
+    [
+      ...DYNAMIC_SELECT_METADATA_KEYS,
+      ...ATTACHMENT_METADATA_KEYS.filter((key) => key !== "maxItems"),
+    ],
+    addIssue,
+  );
+  if (hasOwnValue(field, "options")) {
+    addIssue({
+      code: "custom",
+      message: "Nested repeatables may not define options",
+      path: ["options"],
+    });
+  }
+}
+
 function validateAttachmentMetadata(
   field: Record<string, unknown>,
   addIssue: (issue: SafeIssue) => void,
@@ -469,20 +599,30 @@ function validateTypedScalarOrAttachment(
   const control = field.control;
   const valueKind = field.valueKind;
   if (typeof control !== "string" || typeof valueKind !== "string") return;
+  if (control === "select" && (valueKind === "string" || valueKind === "string-list")) {
+    validateDynamicSelect(field, addIssue);
+    return;
+  }
   const allowedKinds = SCALAR_CONTROL_VALUE_KINDS[control];
   if (allowedKinds) {
     if (!allowedKinds.includes(valueKind)) {
       addIssue({ code: "custom", message: "control and valueKind do not match" });
     }
-    if (control === "select") validateOptions(field, addIssue);
-    else if (hasOwnValue(field, "options")) {
+    if (control === "select") {
+      validateOptions(field, addIssue);
+      rejectPresentKeys(field, DYNAMIC_SELECT_METADATA_KEYS, addIssue);
+    } else if (hasOwnValue(field, "options")) {
       addIssue({
         code: "custom",
         message: "Only select fields may define options",
         path: ["options"],
       });
     }
-    rejectPresentKeys(field, [...LIST_METADATA_KEYS, ...ATTACHMENT_METADATA_KEYS], addIssue);
+    rejectPresentKeys(
+      field,
+      [...LIST_METADATA_KEYS, ...ATTACHMENT_METADATA_KEYS, ...DYNAMIC_SELECT_METADATA_KEYS],
+      addIssue,
+    );
     return;
   }
   if (control === "attachment") {
@@ -496,12 +636,24 @@ function validateTypedScalarOrAttachment(
         path: ["options"],
       });
     }
-    rejectPresentKeys(field, ["minItems", "item"], addIssue);
+    rejectPresentKeys(field, ["minItems", "item", ...DYNAMIC_SELECT_METADATA_KEYS], addIssue);
     validateAttachmentMetadata(field, addIssue);
     return;
   }
   addIssue({ code: "custom", message: "Expected a scalar or attachment editor field" });
 }
+
+const TemplateStringListItemRawSchema = isolatedObjectSchema({
+  kind: z.literal("value"),
+  label: requiredPlainText(300),
+  control: z.enum(["text", "textarea"]),
+  valueKind: z.literal("string"),
+});
+
+const TemplateDynamicOptionFilterRawSchema = isolatedObjectSchema({
+  path: FieldPathRawSchema,
+  equals: z.union([plainText(300), z.boolean()]),
+});
 
 const TemplateRepeatableItemFieldRawSchema = isolatedObjectSchema(
   {
@@ -512,8 +664,15 @@ const TemplateRepeatableItemFieldRawSchema = isolatedObjectSchema(
     required: z.boolean(),
     options: TemplateFieldOptionsRawSchema.optional(),
     visibleWhen: TemplateFieldVisibleWhenRawSchema.optional(),
+    multiple: z.boolean().optional(),
+    optionSourcePath: FieldPathRawSchema.optional(),
+    optionValuePath: FieldPathRawSchema.optional(),
+    optionLabelPath: FieldPathRawSchema.optional(),
+    optionFilter: TemplateDynamicOptionFilterRawSchema.optional(),
+    minItems: EditorArrayBoundRawSchema.optional(),
     cardinality: z.enum(["single", "multiple"]).optional(),
     maxItems: EditorArrayBoundRawSchema.optional(),
+    item: TemplateStringListItemRawSchema.optional(),
     descriptorPath: z.literal("attachments").optional(),
     role: z.enum(["source", "submission", "supporting"]).optional(),
     category: z.enum(["qualification", "technical", "commercial", "other"]).optional(),
@@ -521,7 +680,11 @@ const TemplateRepeatableItemFieldRawSchema = isolatedObjectSchema(
     pdfPageCount: z.literal("user-confirmed").optional(),
     includeInSubmissionDefault: z.boolean().optional(),
   },
-  (field, addIssue) => validateTypedScalarOrAttachment(field as Record<string, unknown>, addIssue),
+  (field, addIssue) => {
+    const record = field as Record<string, unknown>;
+    if (record.control === "repeatable") validateNestedStringList(record, addIssue);
+    else validateTypedScalarOrAttachment(record, addIssue);
+  },
 );
 
 const TemplateObjectListItemRawSchema = isolatedObjectSchema({
@@ -536,12 +699,6 @@ const TemplateObjectListItemRawSchema = isolatedObjectSchema({
         addIssue,
       ),
   }),
-});
-const TemplateStringListItemRawSchema = isolatedObjectSchema({
-  kind: z.literal("value"),
-  label: requiredPlainText(300),
-  control: z.enum(["text", "textarea"]),
-  valueKind: z.literal("string"),
 });
 const TemplateRepeatableItemRawSchema = z.union([
   TemplateObjectListItemRawSchema,
@@ -558,6 +715,11 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
     required: z.boolean(),
     options: TemplateFieldOptionsRawSchema.optional(),
     visibleWhen: TemplateFieldVisibleWhenRawSchema.optional(),
+    multiple: z.boolean().optional(),
+    optionSourcePath: FieldPathRawSchema.optional(),
+    optionValuePath: FieldPathRawSchema.optional(),
+    optionLabelPath: FieldPathRawSchema.optional(),
+    optionFilter: TemplateDynamicOptionFilterRawSchema.optional(),
     minItems: EditorArrayBoundRawSchema.optional(),
     maxItems: EditorArrayBoundRawSchema.optional(),
     item: TemplateRepeatableItemRawSchema.optional(),
@@ -572,7 +734,11 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
   (field, addIssue) => {
     const record = field as Record<string, unknown>;
     if (record.valueKind === undefined) {
-      rejectPresentKeys(record, [...LIST_METADATA_KEYS, ...ATTACHMENT_METADATA_KEYS], addIssue);
+      rejectPresentKeys(
+        record,
+        [...LIST_METADATA_KEYS, ...ATTACHMENT_METADATA_KEYS, ...DYNAMIC_SELECT_METADATA_KEYS],
+        addIssue,
+      );
       if (Array.isArray(record.options)) {
         uniqueValues(
           record.options.map((option) => (option as { value: string }).value),
@@ -618,7 +784,10 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
       }
       rejectPresentKeys(
         record,
-        ATTACHMENT_METADATA_KEYS.filter((key) => key !== "maxItems"),
+        [
+          ...ATTACHMENT_METADATA_KEYS.filter((key) => key !== "maxItems"),
+          ...DYNAMIC_SELECT_METADATA_KEYS,
+        ],
         addIssue,
       );
       return;
@@ -749,6 +918,8 @@ function editorSpecSize(fields: readonly Record<string, unknown>[]): number {
     count += 1;
     if (Array.isArray(field.options)) count += field.options.length;
     if (Array.isArray(field.allowedMediaTypes)) count += field.allowedMediaTypes.length;
+    if (field.optionSourcePath !== undefined) count += 1;
+    if (field.optionFilter !== undefined) count += 1;
     const item = field.item as Record<string, unknown> | undefined;
     if (!item) continue;
     count += 1;
@@ -757,9 +928,187 @@ function editorSpecSize(fields: readonly Record<string, unknown>[]): number {
     for (const subfield of item.fields as Record<string, unknown>[]) {
       if (Array.isArray(subfield.options)) count += subfield.options.length;
       if (Array.isArray(subfield.allowedMediaTypes)) count += subfield.allowedMediaTypes.length;
+      if (subfield.item !== undefined) count += 1;
+      if (subfield.optionSourcePath !== undefined) count += 1;
+      if (subfield.optionFilter !== undefined) count += 1;
     }
   }
   return count;
+}
+
+function validateEditorPathDepth(
+  fields: readonly Record<string, unknown>[],
+  addIssue: (issue: SafeIssue) => void,
+): void {
+  fields.forEach((field, fieldIndex) => {
+    const item = field.item as Record<string, unknown> | undefined;
+    if (item?.kind !== "object" || !Array.isArray(item.fields) || typeof field.path !== "string") {
+      return;
+    }
+    for (const [itemIndex, itemField] of (item.fields as Record<string, unknown>[]).entries()) {
+      if (
+        typeof itemField.path === "string" &&
+        field.path.split(".").length + itemField.path.split(".").length > 4
+      ) {
+        addIssue({
+          code: "custom",
+          message: "Combined editor item paths may contain at most four segments",
+          path: ["fieldManifest", fieldIndex, "item", "fields", itemIndex, "path"],
+        });
+      }
+    }
+  });
+}
+
+function validateDynamicSelectGraph(
+  fields: readonly Record<string, unknown>[],
+  addIssue: (issue: SafeIssue) => void,
+): void {
+  const byPath = new Map(fields.map((field) => [field.path, field]));
+  const dependencies = new Map<string, Set<string>>();
+  const dynamicTargets: Array<{
+    readonly containerPath: string;
+    readonly field: Record<string, unknown>;
+    readonly issuePath: readonly PropertyKey[];
+  }> = [];
+  fields.forEach((field, fieldIndex) => {
+    if (typeof field.path !== "string") return;
+    if (field.control === "select" && typeof field.optionSourcePath === "string") {
+      dynamicTargets.push({
+        containerPath: field.path,
+        field,
+        issuePath: ["fieldManifest", fieldIndex],
+      });
+    }
+    const item = field.item as Record<string, unknown> | undefined;
+    if (item?.kind !== "object" || !Array.isArray(item.fields)) return;
+    (item.fields as Record<string, unknown>[]).forEach((itemField, itemIndex) => {
+      if (itemField.control === "select" && typeof itemField.optionSourcePath === "string") {
+        dynamicTargets.push({
+          containerPath: field.path as string,
+          field: itemField,
+          issuePath: ["fieldManifest", fieldIndex, "item", "fields", itemIndex],
+        });
+      }
+    });
+  });
+
+  for (const target of dynamicTargets) {
+    const sourcePath = target.field.optionSourcePath;
+    if (typeof sourcePath !== "string") continue;
+    const issuePath = [...target.issuePath, "optionSourcePath"];
+    const source = byPath.get(sourcePath);
+    const sourceItem = source?.item as Record<string, unknown> | undefined;
+    if (
+      sourcePath.includes(".") ||
+      !source ||
+      source.control !== "repeatable" ||
+      source.valueKind !== "object-list" ||
+      sourceItem?.kind !== "object" ||
+      !Array.isArray(sourceItem.fields)
+    ) {
+      addIssue({
+        code: "custom",
+        message: "Dynamic option sources must be top-level typed object lists",
+        path: issuePath,
+      });
+      continue;
+    }
+    if (
+      typeof sourceItem.idPath !== "string" ||
+      target.field.optionValuePath !== sourceItem.idPath
+    ) {
+      addIssue({
+        code: "custom",
+        message: "Dynamic option values must exactly use the source string idPath",
+        path: [...target.issuePath, "optionValuePath"],
+      });
+    }
+    const sourceFields = new Map(
+      (sourceItem.fields as Record<string, unknown>[]).map((field) => [field.path, field]),
+    );
+    for (const [key, relativePath] of [
+      ["optionValuePath", target.field.optionValuePath],
+      ["optionLabelPath", target.field.optionLabelPath],
+      [
+        "optionFilter",
+        (target.field.optionFilter as { readonly path?: unknown } | undefined)?.path,
+      ],
+    ] as const) {
+      if (
+        typeof relativePath === "string" &&
+        sourcePath.split(".").length + relativePath.split(".").length > 4
+      ) {
+        addIssue({
+          code: "custom",
+          message: "Combined dynamic option paths may contain at most four segments",
+          path: [...target.issuePath, key],
+        });
+      }
+    }
+    const labelPath = target.field.optionLabelPath;
+    const labelField = typeof labelPath === "string" ? sourceFields.get(labelPath) : undefined;
+    if (
+      labelPath !== sourceItem.idPath &&
+      (!labelField || !["string", "localized-text"].includes(String(labelField.valueKind)))
+    ) {
+      addIssue({
+        code: "custom",
+        message: "Dynamic option labels require a declared string field",
+        path: [...target.issuePath, "optionLabelPath"],
+      });
+    }
+    const filter = target.field.optionFilter as
+      | { readonly path: string; readonly equals: string | boolean }
+      | undefined;
+    if (filter) {
+      const filterField = sourceFields.get(filter.path);
+      const expectedType = filterField ? visibleValueType(filterField) : undefined;
+      if (!filterField || expectedType === undefined || typeof filter.equals !== expectedType) {
+        addIssue({
+          code: "custom",
+          message: "Dynamic option filters require a compatible declared scalar field",
+          path: [...target.issuePath, "optionFilter"],
+        });
+      } else if (filterField.valueKind === "enum") {
+        const options = filterField.options as readonly { readonly value: string }[] | undefined;
+        if (!options?.some((option) => option.value === filter.equals)) {
+          addIssue({
+            code: "custom",
+            message: "Dynamic enum filters must equal a declared option",
+            path: [...target.issuePath, "optionFilter"],
+          });
+        }
+      }
+    }
+    const edges = dependencies.get(target.containerPath) ?? new Set<string>();
+    edges.add(sourcePath);
+    dependencies.set(target.containerPath, edges);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (path: string): boolean => {
+    if (visiting.has(path)) return true;
+    if (visited.has(path)) return false;
+    visiting.add(path);
+    for (const source of dependencies.get(path) ?? []) {
+      if (visit(source)) return true;
+    }
+    visiting.delete(path);
+    visited.add(path);
+    return false;
+  };
+  for (const path of dependencies.keys()) {
+    if (visit(path)) {
+      addIssue({
+        code: "custom",
+        message: "Dynamic option source dependencies must be acyclic",
+        path: ["fieldManifest"],
+      });
+      break;
+    }
+  }
 }
 
 const TemplateDefinitionV2RawSchema = isolatedObjectSchema(
@@ -810,6 +1159,8 @@ const TemplateDefinitionV2RawSchema = isolatedObjectSchema(
       });
     }
     validateVisibleConditions(fields, addIssue, ["fieldManifest"]);
+    validateEditorPathDepth(fields, addIssue);
+    validateDynamicSelectGraph(fields, addIssue);
     fields.forEach((field, fieldIndex) => {
       const item = field.item as Record<string, unknown> | undefined;
       if (item?.kind !== "object" || !Array.isArray(item.fields)) return;

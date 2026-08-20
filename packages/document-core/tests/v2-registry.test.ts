@@ -154,6 +154,104 @@ function createEditorDefinition() {
   };
 }
 
+function createNestedDynamicEditorDefinition() {
+  const definition = createEditorDefinition();
+  const references = {
+    path: "references",
+    section: "seller",
+    label: "引用来源",
+    control: "repeatable" as const,
+    valueKind: "object-list" as const,
+    required: false,
+    minItems: 0,
+    maxItems: 100,
+    item: {
+      kind: "object" as const,
+      idPath: "id",
+      fields: [
+        {
+          path: "label",
+          label: "标签",
+          control: "text" as const,
+          valueKind: "string" as const,
+          required: true,
+        },
+        {
+          path: "kind",
+          label: "类型",
+          control: "select" as const,
+          valueKind: "enum" as const,
+          required: true,
+          options: [
+            { value: "source", label: "来源" },
+            { value: "proof", label: "证明" },
+          ],
+        },
+      ],
+    },
+  };
+  const items = definition.fieldManifest.find((field) => field.path === "items");
+  if (!items || items.control !== "repeatable" || items.item.kind !== "object") {
+    throw new Error("Missing synthetic item manifest");
+  }
+  return {
+    ...definition,
+    fieldManifest: [
+      ...definition.fieldManifest.filter((field) => field.path !== "items"),
+      references,
+      {
+        ...items,
+        item: {
+          ...items.item,
+          fields: [
+            ...items.item.fields,
+            {
+              path: "primaryReferenceId",
+              label: "主引用",
+              control: "select" as const,
+              valueKind: "string" as const,
+              required: false,
+              multiple: false,
+              optionSourcePath: "references",
+              optionValuePath: "id",
+              optionLabelPath: "label",
+            },
+            {
+              path: "sourceRefIds",
+              label: "来源引用",
+              control: "select" as const,
+              valueKind: "string-list" as const,
+              required: true,
+              multiple: true,
+              minItems: 1,
+              maxItems: 100,
+              optionSourcePath: "references",
+              optionValuePath: "id",
+              optionLabelPath: "label",
+              optionFilter: { path: "kind", equals: "source" },
+            },
+            {
+              path: "notes",
+              label: "说明",
+              control: "repeatable" as const,
+              valueKind: "string-list" as const,
+              required: false,
+              minItems: 0,
+              maxItems: 100,
+              item: {
+                kind: "value" as const,
+                label: "说明",
+                control: "textarea" as const,
+                valueKind: "string" as const,
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
 function createEditorRegistration(
   factory:
     | ((
@@ -401,6 +499,164 @@ describe("V2 common schemas", () => {
           item: { kind: "object", fields: [] },
         }),
       ),
+    ).toThrow();
+  });
+
+  it("accepts bounded nested string lists and dynamic single or multiple reference selects", () => {
+    const definition = createNestedDynamicEditorDefinition();
+    expect(() => TemplateDefinitionV2Schema.parse(definition)).not.toThrow();
+    const published = createTemplateRegistry([
+      { ...createEditorRegistration(), definition } as never,
+    ]).get("quotation.service.project.v1", "1.0.0");
+    const items = published.definition.fieldManifest.find((field) => field.path === "items");
+    expect(items).toMatchObject({
+      item: {
+        fields: expect.arrayContaining([
+          expect.objectContaining({
+            path: "primaryReferenceId",
+            control: "select",
+            valueKind: "string",
+            multiple: false,
+            optionSourcePath: "references",
+            optionValuePath: "id",
+            optionLabelPath: "label",
+          }),
+          expect.objectContaining({
+            path: "sourceRefIds",
+            control: "select",
+            valueKind: "string-list",
+            multiple: true,
+            minItems: 1,
+            maxItems: 100,
+            optionFilter: { path: "kind", equals: "source" },
+          }),
+          expect.objectContaining({
+            path: "notes",
+            control: "repeatable",
+            valueKind: "string-list",
+            minItems: 0,
+            maxItems: 100,
+            item: expect.objectContaining({ kind: "value", valueKind: "string" }),
+          }),
+        ]),
+      },
+    });
+    expect(Object.isFrozen((items as { item?: unknown }).item)).toBe(true);
+  });
+
+  it("rejects malformed dynamic select contracts and unsafe source graphs", () => {
+    const definition = createNestedDynamicEditorDefinition();
+    const mutateItemField = (
+      path: string,
+      update: (field: Record<string, unknown>) => unknown,
+    ) => ({
+      ...definition,
+      fieldManifest: definition.fieldManifest.map((field) =>
+        field.path === "items" && field.control === "repeatable" && field.item.kind === "object"
+          ? {
+              ...field,
+              item: {
+                ...field.item,
+                fields: field.item.fields.map((itemField) =>
+                  itemField.path === path
+                    ? update(itemField as unknown as Record<string, unknown>)
+                    : itemField,
+                ),
+              },
+            }
+          : field,
+      ),
+    });
+    const invalids = [
+      mutateItemField("primaryReferenceId", (field) => ({
+        ...field,
+        options: [{ value: "x", label: "x" }],
+      })),
+      mutateItemField("primaryReferenceId", (field) => ({ ...field, minItems: 0, maxItems: 1 })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, multiple: false })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, minItems: 2, maxItems: 1 })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, optionSourcePath: "missing" })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, optionSourcePath: "tags" })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, optionValuePath: "label" })),
+      mutateItemField("sourceRefIds", (field) => ({ ...field, optionLabelPath: "missing" })),
+      mutateItemField("sourceRefIds", (field) => ({
+        ...field,
+        optionFilter: { path: "kind", equals: true },
+      })),
+      mutateItemField("sourceRefIds", (field) => ({
+        ...field,
+        optionSourcePath: "items",
+        optionValuePath: "id",
+        optionLabelPath: "name",
+      })),
+      mutateItemField("notes", (field) => ({ ...field, item: { kind: "object", fields: [] } })),
+    ];
+    for (const invalid of invalids) {
+      expect(() => TemplateDefinitionV2Schema.parse(invalid)).toThrow();
+    }
+
+    const references = definition.fieldManifest.find((field) => field.path === "references");
+    if (!references || references.control !== "repeatable" || references.item.kind !== "object") {
+      throw new Error("Missing references");
+    }
+    const referenceFields = (references.item as { readonly fields: readonly unknown[] }).fields;
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "references"
+            ? {
+                ...references,
+                item: {
+                  ...references.item,
+                  fields: [
+                    ...referenceFields,
+                    {
+                      path: "itemId",
+                      label: "项目",
+                      control: "select",
+                      valueKind: "string",
+                      required: false,
+                      multiple: false,
+                      optionSourcePath: "items",
+                      optionValuePath: "id",
+                      optionLabelPath: "name",
+                    },
+                  ],
+                },
+              }
+            : field,
+        ),
+      }),
+    ).toThrow();
+  });
+
+  it("rejects nested item paths whose combined manifest depth exceeds four", () => {
+    const definition = createNestedDynamicEditorDefinition();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "items"
+            ? {
+                ...field,
+                path: "one.two.three",
+                item: {
+                  ...(field as { item: object }).item,
+                  fields: [
+                    {
+                      path: "four.five",
+                      label: "过深",
+                      control: "text",
+                      valueKind: "string",
+                      required: false,
+                    },
+                  ],
+                },
+              }
+            : field,
+        ),
+      }),
     ).toThrow();
   });
 
