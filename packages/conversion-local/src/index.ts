@@ -1,4 +1,6 @@
 export * from "./client.js";
 export * from "./limits.js";
 export * from "./protocol.js";
+export * from "./text/convertText.js";
+export { sanitizeHtmlFragment, TEXT_CONVERSION_LIMITS } from "./text/semanticDocument.js";
 export * from "./worker.js";

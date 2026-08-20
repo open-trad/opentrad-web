@@ -19,10 +19,18 @@
     "typecheck": "tsc -p tsconfig.json --pretty false"
   },
   "dependencies": {
-    "@opentrad/contracts": "workspace:*"
+    "@opentrad/contracts": "workspace:*",
+    "rehype-parse": "9.0.1",
+    "rehype-sanitize": "6.0.0",
+    "rehype-stringify": "10.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
+    "turndown": "7.2.4",
+    "unified": "11.0.5"
   },
   "devDependencies": {
     "@types/node": "24.3.0",
+    "@types/turndown": "5.0.6",
     "typescript": "5.9.2",
     "vitest": "3.2.6"
   }
