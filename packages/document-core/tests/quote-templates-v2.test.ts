@@ -112,6 +112,19 @@ function setDraftPath(input: Record<string, unknown>, path: string, value: unkno
 }
 
 function editedFieldValue(field: TemplateFieldManifestEntryV1, current: unknown): unknown {
+  if (field.valueKind === "localized-text") {
+    expect(current).not.toBeNull();
+    expect(typeof current).toBe("object");
+    const localized = structuredClone(current) as Record<string, unknown>;
+    expect(typeof localized.zhCN).toBe("string");
+    localized.zhCN = `${localized.zhCN}（已编辑）`;
+    if (typeof localized.enUS === "string") localized.enUS = `${localized.enUS} (edited)`;
+    return localized;
+  }
+  if (field.valueKind === "decimal-string") {
+    expect(typeof current).toBe("string");
+    return (Number(current) + 0.001).toString();
+  }
   switch (field.control) {
     case "text":
     case "textarea":
@@ -119,7 +132,7 @@ function editedFieldValue(field: TemplateFieldManifestEntryV1, current: unknown)
       return `${current as string}（已编辑）`;
     case "date":
       expect(typeof current).toBe("string");
-      return "2026-09-17";
+      return field.path === "meta.issueDate" ? "2026-08-18" : "2026-09-17";
     case "datetime":
       expect(typeof current).toBe("string");
       return "2026-09-17T00:00:00.000Z";
@@ -193,7 +206,7 @@ function verifyFieldManifest(input: {
   expect(fields.length).toBeGreaterThan(5);
   expect(new Set(paths).size).toBe(paths.length);
   expect(paths.some((path) => RESERVED_FIELD_PATHS.has(path))).toBe(false);
-  expect(paths).toEqual(expect.arrayContaining([...input.expectedPaths]));
+  expect([...paths].sort()).toEqual([...input.expectedPaths].sort());
   expect(
     fields
       .filter((field) => field.control === "select")
@@ -206,9 +219,13 @@ function verifyFieldManifest(input: {
     DocumentModelV2Schema.parse(registration.compile(base)).sections.map((section) => section.id),
   );
   for (const field of fields) {
+    expect(field.valueKind, `${input.id}:${field.path}:valueKind`).toBeDefined();
     expect(sections.has(field.section)).toBe(true);
     const current = draftPath(base, field.path);
-    expect(current.exists, `${input.id}:${field.path}`).toBe(true);
+    if (!current.exists) {
+      expect(field.required, `${input.id}:${field.path}:missing optional path`).toBe(false);
+      continue;
+    }
     if (field.required) {
       expect(current.value).not.toBeUndefined();
       if (typeof current.value === "string") expect(current.value.trim().length).toBeGreaterThan(0);
@@ -835,107 +852,270 @@ describe("quotation.proforma.invoice.v1", () => {
 });
 
 describe("versioned quotation field manifests", () => {
+  const COMMON_META_PATHS = [
+    "meta.number",
+    "meta.title",
+    "meta.englishTitle",
+    "meta.issueDate",
+    "meta.validUntil",
+    "meta.taxMode",
+    "meta.quoteNature",
+  ] as const;
+  const PARTY_KEYS = [
+    "legalName",
+    "englishName",
+    "entityType",
+    "registrationId",
+    "taxId",
+    "registeredAddress",
+    "postalAddress",
+    "legalRepresentative",
+    "authorizedRepresentative",
+    "contactName",
+    "phone",
+    "email",
+    "bankAccountName",
+    "bankName",
+    "bankAccount",
+    "swiftCode",
+  ] as const;
+  const BILINGUAL_PARTY_KEYS = [
+    "legalName",
+    "entityType",
+    "registrationId",
+    "registeredAddress",
+    "contactName",
+    "phone",
+    "email",
+  ] as const;
+  const partyPaths = (prefix: string) => PARTY_KEYS.map((key) => `${prefix}.${key}`);
+  const bilingualPartyPaths = (prefix: string) =>
+    BILINGUAL_PARTY_KEYS.map((key) => `${prefix}.${key}`);
+  const entityOptions = ["company", "organization", "individual"] as const;
+  const taxModeOptions = ["tax-excluded", "tax-included", "tax-exempt"] as const;
+  const quoteNatureOptions = ["invitation", "binding-offer"] as const;
+  const transportOptions = ["air", "road", "rail", "sea", "multimodal"] as const;
+  const incotermsOptions = [
+    "EXW",
+    "FCA",
+    "CPT",
+    "CIP",
+    "DAP",
+    "DPU",
+    "DDP",
+    "FAS",
+    "FOB",
+    "CFR",
+    "CIF",
+  ] as const;
   const cases = [
     {
       id: "quotation.service.project.v1",
       fixtureName: "quotation-service-project",
       expectedPaths: [
-        "project.projectName",
-        "project.objective",
-        "project.scope",
+        ...COMMON_META_PATHS,
+        "meta.currency",
+        ...partyPaths("seller"),
+        ...partyPaths("buyer"),
+        ...["projectName", "buyerReference", "objective", "scope", "assumptions", "exclusions"].map(
+          (key) => `project.${key}`,
+        ),
         "serviceLines",
         "milestones",
-        "terms.serviceLocation",
-        "terms.acceptance",
+        ...[
+          "startDate",
+          "duration",
+          "serviceLocation",
+          "customerDependencies",
+          "expensePolicy",
+          "acceptance",
+          "payment",
+          "intellectualProperty",
+          "confidentiality",
+          "changeControl",
+          "notes",
+        ].map((key) => `terms.${key}`),
         "dataHandling.personalDataInvolved",
+        "dataHandling.processingTerms",
       ],
-      expectedSelectOptions: {},
+      expectedSelectOptions: {
+        "meta.currency": ["CNY", "USD", "EUR"],
+        "meta.taxMode": taxModeOptions,
+        "meta.quoteNature": quoteNatureOptions,
+        "seller.entityType": entityOptions,
+        "buyer.entityType": entityOptions,
+      },
+      repeatablePaths: ["serviceLines", "milestones"],
     },
     {
       id: "quotation.oem.custom.v1",
       fixtureName: "quotation-oem-custom",
       expectedPaths: [
-        "project.projectName",
-        "project.productName",
-        "project.drawingVersion",
-        "project.moq",
+        ...COMMON_META_PATHS,
+        "meta.currency",
+        ...partyPaths("seller"),
+        ...partyPaths("buyer"),
+        ...[
+          "projectName",
+          "productName",
+          "customerModel",
+          "drawingVersion",
+          "sampleBasis",
+          "annualForecast",
+          "moq",
+          "prototypeQty",
+          "massProductionQty",
+          "buyerSuppliedMaterials",
+        ].map((key) => `project.${key}`),
         "chargeLines",
-        "terms.toolingRequired",
-        "terms.toolingOwnership",
-        "project.buyerSuppliedMaterials",
-        "terms.materialReceiptAndReturn",
+        ...[
+          "toolingRequired",
+          "toolingOwnership",
+          "sampleApproval",
+          "prototypeLeadTime",
+          "massProductionLeadTime",
+          "qualityStandard",
+          "acceptance",
+          "engineeringChange",
+          "packaging",
+          "delivery",
+          "payment",
+          "warranty",
+          "intellectualProperty",
+          "confidentiality",
+          "materialReceiptAndReturn",
+          "notes",
+        ].map((key) => `terms.${key}`),
       ],
-      expectedSelectOptions: {},
+      expectedSelectOptions: {
+        "meta.currency": ["CNY", "USD", "EUR"],
+        "meta.taxMode": taxModeOptions,
+        "meta.quoteNature": quoteNatureOptions,
+        "seller.entityType": entityOptions,
+        "buyer.entityType": entityOptions,
+      },
+      repeatablePaths: ["chargeLines"],
     },
     {
       id: "quotation.export.bilingual.v1",
       fixtureName: "quotation-export-bilingual",
       expectedPaths: [
+        ...COMMON_META_PATHS,
+        ...bilingualPartyPaths("seller"),
+        ...bilingualPartyPaths("buyer"),
+        "buyerReference",
         "goodsLines",
         "trade.incotermsRule",
-        "trade.namedPlace.zhCN",
-        "trade.namedPlace.enUS",
+        "trade.namedPlace",
         "trade.transportMode",
+        "trade.originCountry",
+        "trade.destinationCountry",
+        "trade.portOfLoading",
+        "trade.portOfDischarge",
+        "trade.shipmentWindow",
         "trade.partialShipment",
         "trade.transshipment",
+        "trade.exportPackaging",
+        "trade.paymentMethod",
+        "trade.bankCharges",
+        "trade.insuranceArrangement",
+        "trade.inspection",
         "trade.documentList",
         "trade.languagePriority",
+        "trade.notes",
       ],
       expectedSelectOptions: {
-        "trade.incotermsRule": [
-          "EXW",
-          "FCA",
-          "CPT",
-          "CIP",
-          "DAP",
-          "DPU",
-          "DDP",
-          "FAS",
-          "FOB",
-          "CFR",
-          "CIF",
-        ],
-        "trade.transportMode": ["air", "road", "rail", "sea", "multimodal"],
+        "meta.taxMode": taxModeOptions,
+        "meta.quoteNature": quoteNatureOptions,
+        "seller.entityType": entityOptions,
+        "buyer.entityType": entityOptions,
+        "trade.incotermsRule": incotermsOptions,
+        "trade.transportMode": transportOptions,
         "trade.languagePriority": ["zh-CN", "en-US"],
       },
+      repeatablePaths: ["goodsLines", "trade.documentList"],
     },
     {
       id: "quotation.proforma.invoice.v1",
       fixtureName: "quotation-proforma-invoice",
       expectedPaths: [
-        "meta.validUntil",
+        ...COMMON_META_PATHS,
+        ...partyPaths("seller"),
+        ...partyPaths("buyer"),
+        ...partyPaths("consignee"),
+        ...partyPaths("notifyParty"),
         "buyerReference",
+        "purchaseOrderReference",
         "goodsLines",
-        "shipment.transportMode",
+        ...["packageCount", "totalNetWeightKg", "totalGrossWeightKg", "totalVolumeCbm"].map(
+          (key) => `shipment.${key}`,
+        ),
         "shipment.incotermsRule",
         "shipment.namedPlace",
+        "shipment.transportMode",
         "shipment.estimatedShippingDate",
         "shipment.paymentTerms",
+        "shipment.originCountry",
+        "shipment.destinationCountry",
+        "shipment.portOfLoading",
+        "shipment.portOfDischarge",
         "shipment.insuranceArrangement",
+        "shipment.bankInstructions",
+        "shipment.languagePriority",
+        "charges.discountMinor",
+        "charges.freightMinor",
+        "charges.insuranceMinor",
         "charges.otherCharges",
       ],
       expectedSelectOptions: {
-        "shipment.transportMode": ["air", "road", "rail", "sea", "multimodal"],
-        "shipment.incotermsRule": [
-          "EXW",
-          "FCA",
-          "CPT",
-          "CIP",
-          "DAP",
-          "DPU",
-          "DDP",
-          "FAS",
-          "FOB",
-          "CFR",
-          "CIF",
-        ],
+        "meta.taxMode": taxModeOptions,
+        "meta.quoteNature": quoteNatureOptions,
+        "seller.entityType": entityOptions,
+        "buyer.entityType": entityOptions,
+        "consignee.entityType": entityOptions,
+        "notifyParty.entityType": entityOptions,
+        "shipment.transportMode": transportOptions,
+        "shipment.incotermsRule": incotermsOptions,
+        "shipment.languagePriority": ["zh-CN", "en-US"],
       },
+      repeatablePaths: ["goodsLines", "charges.otherCharges"],
     },
   ] as const;
 
   for (const fieldCase of cases) {
     it(`${fieldCase.id} publishes honest editable draft paths`, () => {
       verifyFieldManifest(fieldCase);
+    });
+
+    it(`${fieldCase.id} creates every repeatable item through the published parser gate`, () => {
+      const registration = V2_TEMPLATE_REGISTRY.get(fieldCase.id, "1.0.0");
+      const draft = registration.createDraft({
+        id: `${fieldCase.id}-editor-draft`,
+        now: "2026-08-20T00:00:00Z",
+      });
+      for (const [index, path] of fieldCase.repeatablePaths.entries()) {
+        const id = `editor-item-${index}`;
+        const item = registration.createRepeatableItem(path, {
+          id,
+          now: "2026-08-20T00:00:00Z",
+          draft,
+        });
+        expect(Object.isFrozen(item)).toBe(true);
+        const field = registration.definition.fieldManifest.find((entry) => entry.path === path);
+        expect(field?.control).toBe("repeatable");
+        if (
+          field?.control === "repeatable" &&
+          field.valueKind === "object-list" &&
+          field.item.idPath
+        ) {
+          expect(draftPath(item, field.item.idPath)).toEqual({ exists: true, value: id });
+        }
+        const candidate = structuredClone(draft) as Record<string, unknown>;
+        const items = draftPath(candidate, path).value;
+        expect(Array.isArray(items)).toBe(true);
+        (items as unknown[]).push(item);
+        expect(() => registration.parseDraft(candidate)).not.toThrow();
+      }
     });
   }
 });

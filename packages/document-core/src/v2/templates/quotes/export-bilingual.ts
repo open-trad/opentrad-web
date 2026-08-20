@@ -13,6 +13,21 @@ import {
 import type { TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
+  bilingualPartyEditorFields,
+  checkboxEditorField,
+  INCOTERMS_OPTIONS,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  LANGUAGE_PRIORITY_OPTIONS,
+  quoteMetaEditorFields,
+  repeatableEditorField,
+  selectEditorField,
+  TRANSPORT_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   HsCodeUserSuppliedV2Schema,
   IncotermsRuleV2Schema,
   type QuoteMetaV2,
@@ -233,93 +248,196 @@ export const EXPORT_BILINGUAL_QUOTE_DEFINITION = {
   sourceKeys: ["icc-incoterms-2020", "prc-civil-code"],
   disclaimerProfile: "international",
   fieldManifest: [
-    {
+    ...quoteMetaEditorFields({ section: "quote-meta", includeCurrency: false, bilingual: true }),
+    ...bilingualPartyEditorFields({
+      prefix: "seller",
+      section: "bilingual-parties",
+      label: "卖方",
+    }),
+    ...bilingualPartyEditorFields({ prefix: "buyer", section: "bilingual-parties", label: "买方" }),
+    textEditorField({
+      path: "buyerReference",
+      section: "quote-meta",
+      label: "买方参考",
+      required: false,
+      localized: true,
+    }),
+    repeatableEditorField({
       path: "goodsLines",
       section: "goods-table",
       label: "双语货品",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "货品名称", required: true, localized: true }),
+          itemTextField({ path: "sku", label: "SKU", required: false }),
+          itemTextField({ path: "specification", label: "规格", required: false, localized: true }),
+          itemTextField({
+            path: "description",
+            label: "描述",
+            required: false,
+            localized: true,
+            multiline: true,
+          }),
+          itemTextField({ path: "unit", label: "单位", required: true, localized: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemTextField({
+            path: "countryOfOrigin",
+            label: "原产国",
+            required: false,
+            localized: true,
+          }),
+          itemTextField({ path: "hsCodeUserSupplied", label: "HS编码", required: false }),
+          itemNumberField({ path: "netWeightKg", label: "净重kg", required: false }),
+          itemNumberField({ path: "grossWeightKg", label: "毛重kg", required: false }),
+        ],
+      },
+    }),
+    selectEditorField({
       path: "trade.incotermsRule",
       section: "trade-term",
       label: "Incoterms 规则",
-      control: "select",
       required: false,
-      options: [
-        { value: "EXW", label: "EXW" },
-        { value: "FCA", label: "FCA" },
-        { value: "CPT", label: "CPT" },
-        { value: "CIP", label: "CIP" },
-        { value: "DAP", label: "DAP" },
-        { value: "DPU", label: "DPU" },
-        { value: "DDP", label: "DDP" },
-        { value: "FAS", label: "FAS" },
-        { value: "FOB", label: "FOB" },
-        { value: "CFR", label: "CFR" },
-        { value: "CIF", label: "CIF" },
-      ],
-    },
-    {
-      path: "trade.namedPlace.zhCN",
+      options: INCOTERMS_OPTIONS,
+    }),
+    textEditorField({
+      path: "trade.namedPlace",
       section: "trade-term",
-      label: "指定地点（中文）",
-      control: "text",
+      label: "指定地点",
       required: false,
-    },
-    {
-      path: "trade.namedPlace.enUS",
-      section: "trade-term",
-      label: "指定地点（英文）",
-      control: "text",
-      required: false,
-    },
-    {
+      localized: true,
+    }),
+    selectEditorField({
       path: "trade.transportMode",
       section: "transport-shipment",
       label: "运输方式",
-      control: "select",
       required: true,
-      options: [
-        { value: "air", label: "空运" },
-        { value: "road", label: "公路" },
-        { value: "rail", label: "铁路" },
-        { value: "sea", label: "海运" },
-        { value: "multimodal", label: "多式联运" },
-      ],
-    },
-    {
+      options: TRANSPORT_MODE_OPTIONS,
+    }),
+    textEditorField({
+      path: "trade.originCountry",
+      section: "transport-shipment",
+      label: "原产国",
+      required: true,
+      localized: true,
+    }),
+    textEditorField({
+      path: "trade.destinationCountry",
+      section: "transport-shipment",
+      label: "目的国",
+      required: true,
+      localized: true,
+    }),
+    textEditorField({
+      path: "trade.portOfLoading",
+      section: "transport-shipment",
+      label: "装运港",
+      required: false,
+      localized: true,
+    }),
+    textEditorField({
+      path: "trade.portOfDischarge",
+      section: "transport-shipment",
+      label: "卸货港",
+      required: false,
+      localized: true,
+    }),
+    textEditorField({
+      path: "trade.shipmentWindow",
+      section: "transport-shipment",
+      label: "装运期",
+      required: true,
+      localized: true,
+    }),
+    checkboxEditorField({
       path: "trade.partialShipment",
       section: "transport-shipment",
       label: "允许分批装运",
-      control: "checkbox",
       required: true,
-    },
-    {
+    }),
+    checkboxEditorField({
       path: "trade.transshipment",
       section: "transport-shipment",
       label: "允许转运",
-      control: "checkbox",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "trade.exportPackaging",
+      section: "packaging-inspection",
+      label: "出口包装",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "trade.paymentMethod",
+      section: "payment-bank-charges",
+      label: "付款方式",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "trade.bankCharges",
+      section: "payment-bank-charges",
+      label: "银行费用",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "trade.insuranceArrangement",
+      section: "packaging-inspection",
+      label: "保险安排",
+      required: false,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "trade.inspection",
+      section: "packaging-inspection",
+      label: "检验",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    repeatableEditorField({
       path: "trade.documentList",
       section: "document-list",
       label: "单据清单",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        fields: [
+          itemTextField({ path: "zhCN", label: "中文单据", required: true }),
+          itemTextField({ path: "enUS", label: "英文单据", required: true }),
+        ],
+      },
+    }),
+    selectEditorField({
       path: "trade.languagePriority",
       section: "language-priority",
       label: "语言优先",
-      control: "select",
       required: false,
-      options: [
-        { value: "zh-CN", label: "中文优先" },
-        { value: "en-US", label: "英文优先" },
-      ],
-    },
+      options: LANGUAGE_PRIORITY_OPTIONS,
+    }),
+    textEditorField({
+      path: "trade.notes",
+      section: "incoterms-notice",
+      label: "备注",
+      required: false,
+      localized: true,
+      multiline: true,
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -863,11 +981,31 @@ function compileExportDraft(value: unknown): DocumentModelV2 {
   }) as DocumentModelV2;
 }
 
+function createExportRepeatableItem(
+  path: string,
+  input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+): unknown {
+  if (path === "goodsLines") {
+    return {
+      id: input.id,
+      name: bi("待填写", "TBD"),
+      unit: bi("件", "pcs"),
+      quantity: "1",
+      unitPriceMinor: "0",
+      discountBps: 0,
+      taxRateBps: 0,
+    };
+  }
+  if (path === "trade.documentList") return bi("待填写", "TBD");
+  throw new Error("不支持的重复项路径");
+}
+
 export const EXPORT_BILINGUAL_QUOTE_REGISTRATION: TemplateRegistration<unknown, DocumentModelV2> =
   Object.freeze({
     definition: EXPORT_BILINGUAL_QUOTE_DEFINITION,
     parseDraft: parseExportDraft,
     createDraft: createExportDraft,
+    createRepeatableItem: createExportRepeatableItem,
     compile: compileExportDraft,
     preflight(value: unknown) {
       return analyzeExportTradeDraft(parseExportDraft(value));

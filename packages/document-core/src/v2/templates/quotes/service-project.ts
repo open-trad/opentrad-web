@@ -11,6 +11,18 @@ import {
 import type { TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
+  checkboxEditorField,
+  dateEditorField,
+  entityPartyEditorFields,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  quoteMetaEditorFields,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   DateV2Schema,
   PartyV2Schema,
   type QuoteMetaV2,
@@ -192,62 +204,185 @@ export const SERVICE_PROJECT_QUOTE_DEFINITION = {
   sourceKeys: ["samr-contract-library", "prc-civil-code"],
   disclaimerProfile: "quotation",
   fieldManifest: [
-    {
+    ...quoteMetaEditorFields({ section: "quote-meta", includeCurrency: true, bilingual: false }),
+    ...entityPartyEditorFields({ prefix: "seller", section: "parties", label: "报价方" }),
+    ...entityPartyEditorFields({ prefix: "buyer", section: "parties", label: "客户" }),
+    textEditorField({
       path: "project.projectName",
       section: "project-overview",
       label: "项目名称",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "project.buyerReference",
+      section: "project-overview",
+      label: "客户参考号",
+      required: false,
+    }),
+    textEditorField({
       path: "project.objective",
       section: "project-overview",
       label: "项目目标",
-      control: "textarea",
       required: true,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
       path: "project.scope",
       section: "scope",
       label: "服务范围",
-      control: "textarea",
       required: true,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
+      path: "project.assumptions",
+      section: "assumptions",
+      label: "项目假设",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "project.exclusions",
+      section: "exclusions",
+      label: "排除事项",
+      required: false,
+      multiline: true,
+    }),
+    repeatableEditorField({
       path: "serviceLines",
       section: "service-lines",
       label: "服务报价项",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "serviceName", label: "服务名称", required: true }),
+          itemTextField({ path: "englishName", label: "英文名称", required: false }),
+          itemTextField({ path: "deliverable", label: "交付物", required: true, multiline: true }),
+          itemTextField({ path: "unit", label: "单位", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "未税单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemNumberField({ path: "estimatedHours", label: "预计工时", required: false }),
+          itemTextField({ path: "milestoneId", label: "关联里程碑", required: false }),
+        ],
+      },
+    }),
+    repeatableEditorField({
       path: "milestones",
       section: "milestones",
       label: "项目里程碑",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "title", label: "里程碑", required: true }),
+          itemTextField({ path: "deliverable", label: "交付物", required: true, multiline: true }),
+          itemTextField({
+            path: "dueDescription",
+            label: "到期说明",
+            required: true,
+            multiline: true,
+          }),
+          itemTextField({
+            path: "acceptanceCriteria",
+            label: "验收标准",
+            required: true,
+            multiline: true,
+          }),
+          itemPercentField("paymentBps", "付款占比", false),
+        ],
+      },
+    }),
+    dateEditorField("terms.startDate", "delivery-acceptance", "开始日期", false),
+    textEditorField({
+      path: "terms.duration",
+      section: "delivery-acceptance",
+      label: "项目周期",
+      required: false,
+    }),
+    textEditorField({
       path: "terms.serviceLocation",
       section: "delivery-acceptance",
       label: "服务地点",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "terms.customerDependencies",
+      section: "delivery-acceptance",
+      label: "客户依赖",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.expensePolicy",
+      section: "payment-expenses",
+      label: "费用政策",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
       path: "terms.acceptance",
       section: "delivery-acceptance",
       label: "验收安排",
-      control: "textarea",
       required: false,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.payment",
+      section: "payment-expenses",
+      label: "付款安排",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.intellectualProperty",
+      section: "ip-confidentiality",
+      label: "知识产权",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.confidentiality",
+      section: "ip-confidentiality",
+      label: "保密",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.changeControl",
+      section: "scope",
+      label: "变更控制",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.notes",
+      section: "quote-notice",
+      label: "备注",
+      required: false,
+      multiline: true,
+    }),
+    checkboxEditorField({
       path: "dataHandling.personalDataInvolved",
       section: "ip-confidentiality",
       label: "是否涉及个人信息",
-      control: "checkbox",
       required: true,
-    },
+    }),
+    textEditorField({
+      path: "dataHandling.processingTerms",
+      section: "ip-confidentiality",
+      label: "个人信息处理条款",
+      required: false,
+      multiline: true,
+      visibleWhen: { path: "dataHandling.personalDataInvolved", equals: true },
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -806,11 +941,40 @@ function compileServiceDraft(value: unknown): DocumentModelV2 {
   }) as DocumentModelV2;
 }
 
+function createServiceRepeatableItem(
+  path: string,
+  input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+): unknown {
+  if (path === "serviceLines") {
+    return {
+      id: input.id,
+      serviceName: "待填写",
+      deliverable: "待填写",
+      unit: "项",
+      quantity: "1",
+      unitPriceMinor: "0",
+      discountBps: 0,
+      taxRateBps: 0,
+    };
+  }
+  if (path === "milestones") {
+    return {
+      id: input.id,
+      title: "待填写",
+      deliverable: "待填写",
+      dueDescription: "待填写",
+      acceptanceCriteria: "待填写",
+    };
+  }
+  throw new Error("不支持的重复项路径");
+}
+
 export const SERVICE_PROJECT_QUOTE_REGISTRATION: TemplateRegistration<unknown, DocumentModelV2> =
   Object.freeze({
     definition: SERVICE_PROJECT_QUOTE_DEFINITION,
     parseDraft: parseServiceDraft,
     createDraft: createServiceDraft,
+    createRepeatableItem: createServiceRepeatableItem,
     compile: compileServiceDraft,
     preflight(value: unknown) {
       return analyzeServiceDraft(parseServiceDraft(value));

@@ -12,6 +12,23 @@ import {
 import type { TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
+  dateEditorField,
+  entityPartyEditorFields,
+  INCOTERMS_OPTIONS,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  LANGUAGE_PRIORITY_OPTIONS,
+  moneyEditorField,
+  numberEditorField,
+  quoteMetaEditorFields,
+  repeatableEditorField,
+  selectEditorField,
+  TRANSPORT_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   DateV2Schema,
   GoodsLinesV2Schema,
   type GoodsLineV2,
@@ -244,96 +261,180 @@ export const PROFORMA_INVOICE_DEFINITION = {
   sourceKeys: ["trade-gov-proforma", "icc-incoterms-2020"],
   disclaimerProfile: "international",
   fieldManifest: [
-    {
-      path: "meta.validUntil",
-      section: "invoice-meta",
-      label: "有效期至",
-      control: "date",
-      required: true,
-    },
-    {
+    ...quoteMetaEditorFields({ section: "invoice-meta", includeCurrency: false, bilingual: true }),
+    ...entityPartyEditorFields({ prefix: "seller", section: "exporter-importer", label: "出口方" }),
+    ...entityPartyEditorFields({ prefix: "buyer", section: "exporter-importer", label: "进口方" }),
+    ...entityPartyEditorFields({
+      prefix: "consignee",
+      section: "consignee-notify",
+      label: "收货人",
+      optionalParent: true,
+    }),
+    ...entityPartyEditorFields({
+      prefix: "notifyParty",
+      section: "consignee-notify",
+      label: "通知方",
+      optionalParent: true,
+    }),
+    textEditorField({
       path: "buyerReference",
       section: "invoice-meta",
       label: "买方参考号",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "purchaseOrderReference",
+      section: "invoice-meta",
+      label: "采购订单号",
+      required: false,
+    }),
+    repeatableEditorField({
       path: "goodsLines",
       section: "goods-table",
       label: "货品明细",
-      control: "repeatable",
       required: true,
-    },
-    {
-      path: "shipment.transportMode",
-      section: "payment-shipping",
-      label: "运输方式",
-      control: "select",
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "货品名称", required: true }),
+          itemTextField({ path: "englishName", label: "英文名称", required: false }),
+          itemTextField({ path: "sku", label: "SKU", required: false }),
+          itemTextField({ path: "specification", label: "规格", required: false }),
+          itemTextField({ path: "description", label: "描述", required: false, multiline: true }),
+          itemTextField({ path: "unit", label: "单位", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemTextField({ path: "countryOfOrigin", label: "原产国", required: false }),
+          itemTextField({ path: "hsCodeUserSupplied", label: "HS编码", required: false }),
+          itemNumberField({ path: "netWeightKg", label: "净重kg", required: false }),
+          itemNumberField({ path: "grossWeightKg", label: "毛重kg", required: false }),
+          itemNumberField({ path: "lengthCm", label: "长cm", required: false }),
+          itemNumberField({ path: "widthCm", label: "宽cm", required: false }),
+          itemNumberField({ path: "heightCm", label: "高cm", required: false }),
+        ],
+      },
+    }),
+    textEditorField({
+      path: "shipment.packageCount",
+      section: "weights-dimensions",
+      label: "包装件数",
+      required: false,
+    }),
+    numberEditorField({
+      path: "shipment.totalNetWeightKg",
+      section: "weights-dimensions",
+      label: "总净重kg",
       required: true,
-      options: [
-        { value: "air", label: "空运" },
-        { value: "road", label: "公路" },
-        { value: "rail", label: "铁路" },
-        { value: "sea", label: "海运" },
-        { value: "multimodal", label: "多式联运" },
-      ],
-    },
-    {
+    }),
+    numberEditorField({
+      path: "shipment.totalGrossWeightKg",
+      section: "weights-dimensions",
+      label: "总毛重kg",
+      required: true,
+    }),
+    numberEditorField({
+      path: "shipment.totalVolumeCbm",
+      section: "weights-dimensions",
+      label: "总体积m³",
+      required: false,
+    }),
+    selectEditorField({
       path: "shipment.incotermsRule",
       section: "sale-term",
       label: "Incoterms 规则",
-      control: "select",
       required: false,
-      options: [
-        { value: "EXW", label: "EXW" },
-        { value: "FCA", label: "FCA" },
-        { value: "CPT", label: "CPT" },
-        { value: "CIP", label: "CIP" },
-        { value: "DAP", label: "DAP" },
-        { value: "DPU", label: "DPU" },
-        { value: "DDP", label: "DDP" },
-        { value: "FAS", label: "FAS" },
-        { value: "FOB", label: "FOB" },
-        { value: "CFR", label: "CFR" },
-        { value: "CIF", label: "CIF" },
-      ],
-    },
-    {
+      options: INCOTERMS_OPTIONS,
+    }),
+    textEditorField({
       path: "shipment.namedPlace",
       section: "sale-term",
       label: "指定地点",
-      control: "text",
       required: false,
-    },
-    {
-      path: "shipment.estimatedShippingDate",
+    }),
+    selectEditorField({
+      path: "shipment.transportMode",
       section: "payment-shipping",
-      label: "预计装运日期",
-      control: "date",
+      label: "运输方式",
       required: true,
-    },
-    {
+      options: TRANSPORT_MODE_OPTIONS,
+    }),
+    dateEditorField("shipment.estimatedShippingDate", "payment-shipping", "预计装运日期", true),
+    textEditorField({
       path: "shipment.paymentTerms",
       section: "payment-shipping",
       label: "付款条件",
-      control: "textarea",
       required: true,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
+      path: "shipment.originCountry",
+      section: "sale-term",
+      label: "原产国",
+      required: true,
+    }),
+    textEditorField({
+      path: "shipment.destinationCountry",
+      section: "sale-term",
+      label: "目的国",
+      required: true,
+    }),
+    textEditorField({
+      path: "shipment.portOfLoading",
+      section: "payment-shipping",
+      label: "装运港",
+      required: false,
+    }),
+    textEditorField({
+      path: "shipment.portOfDischarge",
+      section: "payment-shipping",
+      label: "卸货港",
+      required: false,
+    }),
+    textEditorField({
       path: "shipment.insuranceArrangement",
       section: "payment-shipping",
       label: "保险安排",
-      control: "textarea",
       required: false,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
+      path: "shipment.bankInstructions",
+      section: "bank-instructions",
+      label: "银行指示",
+      required: false,
+      multiline: true,
+    }),
+    selectEditorField({
+      path: "shipment.languagePriority",
+      section: "payment-shipping",
+      label: "语言优先",
+      required: false,
+      options: LANGUAGE_PRIORITY_OPTIONS,
+    }),
+    moneyEditorField("charges.discountMinor", "charges", "折扣", false),
+    moneyEditorField("charges.freightMinor", "charges", "运费", false),
+    moneyEditorField("charges.insuranceMinor", "charges", "保险费", false),
+    repeatableEditorField({
       path: "charges.otherCharges",
       section: "charges",
       label: "其他费用",
-      control: "repeatable",
       required: false,
-    },
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "label", label: "费用名称", required: true }),
+          itemMoneyField("amountMinor", "金额", true),
+        ],
+      },
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -871,11 +972,33 @@ function compileProformaDraft(value: unknown): DocumentModelV2 {
   }) as DocumentModelV2;
 }
 
+function createProformaRepeatableItem(
+  path: string,
+  input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+): unknown {
+  if (path === "goodsLines") {
+    return {
+      id: input.id,
+      name: "待填写",
+      unit: "pcs",
+      quantity: "1",
+      unitPriceMinor: "0",
+      discountBps: 0,
+      taxRateBps: 0,
+    };
+  }
+  if (path === "charges.otherCharges") {
+    return { id: input.id, label: "待填写", amountMinor: "0" };
+  }
+  throw new Error("不支持的重复项路径");
+}
+
 export const PROFORMA_INVOICE_REGISTRATION: TemplateRegistration<unknown, DocumentModelV2> =
   Object.freeze({
     definition: PROFORMA_INVOICE_DEFINITION,
     parseDraft: parseProformaDraft,
     createDraft: createProformaDraft,
+    createRepeatableItem: createProformaRepeatableItem,
     compile: compileProformaDraft,
     preflight(value: unknown) {
       return analyzeProformaDraft(parseProformaDraft(value));

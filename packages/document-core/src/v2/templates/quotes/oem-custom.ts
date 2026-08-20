@@ -12,6 +12,18 @@ import {
 } from "../../money.js";
 import type { TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
+import {
+  checkboxEditorField,
+  entityPartyEditorFields,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemSelectField,
+  itemTextField,
+  quoteMetaEditorFields,
+  repeatableEditorField,
+  textEditorField,
+} from "../editor-manifest.js";
 import { PartyV2Schema, type QuoteMetaV2, QuoteMetaV2Schema } from "../quote-common.js";
 import {
   finding,
@@ -198,70 +210,215 @@ export const OEM_CUSTOM_QUOTE_DEFINITION = {
   sourceKeys: ["samr-contract-library", "prc-civil-code"],
   disclaimerProfile: "quotation",
   fieldManifest: [
-    {
+    ...quoteMetaEditorFields({ section: "quote-meta", includeCurrency: true, bilingual: false }),
+    ...entityPartyEditorFields({ prefix: "seller", section: "parties", label: "报价方" }),
+    ...entityPartyEditorFields({ prefix: "buyer", section: "parties", label: "客户" }),
+    textEditorField({
       path: "project.projectName",
       section: "oem-basis",
       label: "项目名称",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
       path: "project.productName",
       section: "oem-basis",
       label: "产品名称",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "project.customerModel",
+      section: "oem-basis",
+      label: "客户型号",
+      required: false,
+    }),
+    textEditorField({
       path: "project.drawingVersion",
       section: "technical-basis",
       label: "图纸版本",
-      control: "text",
       required: true,
-    },
-    {
-      path: "project.moq",
+    }),
+    textEditorField({
+      path: "project.sampleBasis",
       section: "technical-basis",
-      label: "最小起订量",
-      control: "text",
-      required: true,
-    },
-    {
-      path: "chargeLines",
-      section: "charge-lines",
-      label: "费用项目",
-      control: "repeatable",
-      required: true,
-    },
-    {
-      path: "terms.toolingRequired",
-      section: "tooling",
-      label: "是否需要模具",
-      control: "checkbox",
-      required: true,
-    },
-    {
-      path: "terms.toolingOwnership",
-      section: "tooling",
-      label: "模具所有权",
-      control: "textarea",
+      label: "样品依据",
       required: false,
-    },
-    {
+      multiline: true,
+    }),
+    textEditorField({
+      path: "project.annualForecast",
+      section: "oem-basis",
+      label: "年度预测",
+      required: false,
+    }),
+    textEditorField({
+      path: "project.moq",
+      section: "oem-basis",
+      label: "最小起订量",
+      required: true,
+    }),
+    textEditorField({
+      path: "project.prototypeQty",
+      section: "sample-and-leadtime",
+      label: "试制数量",
+      required: false,
+    }),
+    textEditorField({
+      path: "project.massProductionQty",
+      section: "sample-and-leadtime",
+      label: "量产数量",
+      required: false,
+    }),
+    checkboxEditorField({
       path: "project.buyerSuppliedMaterials",
       section: "materials",
       label: "是否买方来料",
-      control: "checkbox",
       required: true,
-    },
-    {
+    }),
+    repeatableEditorField({
+      path: "chargeLines",
+      section: "charge-lines",
+      label: "费用项目",
+      required: true,
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemSelectField({
+            path: "chargeType",
+            label: "费用类型",
+            required: true,
+            options: [
+              { value: "unit-product", label: "量产单价" },
+              { value: "tooling", label: "模具" },
+              { value: "nre", label: "NRE" },
+              { value: "sample", label: "样品" },
+              { value: "testing", label: "测试" },
+              { value: "packaging", label: "包装" },
+            ],
+          }),
+          itemTextField({ path: "name", label: "费用名称", required: true }),
+          itemTextField({ path: "specification", label: "规格", required: false }),
+          itemTextField({ path: "unit", label: "单位", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "未税单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemNumberField({ path: "amortizationQuantity", label: "摊销数量", required: false }),
+        ],
+      },
+    }),
+    checkboxEditorField({
+      path: "terms.toolingRequired",
+      section: "tooling",
+      label: "是否需要模具",
+      required: true,
+    }),
+    textEditorField({
+      path: "terms.toolingOwnership",
+      section: "tooling",
+      label: "模具所有权",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.sampleApproval",
+      section: "sample-and-leadtime",
+      label: "样品确认",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.prototypeLeadTime",
+      section: "sample-and-leadtime",
+      label: "试制周期",
+      required: false,
+    }),
+    textEditorField({
+      path: "terms.massProductionLeadTime",
+      section: "sample-and-leadtime",
+      label: "量产周期",
+      required: true,
+    }),
+    textEditorField({
+      path: "terms.qualityStandard",
+      section: "quality-acceptance",
+      label: "质量标准",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.acceptance",
+      section: "quality-acceptance",
+      label: "验收",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.engineeringChange",
+      section: "change-ip-confidentiality",
+      label: "工程变更",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.packaging",
+      section: "delivery-payment-warranty",
+      label: "包装",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.delivery",
+      section: "delivery-payment-warranty",
+      label: "交付",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.payment",
+      section: "delivery-payment-warranty",
+      label: "付款",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.warranty",
+      section: "delivery-payment-warranty",
+      label: "质保",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.intellectualProperty",
+      section: "change-ip-confidentiality",
+      label: "知识产权",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "terms.confidentiality",
+      section: "change-ip-confidentiality",
+      label: "保密",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
       path: "terms.materialReceiptAndReturn",
       section: "materials",
       label: "来料接收与退回",
-      control: "textarea",
       required: false,
+      multiline: true,
       visibleWhen: { path: "project.buyerSuppliedMaterials", equals: true },
-    },
+    }),
+    textEditorField({
+      path: "terms.notes",
+      section: "quote-notice",
+      label: "备注",
+      required: false,
+      multiline: true,
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -691,11 +848,31 @@ function compileOemDraft(value: unknown): DocumentModelV2 {
   }) as DocumentModelV2;
 }
 
+function createOemRepeatableItem(
+  path: string,
+  input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+): unknown {
+  if (path === "chargeLines") {
+    return {
+      id: input.id,
+      chargeType: "unit-product",
+      name: "待填写",
+      unit: "件",
+      quantity: "1",
+      unitPriceMinor: "0",
+      discountBps: 0,
+      taxRateBps: 0,
+    };
+  }
+  throw new Error("不支持的重复项路径");
+}
+
 export const OEM_CUSTOM_QUOTE_REGISTRATION: TemplateRegistration<unknown, DocumentModelV2> =
   Object.freeze({
     definition: OEM_CUSTOM_QUOTE_DEFINITION,
     parseDraft: parseOemDraft,
     createDraft: createOemDraft,
+    createRepeatableItem: createOemRepeatableItem,
     compile: compileOemDraft,
     preflight(value: unknown) {
       return analyzeOemDraft(parseOemDraft(value));
