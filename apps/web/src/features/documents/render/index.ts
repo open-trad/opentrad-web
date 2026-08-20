@@ -20,3 +20,9 @@ export {
   normalizeDocumentModel,
   semanticTextDigest,
 } from "./normalizeModel";
+export { buildPdfDefinitionV2 } from "./pdf/buildPdfDefinitionV2";
+export {
+  PDF_V2_MIME,
+  PdfV2GenerationError,
+  renderPdfV2,
+} from "./pdf/renderPdfV2";
