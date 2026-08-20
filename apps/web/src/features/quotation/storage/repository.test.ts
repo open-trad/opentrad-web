@@ -7,9 +7,15 @@ import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { openDB } from "idb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  ATTACHMENTS_STORE,
+  COMPANY_PROFILES_STORE,
   createQuotationRepository,
   createStorageLifecycleController,
+  DOCUMENTS_V2_STORE,
   DRAFTS_STORE,
+  META_STORE,
+  QUOTATION_DATABASE_ROLLBACK_FLOOR,
+  QUOTATION_DATABASE_VERSION,
   type StorageHealthEvent,
 } from "./repository";
 
@@ -44,10 +50,74 @@ describe("quotation IndexedDB repository", () => {
     expect((await repository.listDrafts()).map((entry) => entry.id)).toEqual(["draft-current"]);
     repository.close();
 
-    const database = await openDB("restore-current", 1);
-    expect(Array.from(database.objectStoreNames)).toEqual(["companyProfiles", "drafts", "meta"]);
+    const database = await openDB("restore-current", QUOTATION_DATABASE_VERSION);
+    expect(Array.from(database.objectStoreNames)).toEqual([
+      "attachments",
+      "companyProfiles",
+      "documentsV2",
+      "drafts",
+      "meta",
+    ]);
     expect(database.transaction("drafts").store.indexNames.contains("by-saved-at")).toBe(true);
+    const documentIndexes = database.transaction("documentsV2").store.indexNames;
+    expect(Array.from(documentIndexes)).toEqual(["by-saved-at", "by-template-id"]);
+    expect(database.transaction("attachments").store.indexNames.contains("by-document-key")).toBe(
+      true,
+    );
     database.close();
+  });
+
+  it("upgrades v1 additively without changing legacy data, indexes, or current pointer", async () => {
+    const databaseName = "additive-v1-migration";
+    const input = draft("legacy-current");
+    const legacy = await openDB(databaseName, 1, {
+      upgrade(database) {
+        const profiles = database.createObjectStore(COMPANY_PROFILES_STORE, { keyPath: "id" });
+        profiles.createIndex("by-updated-at", "updatedAt");
+        const drafts = database.createObjectStore(DRAFTS_STORE, { keyPath: "id" });
+        drafts.createIndex("by-saved-at", "savedAt");
+        database.createObjectStore(META_STORE, { keyPath: "key" });
+      },
+    });
+    await legacy.put(DRAFTS_STORE, {
+      id: input.id,
+      draft: input,
+      revision: 7,
+      savedAt: "2026-08-19T10:01:00.000Z",
+    });
+    await legacy.put(META_STORE, { key: "current-draft-id", value: input.id });
+    legacy.close();
+
+    const repository = createQuotationRepository({ databaseName });
+    expect(await repository.getCurrentDraft()).toEqual(input);
+    repository.close();
+
+    const upgraded = await openDB(databaseName, QUOTATION_DATABASE_VERSION);
+    expect(upgraded.version).toBe(2);
+    expect(Array.from(upgraded.objectStoreNames)).toEqual([
+      ATTACHMENTS_STORE,
+      COMPANY_PROFILES_STORE,
+      DOCUMENTS_V2_STORE,
+      DRAFTS_STORE,
+      META_STORE,
+    ]);
+    expect(upgraded.transaction(DRAFTS_STORE).store.indexNames.contains("by-saved-at")).toBe(true);
+    expect(await upgraded.get(DRAFTS_STORE, input.id)).toMatchObject({ revision: 7 });
+    expect(await upgraded.get(META_STORE, "current-draft-id")).toEqual({
+      key: "current-draft-id",
+      value: input.id,
+    });
+    upgraded.close();
+  });
+
+  it("documents the v2 rollback floor because an opened database rejects a v1 client", async () => {
+    const databaseName = "rollback-floor";
+    const repository = createQuotationRepository({ databaseName });
+    await repository.listDrafts();
+    repository.close();
+
+    expect(QUOTATION_DATABASE_ROLLBACK_FLOOR).toBe(2);
+    await expect(openDB(databaseName, 1)).rejects.toMatchObject({ name: "VersionError" });
   });
 
   it("returns isolated validated values and rejects a corrupted persisted draft", async () => {
@@ -68,7 +138,7 @@ describe("quotation IndexedDB repository", () => {
     expect((await repository.getDraft(input.id))?.seller.name).toBe("宁波远航贸易有限公司");
     repository.close();
 
-    const database = await openDB(databaseName, 1);
+    const database = await openDB(databaseName, QUOTATION_DATABASE_VERSION);
     await database.put(DRAFTS_STORE, {
       id: "draft-corrupt",
       draft: { id: "draft-corrupt", seller: { name: "损坏内容" } },
@@ -123,6 +193,11 @@ describe("quotation IndexedDB repository", () => {
     expect(await repository.listCompanyProfiles()).toEqual([]);
     expect(await repository.getCurrentDraft()).toBeNull();
     repository.close();
+
+    const raw = await openDB("delete-and-clear", QUOTATION_DATABASE_VERSION);
+    expect(await raw.count(DOCUMENTS_V2_STORE)).toBe(0);
+    expect(await raw.count(ATTACHMENTS_STORE)).toBe(0);
+    raw.close();
   });
 
   it("increments persistent revisions and lists newest committed drafts first", async () => {
@@ -186,7 +261,7 @@ describe("quotation IndexedDB repository", () => {
     });
     initial.close();
 
-    const raw = await openDB(databaseName, 1);
+    const raw = await openDB(databaseName, QUOTATION_DATABASE_VERSION);
     await raw.delete(DRAFTS_STORE, input.id);
     raw.close();
 

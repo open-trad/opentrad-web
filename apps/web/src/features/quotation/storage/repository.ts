@@ -8,10 +8,14 @@ import { type DBSchema, type IDBPDatabase, openDB } from "idb";
 import { LocalDataError, normalizeLocalDataError } from "./errors";
 
 export const QUOTATION_DATABASE_NAME = "opentrad-local";
-export const QUOTATION_DATABASE_VERSION = 1;
+export const QUOTATION_DATABASE_VERSION = 2;
+// Opening v2 is an IndexedDB rollback floor: a v1 client receives VersionError.
+export const QUOTATION_DATABASE_ROLLBACK_FLOOR = 2;
 export const COMPANY_PROFILES_STORE = "companyProfiles";
 export const DRAFTS_STORE = "drafts";
 export const META_STORE = "meta";
+export const DOCUMENTS_V2_STORE = "documentsV2";
+export const ATTACHMENTS_STORE = "attachments";
 const CURRENT_DRAFT_KEY = "current-draft-id";
 
 export interface CompanyProfile {
@@ -47,6 +51,16 @@ interface QuotationDatabase extends DBSchema {
   meta: {
     key: string;
     value: MetaRecord;
+  };
+  documentsV2: {
+    key: string;
+    value: { key: string; templateId: string; savedAt: string };
+    indexes: { "by-saved-at": string; "by-template-id": string };
+  };
+  attachments: {
+    key: string;
+    value: { localBlobKey: string; documentKey: string };
+    indexes: { "by-document-key": string };
   };
 }
 
@@ -155,17 +169,22 @@ function parseStoredDraft(value: unknown): StoredDraft {
   };
 }
 
-function upgradeDatabase(database: IDBPDatabase<QuotationDatabase>): void {
-  if (!database.objectStoreNames.contains(COMPANY_PROFILES_STORE)) {
+function upgradeDatabase(database: IDBPDatabase<QuotationDatabase>, oldVersion: number): void {
+  if (oldVersion < 1) {
     const profiles = database.createObjectStore(COMPANY_PROFILES_STORE, { keyPath: "id" });
     profiles.createIndex("by-updated-at", "updatedAt");
-  }
-  if (!database.objectStoreNames.contains(DRAFTS_STORE)) {
     const drafts = database.createObjectStore(DRAFTS_STORE, { keyPath: "id" });
     drafts.createIndex("by-saved-at", "savedAt");
-  }
-  if (!database.objectStoreNames.contains(META_STORE)) {
     database.createObjectStore(META_STORE, { keyPath: "key" });
+  }
+  if (oldVersion < 2) {
+    const documents = database.createObjectStore(DOCUMENTS_V2_STORE, { keyPath: "key" });
+    documents.createIndex("by-saved-at", "savedAt");
+    documents.createIndex("by-template-id", "templateId");
+    const attachments = database.createObjectStore(ATTACHMENTS_STORE, {
+      keyPath: "localBlobKey",
+    });
+    attachments.createIndex("by-document-key", "documentKey");
   }
 }
 
@@ -334,13 +353,15 @@ export function createQuotationRepository(
     async clearAllLocalData() {
       await run(async (opened) => {
         const transaction = opened.transaction(
-          [COMPANY_PROFILES_STORE, DRAFTS_STORE, META_STORE],
+          [COMPANY_PROFILES_STORE, DRAFTS_STORE, META_STORE, DOCUMENTS_V2_STORE, ATTACHMENTS_STORE],
           "readwrite",
         );
         await Promise.all([
           transaction.objectStore(COMPANY_PROFILES_STORE).clear(),
           transaction.objectStore(DRAFTS_STORE).clear(),
           transaction.objectStore(META_STORE).clear(),
+          transaction.objectStore(DOCUMENTS_V2_STORE).clear(),
+          transaction.objectStore(ATTACHMENTS_STORE).clear(),
           transaction.done,
         ]);
       });
