@@ -1060,7 +1060,13 @@ export function SchemaForm({
     for (const [key, entry] of entries) {
       if (isGuaranteePath(entry.path)) entries.delete(key);
     }
-    evaluateCandidate(entries, { path: GUARANTEE_ROOT_PATH, value: nextGuarantee });
+    const patches = new Map(pendingPatchesRef.current);
+    for (const path of patches.keys()) {
+      if (isGuaranteePath(path)) patches.delete(path);
+    }
+    patches.set(GUARANTEE_ROOT_PATH, nextGuarantee);
+    syncPendingPatches(patches);
+    evaluateCandidate(entries);
   };
 
   const clearStagedGuarantee = (): void => {

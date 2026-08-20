@@ -477,6 +477,79 @@ describe("manifest-driven schema form", () => {
     expect(screen.queryByRole("button", { name: "放弃暂存保证要求" })).not.toBeInTheDocument();
   });
 
+  it("discards descendant guarantee patches back to the exact baseline while other raw input is pending", async () => {
+    const user = userEvent.setup();
+    const templateId = "bid.government.goods.v1";
+    const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
+    const baselineGuarantee = {
+      required: true,
+      allowedMethods: ["原银行保函"],
+      amountMinor: "50000",
+      sourceRefIds: ["solicitation-source"],
+    };
+    let draft = registration.createDraft({
+      id: "guarantee-descendant",
+      now: "2026-08-20T00:00:00Z",
+    });
+    draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(
+          setDraftField(draft, "attachments", [
+            {
+              id: "solicitation-main",
+              category: "other",
+              displayName: "招标文件.pdf",
+              mediaType: "application/pdf",
+              pageCount: 8,
+              required: true,
+              status: "attached",
+              includedInSubmission: false,
+            },
+          ]),
+          "evidenceRefs",
+          [
+            {
+              id: "solicitation-source",
+              kind: "solicitation",
+              attachmentId: "solicitation-main",
+              page: 1,
+              sourceRef: "保证要求章节",
+            },
+          ],
+        ),
+        "source.guaranteeRequirement",
+        baselineGuarantee,
+      ),
+    );
+    const onDraftChange = vi.fn();
+    render(<Harness templateId={templateId} initialDraft={draft} onDraftChange={onDraftChange} />);
+
+    const unrelated = screen.getByRole("textbox", { name: /明细合计.*必填/u });
+    fireEvent.change(unrelated, { target: { value: "not-money" } });
+    const required = screen.getByRole("checkbox", { name: /要求投标保证/u });
+    await user.click(required);
+    await user.click(required);
+    await user.click(screen.getByRole("button", { name: "添加保证方式" }));
+    await user.type(screen.getByRole("textbox", { name: "新增保证方式" }), "新保证方式");
+    await user.click(screen.getByRole("button", { name: "确认添加保证方式" }));
+    await user.click(
+      within(screen.getByRole("region", { name: "保证方式" })).getByRole("button", {
+        name: "删除",
+      }),
+    );
+    expect(onDraftChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "放弃暂存保证要求" }));
+    fireEvent.change(unrelated, { target: { value: "100" } });
+
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    const committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "source.guaranteeRequirement")).toEqual(baselineGuarantee);
+    expect(getDraftField(committed, "priceDeclaration.itemizedTotalMinor")).toBe("10000");
+    expect(screen.queryByRole("button", { name: "定位第一个错误" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "放弃暂存保证要求" })).not.toBeInTheDocument();
+  });
+
   it("exposes a safe add state for all 116 manifest repeatables from createDraft", () => {
     let total = 0;
     let fixed = 0;
