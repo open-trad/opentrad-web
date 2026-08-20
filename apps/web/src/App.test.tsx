@@ -1,3 +1,4 @@
+import { v2 } from "@opentrad/document-core";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
@@ -61,20 +62,22 @@ describe("模板中心", () => {
     const user = userEvent.setup();
     renderAt("/templates");
 
-    expect(screen.getByText("专业的商贸单证模板，支持分类浏览与开放状态说明")).toBeVisible();
-    expect(screen.getAllByRole("link", { name: /使用模板|查看说明/ })).toHaveLength(8);
-    expect(screen.getAllByRole("link", { name: /使用模板/ })).toHaveLength(1);
-    expect(screen.getAllByRole("link", { name: /查看说明/ })).toHaveLength(7);
+    expect(
+      screen.getByText("15 份本地模板，覆盖报价、合同与标书，可按分类和语言快速筛选"),
+    ).toBeVisible();
+    expect(screen.getAllByRole("link", { name: /使用模板/ })).toHaveLength(15);
+    expect(screen.getAllByRole("link", { name: /查看详情/ })).toHaveLength(15);
     await user.click(screen.getByRole("button", { name: /报价单/ }));
     expect(new URLSearchParams(window.location.search).get("category")).toBe("报价单");
-    expect(screen.getAllByRole("link", { name: /使用模板|查看说明/ })).toHaveLength(2);
-    expect(screen.getByText("通用报价单")).toBeVisible();
-    expect(screen.queryByText("技术标书模板")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /使用模板/ })).toHaveLength(5);
+    expect(screen.getAllByRole("link", { name: /查看详情/ })).toHaveLength(5);
+    expect(screen.getByText("标准货物报价单")).toBeVisible();
+    expect(screen.queryByText("政府采购货物投标文件")).not.toBeInTheDocument();
 
     await user.clear(screen.getByRole("searchbox", { name: "搜索模板" }));
-    await user.type(screen.getByRole("searchbox", { name: "搜索模板" }), "跨境");
-    expect(screen.getAllByRole("link", { name: /使用模板|查看说明/ })).toHaveLength(1);
-    expect(screen.getByText("跨境商品报价单")).toBeVisible();
+    await user.type(screen.getByRole("searchbox", { name: "搜索模板" }), "项目服务");
+    expect(screen.getAllByRole("link", { name: /使用模板/ })).toHaveLength(1);
+    expect(screen.getByText("项目服务报价单")).toBeVisible();
   });
 
   test("首页合同入口按 URL 筛选并进入真实模板说明", async () => {
@@ -85,15 +88,15 @@ describe("模板中心", () => {
     await user.click(within(coreTools).getByRole("link", { name: /合同/ }));
     expect(window.location.pathname).toBe("/templates");
     expect(new URLSearchParams(window.location.search).get("category")).toBe("合同");
-    expect(screen.getAllByRole("link", { name: /查看说明/ })).toHaveLength(2);
-    expect(screen.getByText("国际销售合同")).toBeVisible();
-    expect(screen.getByText("服务合同模板")).toBeVisible();
+    expect(screen.getAllByRole("link", { name: /查看详情/ })).toHaveLength(5);
+    expect(screen.getByText("国内货物销售合同")).toBeVisible();
+    expect(screen.getByText("商务服务合同")).toBeVisible();
 
-    await user.click(screen.getByRole("link", { name: "查看说明：国际销售合同" }));
-    expect(window.location.pathname).toBe("/templates/sales-contract");
-    expect(screen.getByRole("heading", { name: "国际销售合同" })).toBeVisible();
-    expect(screen.getByText("面向国际货物销售的标准条款结构。")).toBeVisible();
-    expect(screen.getByText(/第二阶段开放编辑/)).toBeVisible();
+    await user.click(screen.getByRole("link", { name: "查看详情：商务服务合同" }));
+    expect(window.location.pathname).toBe("/templates/contract.service.commercial.v1");
+    expect(screen.getByRole("heading", { name: "商务服务合同" })).toBeVisible();
+    expect(screen.getByText(/覆盖交付物、委托安排、数据、代理权限和任意解除/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "风险提示" })).toBeVisible();
     expect(screen.getByRole("link", { name: "返回合同模板" })).toBeVisible();
   });
 
@@ -101,7 +104,7 @@ describe("模板中心", () => {
     const user = userEvent.setup();
     renderAt("/templates?category=报价单");
 
-    await user.click(screen.getByRole("link", { name: "使用模板：通用报价单" }));
+    await user.click(screen.getByRole("link", { name: "使用模板：标准货物报价单" }));
     expect(window.location.pathname).toBe("/editor/standard-goods-quote");
     expect(await screen.findByRole("heading", { name: "标准商品报价单" })).toBeVisible();
   });
@@ -110,7 +113,7 @@ describe("模板中心", () => {
     renderAt("/templates/not-a-template");
 
     expect(screen.getByRole("heading", { name: "模板不存在" })).toBeVisible();
-    expect(screen.getByText(/未找到对应的模板说明/)).toBeVisible();
+    expect(screen.getByText(/未找到编号为 not-a-template 的模板/)).toBeVisible();
     expect(screen.getByRole("link", { name: "返回模板中心" })).toBeVisible();
   });
 });
@@ -192,6 +195,27 @@ describe("报价单编辑器", () => {
     expect(next).toBeEnabled();
     await user.click(next);
     expect(await screen.findByRole("heading", { name: "客户信息" })).toBeVisible();
+  });
+});
+
+describe("V2 通用编辑器路由", () => {
+  test.each(v2.TEMPLATE_IDS_V2)("%s 直达对应的 1.0.0 编辑器", async (templateId) => {
+    renderAt(`/editor/${templateId}`);
+    const definition = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0").definition;
+
+    expect((await screen.findAllByRole("heading", { name: definition.name }))[0]).toBeVisible();
+    expect(screen.getByText(`${templateId} · 1.0.0`)).toBeVisible();
+  });
+
+  test("未知 V2 模板不会回退到 V1 报价单", () => {
+    renderAt("/editor/not-a-template");
+
+    expect(screen.getByRole("heading", { name: "模板版本不存在" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "标准商品报价单" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回模板中心" })).toHaveAttribute(
+      "href",
+      "/templates",
+    );
   });
 });
 
