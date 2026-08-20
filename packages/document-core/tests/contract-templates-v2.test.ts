@@ -1,0 +1,151 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it, vi } from "vitest";
+import { DocumentModelV2Schema, RiskFindingV2Schema } from "../src/v2/index.js";
+import { V2_TEMPLATE_REGISTRY } from "../src/v2/templates/index.js";
+
+const DOMESTIC_SECTIONS = [
+  "cover",
+  "meta",
+  "parties",
+  "subject-goods",
+  "price-tax-invoice",
+  "payment",
+  "delivery-packaging",
+  "title-risk",
+  "inspection-acceptance",
+  "quality-warranty",
+  "parties-obligations",
+  "breach-termination",
+  "force-majeure",
+  "notices",
+  "governing-law-dispute",
+  "miscellaneous",
+  "attachments",
+  "signatures",
+] as const;
+
+function fixture(name: string): unknown {
+  return JSON.parse(
+    readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
+  ) as unknown;
+}
+
+describe("contract.sale.domestic-b2b.v1", () => {
+  it("registers the exact definition and compiles exact money into stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.domestic-b2b.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("contract-domestic-sale"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+
+    expect(registration.definition).toMatchObject({
+      id: "contract.sale.domestic-b2b.v1",
+      version: "1.0.0",
+      category: "contract",
+      basisDate: "2026-08-19",
+      languages: ["zh-CN"],
+      defaultLanguage: "zh-CN",
+      allowedLayouts: ["classic-formal.v1"],
+      defaultLayout: "classic-formal.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+      sourceKeys: ["prc-civil-code", "samr-contract-library"],
+      disclaimerProfile: "contract",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(DOMESTIC_SECTIONS);
+    expect(model.disclaimers).toEqual(["contract-generation-note"]);
+    expect(JSON.stringify(model)).toContain("CNY 200.00");
+    const titleRisk = model.sections.find((section) => section.id === "title-risk");
+    expect(titleRisk?.blocks).toHaveLength(2);
+    expect(JSON.stringify(titleRisk)).toContain("所有权转移");
+    expect(JSON.stringify(titleRisk)).toContain("风险转移");
+    expect(JSON.stringify(model)).toContain("留存比例属于付款进度分配，不从合同总价重复扣减");
+    expect(JSON.stringify(model)).not.toMatch(/官方示范|已审核合规|自动适用税率/);
+    expect(Object.isFrozen(model)).toBe(true);
+  });
+
+  it("reparses every public operation and blocks missing business choices without rejecting drafts", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.domestic-b2b.v1", "1.0.0");
+    const created = registration.createDraft({
+      id: "domestic-created",
+      now: "2028-02-29T23:30:00.000-08:00",
+    }) as Record<string, unknown>;
+    const price = created.price as Record<string, unknown>;
+    expect((created.meta as Record<string, unknown>).signingDate).toBe("2028-03-01");
+    expect(price.currency).toBeUndefined();
+    expect(price.taxMode).toBeUndefined();
+    expect(price.invoiceType).toBeUndefined();
+    const findings = registration.preflight(created);
+    expect(findings.map((finding) => [finding.code, finding.impact])).toEqual(
+      expect.arrayContaining([
+        ["CONTRACT_CURRENCY_MISSING", "blockSubmission"],
+        ["CONTRACT_TAX_MODE_MISSING", "blockSubmission"],
+        ["DOMESTIC_INVOICE_TYPE_MISSING", "blockSubmission"],
+        ["DOMESTIC_INVOICE_TIMING_MISSING", "blockSubmission"],
+        ["DOMESTIC_RISK_TRANSFER_MISSING", "blockSubmission"],
+        ["DOMESTIC_INSPECTION_PERIOD_MISSING", "blockSubmission"],
+        ["DOMESTIC_OBJECTION_METHOD_MISSING", "blockSubmission"],
+      ]),
+    );
+    expect(findings.map((finding) => RiskFindingV2Schema.parse(finding))).toEqual(findings);
+    expect(DocumentModelV2Schema.parse(registration.compile(created)).watermarks).toHaveLength(1);
+    expect(() => registration.compile({ ...created, unknown: true })).toThrow();
+    expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
+  });
+
+  it("validates signer and attachment references, unique ids and exact payment schedule", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.domestic-b2b.v1", "1.0.0");
+    const base = fixture("contract-domestic-sale") as Record<string, unknown>;
+    const signers = base.signers as Array<Record<string, unknown>>;
+    const attachments = base.attachments as Array<Record<string, unknown>>;
+    const price = base.price as Record<string, unknown>;
+    const schedule = price.paymentSchedule as Array<Record<string, unknown>>;
+    expect(() =>
+      registration.parseDraft({ ...base, signers: [{ ...signers[0], partyId: "supplier" }] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({ ...base, attachments: [attachments[0], attachments[0]] }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        price: {
+          ...price,
+          paymentSchedule: [{ ...schedule[0], amountBps: 9999 }],
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        goodsLines: [
+          ...(base.goodsLines as unknown[]),
+          { ...(base.goodsLines as Array<Record<string, unknown>>)[0] },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("fails closed for unknown, accessors, sparse arrays, prototypes, revoked proxies and budgets", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.sale.domestic-b2b.v1", "1.0.0");
+    const base = fixture("contract-domestic-sale") as Record<string, unknown>;
+    expect(() => registration.parseDraft({ ...base, unknown: true })).toThrow();
+    const getter = vi.fn(() => "不应执行");
+    const accessor = { ...base };
+    Object.defineProperty(accessor, "price", { enumerable: true, get: getter });
+    expect(() => registration.parseDraft(accessor)).toThrow();
+    expect(getter).not.toHaveBeenCalled();
+    expect(() => registration.parseDraft({ ...base, goodsLines: new Array(1) })).toThrow();
+    expect(() =>
+      registration.parseDraft(Object.assign(Object.create({ inherited: true }), base)),
+    ).toThrow();
+    const { proxy, revoke } = Proxy.revocable(base, {});
+    revoke();
+    expect(() => registration.parseDraft(proxy)).toThrow();
+    const acceptance = base.acceptance as Record<string, unknown>;
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        acceptance: { ...acceptance, warranty: "保".repeat(20_001) },
+      }),
+    ).toThrow();
+  });
+});

@@ -1,0 +1,120 @@
+{
+  "id": "domestic-sale-gold",
+  "templateId": "contract.sale.domestic-b2b.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "contractNumber": "XS-2026-001",
+    "title": "国内货物销售合同",
+    "signingDate": "2026-08-19",
+    "signingPlace": "上海",
+    "effectiveMode": "signature",
+    "copies": 2,
+    "language": "zh-CN",
+    "layoutStyleId": "classic-formal.v1"
+  },
+  "seller": {
+    "legalName": "上海示例制造有限公司",
+    "entityType": "company",
+    "registrationId": "91310000EXAMPLE01",
+    "registeredAddress": "上海市浦东新区示例路1号",
+    "contactName": "张经理",
+    "phone": "021-00000001"
+  },
+  "buyer": {
+    "legalName": "苏州示例采购有限公司",
+    "entityType": "company",
+    "registrationId": "91320500EXAMPLE02",
+    "registeredAddress": "苏州市工业园区示例路2号",
+    "contactName": "李经理",
+    "phone": "0512-00000002"
+  },
+  "goodsLines": [
+    {
+      "id": "goods-1",
+      "name": "工业控制器",
+      "sku": "CTRL-01",
+      "specification": "V2",
+      "unit": "台",
+      "quantity": "2",
+      "unitPriceMinor": "10000",
+      "discountBps": 0,
+      "taxRateBps": 1300,
+      "brand": "示例牌",
+      "manufacturer": "上海示例制造有限公司",
+      "qualityStandard": "双方确认的技术规格书"
+    }
+  ],
+  "price": {
+    "currency": "CNY",
+    "taxMode": "tax-included",
+    "invoiceType": "vat-special",
+    "invoiceTiming": "收到首付款后五个工作日内开具",
+    "paymentSchedule": [
+      { "id": "deposit", "trigger": "合同生效", "amountBps": 3000, "dueDays": 5 },
+      { "id": "delivery", "trigger": "到货验收", "amountBps": 6000, "dueDays": 10 },
+      { "id": "retention", "trigger": "质保期届满", "amountBps": 1000, "dueDays": 10 }
+    ],
+    "retentionBps": 1000
+  },
+  "delivery": {
+    "method": "seller-delivery",
+    "time": "2026-09-30前",
+    "place": "买方注册地仓库",
+    "packaging": "适合公路运输的防潮包装",
+    "freightAllocation": "卖方承担",
+    "insuranceAllocation": "卖方自行决定并承担费用",
+    "titleTransfer": "买方付清全部价款时所有权转移",
+    "riskTransfer": "货物在交付地点由买方签收时风险转移",
+    "documents": ["送货单", "合格证"]
+  },
+  "acceptance": {
+    "inspectionStandard": "合同与技术规格书",
+    "inspectionMethod": "数量清点与通电抽检",
+    "inspectionPeriod": "到货后五个工作日",
+    "objectionMethod": "在检验期内书面列明不符合项并附证据",
+    "warranty": "验收合格后十二个月",
+    "afterSales": "收到故障通知后两个工作日内响应"
+  },
+  "generalTerms": {
+    "noticeAddresses": "以本合同所列地址送达",
+    "confidentiality": "双方对履约中知悉的商业秘密保密",
+    "forceMajeure": "受影响方及时通知并提供合理证明",
+    "changeControl": "变更须由双方书面确认",
+    "termination": "按合同约定解除并完成结算",
+    "breachRemedies": "违约方赔偿守约方实际损失",
+    "governingLaw": "中华人民共和国法律",
+    "disputeMethod": "arbitration",
+    "arbitrationCommission": "上海仲裁委员会",
+    "severability": "部分条款无效不影响其他条款",
+    "entireAgreement": "正文与附件构成双方完整约定"
+  },
+  "signers": [
+    {
+      "partyId": "seller",
+      "role": { "zhCN": "卖方" },
+      "signatoryName": "张经理",
+      "dateLabel": { "zhCN": "签署日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    },
+    {
+      "partyId": "buyer",
+      "role": { "zhCN": "买方" },
+      "signatoryName": "李经理",
+      "dateLabel": { "zhCN": "签署日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "technical-spec",
+      "category": "technical",
+      "displayName": "技术规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 3,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

@@ -1,10 +1,12 @@
 import { createTemplateRegistry } from "../registry.js";
+import { DOMESTIC_SALE_CONTRACT_REGISTRATION } from "./contracts/domestic-sale.js";
 import { EXPORT_BILINGUAL_QUOTE_REGISTRATION } from "./quotes/export-bilingual.js";
 import { OEM_CUSTOM_QUOTE_REGISTRATION } from "./quotes/oem-custom.js";
 import { PROFORMA_INVOICE_REGISTRATION } from "./quotes/proforma-invoice.js";
 import { SERVICE_PROJECT_QUOTE_REGISTRATION } from "./quotes/service-project.js";
 
 export * from "./quote-common.js";
+export * from "./contracts/domestic-sale.js";
 export * from "./quotes/export-bilingual.js";
 export * from "./quotes/oem-custom.js";
 export * from "./quotes/proforma-invoice.js";
@@ -16,4 +18,5 @@ export const V2_TEMPLATE_REGISTRY = createTemplateRegistry([
   OEM_CUSTOM_QUOTE_REGISTRATION,
   EXPORT_BILINGUAL_QUOTE_REGISTRATION,
   PROFORMA_INVOICE_REGISTRATION,
+  DOMESTIC_SALE_CONTRACT_REGISTRATION,
 ]);
