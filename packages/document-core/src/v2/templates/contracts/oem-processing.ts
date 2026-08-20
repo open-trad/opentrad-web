@@ -22,6 +22,22 @@ import {
   type PaymentScheduleV1,
   PaymentScheduleV1Schema,
 } from "../contract-common.js";
+import {
+  attachmentEditorField,
+  CURRENCY_OPTIONS,
+  contractGeneralTermsEditorFields,
+  contractMetaEditorFields,
+  contractSignersEditorField,
+  entityPartyEditorFields,
+  itemSelectField,
+  itemTextField,
+  paymentScheduleEditorField,
+  repeatableEditorField,
+  selectEditorField,
+  standardGoodsLinesEditorField,
+  TAX_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
 import { GoodsLinesV2Schema, type GoodsLineV2 } from "../quote-common.js";
 import {
   ContractAttachmentRefsSchema,
@@ -227,42 +243,189 @@ export const OEM_PROCESSING_CONTRACT_DEFINITION = {
   sourceKeys: ["prc-civil-code", "samr-entrustment-2025"],
   disclaimerProfile: "contract",
   fieldManifest: [
-    {
+    ...contractMetaEditorFields({ section: "meta" }),
+    ...entityPartyEditorFields({ prefix: "principal", section: "parties", label: "委托方" }),
+    ...entityPartyEditorFields({ prefix: "processor", section: "parties", label: "加工方" }),
+    standardGoodsLinesEditorField({
+      path: "products",
+      section: "commissioned-products",
+      label: "委托产品",
+    }),
+    textEditorField({
       path: "technical.packageVersion",
       section: "technical-documents",
       label: "技术包版本",
-      control: "text",
       required: true,
-    },
-    {
+    }),
+    attachmentEditorField({
       path: "technical.drawingAttachmentIds",
       section: "technical-documents",
       label: "图纸附件",
-      control: "attachment",
       required: true,
-    },
-    {
+      multiple: true,
+      maxItems: 100,
+      role: "supporting",
+      category: "technical",
+      includeInSubmissionDefault: true,
+    }),
+    textEditorField({
+      path: "technical.sampleApproval",
+      section: "sample-approval",
+      label: "样品确认",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "technical.engineeringChange",
+      section: "engineering-change",
+      label: "工程变更",
+      required: true,
+      multiline: true,
+    }),
+    selectEditorField({
       path: "materials.mode",
       section: "materials",
       label: "来料模式",
-      control: "select",
       required: true,
-    },
-    { path: "tooling", section: "tooling", label: "模具", control: "repeatable", required: false },
-    {
-      path: "intellectualProperty.foregroundIp",
-      section: "ip-license",
-      label: "新增知识产权",
-      control: "textarea",
+      options: [
+        { value: "principal-supplied", label: "委托方供料" },
+        { value: "processor-supplied", label: "加工方供料" },
+        { value: "mixed", label: "混合供料" },
+      ],
+    }),
+    repeatableEditorField({
+      path: "materials.items",
+      section: "materials",
+      label: "材料清单",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: { kind: "value", label: "材料", control: "text", valueKind: "string" },
+    }),
+    ...(
+      [
+        ["yieldTarget", "良率目标"],
+        ["scrapHandling", "废料处理"],
+        ["returnMethod", "退料方式"],
+      ] as const
+    ).map(([path, label]) =>
+      textEditorField({
+        path: `materials.${path}`,
+        section: "materials",
+        label,
+        required: false,
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
+      path: "tooling",
+      section: "tooling",
+      label: "模具",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "模具名称", required: true }),
+          itemSelectField({
+            path: "owner",
+            label: "所有权",
+            required: true,
+            options: [
+              { value: "principal", label: "委托方" },
+              { value: "processor", label: "加工方" },
+              { value: "shared", label: "共有" },
+            ],
+          }),
+          itemTextField({ path: "custody", label: "保管", required: true, multiline: true }),
+          itemTextField({ path: "maintenance", label: "维护", required: true, multiline: true }),
+          itemTextField({
+            path: "returnOrDisposal",
+            label: "返还或处置",
+            required: true,
+            multiline: true,
+          }),
+        ],
+      },
+    }),
+    selectEditorField({
+      path: "production.currency",
+      section: "fees-payment",
+      label: "币种",
       required: true,
-    },
-    {
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
+      path: "production.taxMode",
+      section: "fees-payment",
+      label: "计税口径",
+      required: true,
+      options: TAX_MODE_OPTIONS,
+    }),
+    textEditorField({
+      path: "production.schedule",
+      section: "production-schedule",
+      label: "生产计划",
+      required: true,
+      multiline: true,
+    }),
+    standardGoodsLinesEditorField({
+      path: "production.processingFeeLines",
+      section: "fees-payment",
+      label: "加工费明细",
+    }),
+    paymentScheduleEditorField("production.paymentSchedule", "fees-payment"),
+    ...(
+      [
+        ["standard", "质量标准", "quality-inspection", true],
+        ["inspection", "检验", "quality-inspection", true],
+        ["nonconformingProduct", "不合格品处理", "nonconformance-recall", true],
+        ["traceability", "追溯", "nonconformance-recall", false],
+        ["recall", "召回", "nonconformance-recall", false],
+      ] as const
+    ).map(([path, label, section, required]) =>
+      textEditorField({ path: `quality.${path}`, section, label, required, multiline: true }),
+    ),
+    ...(
+      [
+        ["backgroundIp", "背景知识产权", "ip-license", true],
+        ["foregroundIp", "新增知识产权", "ip-license", true],
+        ["licenseScope", "许可范围", "ip-license", false],
+        ["confidentiality", "保密", "confidentiality-subcontracting", true],
+      ] as const
+    ).map(([path, label, section, required]) =>
+      textEditorField({
+        path: `intellectualProperty.${path}`,
+        section,
+        label,
+        required,
+        multiline: true,
+      }),
+    ),
+    textEditorField({
+      path: "subcontracting",
+      section: "confidentiality-subcontracting",
+      label: "转委托",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
       path: "terminationCompensation",
       section: "termination-compensation",
       label: "终止补偿",
-      control: "textarea",
       required: true,
-    },
+      multiline: true,
+    }),
+    ...contractGeneralTermsEditorFields({ sectionFor: () => "general-terms" }),
+    contractSignersEditorField({
+      section: "signatures",
+      partyOptions: [
+        { value: "principal", label: "委托方" },
+        { value: "processor", label: "加工方" },
+      ],
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -677,6 +840,45 @@ export const OEM_PROCESSING_CONTRACT_REGISTRATION: TemplateRegistration<
   definition: OEM_PROCESSING_CONTRACT_DEFINITION,
   parseDraft: parseOemDraft,
   createDraft: createOemDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    if (path === "products" || path === "production.processingFeeLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        unit: "件",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "materials.items") return "待填写";
+    if (path === "tooling") {
+      return {
+        id: input.id,
+        name: "待填写",
+        owner: "principal",
+        custody: "待填写",
+        maintenance: "待填写",
+        returnOrDisposal: "待填写",
+      };
+    }
+    if (path === "production.paymentSchedule") {
+      return { id: input.id, trigger: "待填写", amountBps: 0, dueDays: 0 };
+    }
+    if (path === "signers") {
+      return {
+        partyId: input.id,
+        role: { zhCN: "签署方" },
+        dateLabel: { zhCN: "日期" },
+        sealLabel: { zhCN: "盖章" },
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileOemDraft,
   preflight(value: unknown) {
     return analyzeOemDraft(parseOemDraft(value));

@@ -18,6 +18,21 @@ import {
   ContractSignersV1Schema,
   type ContractSignerV1,
 } from "../contract-common.js";
+import {
+  attachmentEditorField,
+  CURRENCY_OPTIONS,
+  checkboxEditorField,
+  contractGeneralTermsEditorFields,
+  contractMetaEditorFields,
+  contractSignersEditorField,
+  dateEditorField,
+  entityPartyEditorFields,
+  numberEditorField,
+  selectEditorField,
+  standardGoodsLinesEditorField,
+  TAX_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
 import { DateV2Schema, GoodsLinesV2Schema, type GoodsLineV2 } from "../quote-common.js";
 import {
   ContractAttachmentRefsSchema,
@@ -203,86 +218,143 @@ export const FRAMEWORK_SUPPLY_CONTRACT_DEFINITION = {
   sourceKeys: ["prc-civil-code", "samr-contract-library"],
   disclaimerProfile: "contract",
   fieldManifest: [
-    {
-      path: "term.startDate",
-      section: "term",
-      label: "期限开始日",
-      control: "date",
-      required: true,
-    },
-    {
-      path: "term.endDate",
-      section: "term",
-      label: "期限结束日",
-      control: "date",
-      required: true,
-    },
-    {
+    ...contractMetaEditorFields({ section: "meta" }),
+    ...entityPartyEditorFields({ prefix: "supplier", section: "parties", label: "供应方" }),
+    ...entityPartyEditorFields({ prefix: "purchaser", section: "parties", label: "采购方" }),
+    dateEditorField("term.startDate", "term", "期限开始日", true),
+    dateEditorField("term.endDate", "term", "期限结束日", true),
+    standardGoodsLinesEditorField({
       path: "catalogLines",
       section: "catalog-price",
       label: "供应目录",
-      control: "repeatable",
-      required: true,
-    },
-    {
+    }),
+    selectEditorField({
       path: "pricing.currency",
       section: "catalog-price",
       label: "币种",
-      control: "select",
-      required: false,
-      options: [
-        { value: "CNY", label: "人民币" },
-        { value: "USD", label: "美元" },
-        { value: "EUR", label: "欧元" },
-      ],
-    },
-    {
+      required: true,
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
       path: "pricing.taxMode",
       section: "catalog-price",
-      label: "税务模式",
-      control: "select",
-      required: false,
-      options: [
-        { value: "tax-excluded", label: "不含税" },
-        { value: "tax-included", label: "含税" },
-        { value: "tax-exempt", label: "免税" },
-      ],
-    },
-    {
+      label: "计税口径",
+      required: true,
+      options: TAX_MODE_OPTIONS,
+    }),
+    textEditorField({
+      path: "pricing.priceMethod",
+      section: "catalog-price",
+      label: "定价方式",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "pricing.adjustmentTrigger",
+      section: "catalog-price",
+      label: "调价触发条件",
+      required: true,
+      multiline: true,
+    }),
+    numberEditorField({
+      path: "pricing.adjustmentNoticeDays",
+      section: "catalog-price",
+      label: "调价通知天数",
+      required: true,
+      integer: true,
+    }),
+    textEditorField({
+      path: "forecast.frequency",
+      section: "forecast",
+      label: "预测频率",
+      required: true,
+      multiline: true,
+    }),
+    checkboxEditorField({
       path: "forecast.binding",
       section: "forecast",
-      label: "预测是否具有约束力",
-      control: "checkbox",
+      label: "预测具有约束力",
       required: true,
-    },
-    {
-      path: "ordering.documentPriority",
-      section: "orders-priority",
-      label: "文件优先级",
-      control: "textarea",
-      required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "forecast.minimumPurchaseCommitment",
+      section: "minimum-or-exclusivity",
+      label: "最低采购承诺",
+      required: false,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "forecast.exclusivity",
+      section: "minimum-or-exclusivity",
+      label: "排他安排",
+      required: false,
+      multiline: true,
+    }),
+    checkboxEditorField({
       path: "riskAcknowledgements.commercialRiskConfirmed",
       section: "framework-purpose",
       label: "商业风险已确认",
-      control: "checkbox",
       required: true,
-    },
-    {
-      path: "performance.supplyContinuity",
-      section: "continuity",
-      label: "连续供应",
-      control: "textarea",
-      required: true,
-    },
-    {
+    }),
+    ...(
+      [
+        ["formation", "订单成立", "orders-priority"],
+        ["approval", "订单审批", "orders-priority"],
+        ["documentPriority", "文件优先级", "orders-priority"],
+        ["moq", "最小订购量", "orders-priority"],
+        ["leadTime", "交期", "orders-priority"],
+        ["capacityCommitment", "产能承诺", "capacity-inventory"],
+        ["inventoryPolicy", "库存政策", "capacity-inventory"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `ordering.${path}`,
+        section,
+        label,
+        required: !["capacityCommitment", "inventoryPolicy"].includes(path),
+        multiline: true,
+      }),
+    ),
+    ...(
+      [
+        ["delivery", "交付", "delivery-acceptance"],
+        ["acceptance", "验收", "delivery-acceptance"],
+        ["reconciliationCycle", "对账周期", "reconciliation-payment"],
+        ["invoice", "开票", "reconciliation-payment"],
+        ["settlement", "结算", "reconciliation-payment"],
+        ["quality", "质量", "quality-warranty"],
+        ["warranty", "质保", "quality-warranty"],
+        ["supplyContinuity", "连续供应", "continuity"],
+        ["transitionAssistance", "过渡协助", "change-termination-transition"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `performance.${path}`,
+        section,
+        label,
+        required: path !== "transitionAssistance",
+        multiline: true,
+      }),
+    ),
+    attachmentEditorField({
       path: "orderTemplateAttachmentId",
       section: "order-template",
       label: "订单模板",
-      control: "attachment",
       required: false,
-    },
+      multiple: false,
+      maxItems: 1,
+      role: "supporting",
+      category: "commercial",
+      includeInSubmissionDefault: false,
+    }),
+    ...contractGeneralTermsEditorFields({ sectionFor: () => "general-terms" }),
+    contractSignersEditorField({
+      section: "signatures",
+      partyOptions: [
+        { value: "supplier", label: "供应方" },
+        { value: "purchaser", label: "采购方" },
+      ],
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -667,6 +739,31 @@ export const FRAMEWORK_SUPPLY_CONTRACT_REGISTRATION: TemplateRegistration<
   definition: FRAMEWORK_SUPPLY_CONTRACT_DEFINITION,
   parseDraft: parseFrameworkDraft,
   createDraft: createFrameworkDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    if (path === "catalogLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        unit: "件",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "signers") {
+      return {
+        partyId: input.id,
+        role: { zhCN: "签署方" },
+        dateLabel: { zhCN: "日期" },
+        sealLabel: { zhCN: "盖章" },
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileFrameworkDraft,
   preflight(value: unknown) {
     return analyzeFrameworkDraft(parseFrameworkDraft(value));

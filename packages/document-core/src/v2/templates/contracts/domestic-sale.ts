@@ -26,6 +26,23 @@ import {
   PaymentScheduleV1Schema,
 } from "../contract-common.js";
 import {
+  CURRENCY_OPTIONS,
+  contractGeneralTermsEditorFields,
+  contractMetaEditorFields,
+  contractSignersEditorField,
+  entityPartyEditorFields,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  paymentScheduleEditorField,
+  percentEditorField,
+  repeatableEditorField,
+  selectEditorField,
+  TAX_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   ContractAttachmentRefsSchema,
   ContractPartyV2Schema,
   contractDates,
@@ -224,48 +241,148 @@ export const DOMESTIC_SALE_CONTRACT_DEFINITION = {
   sourceKeys: ["prc-civil-code", "samr-contract-library"],
   disclaimerProfile: "contract",
   fieldManifest: [
-    {
+    ...contractMetaEditorFields({ section: "meta" }),
+    ...entityPartyEditorFields({ prefix: "seller", section: "parties", label: "卖方" }),
+    ...entityPartyEditorFields({ prefix: "buyer", section: "parties", label: "买方" }),
+    repeatableEditorField({
       path: "goodsLines",
       section: "subject-goods",
       label: "商品明细",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "商品名称", required: true }),
+          itemTextField({ path: "sku", label: "SKU", required: false }),
+          itemTextField({ path: "specification", label: "规格", required: false }),
+          itemTextField({ path: "description", label: "说明", required: false, multiline: true }),
+          itemTextField({ path: "unit", label: "单位", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", false),
+          itemTextField({ path: "brand", label: "品牌", required: false }),
+          itemTextField({ path: "manufacturer", label: "制造商", required: false }),
+          itemTextField({
+            path: "qualityStandard",
+            label: "质量标准",
+            required: true,
+            multiline: true,
+          }),
+        ],
+      },
+    }),
+    selectEditorField({
       path: "price.currency",
       section: "price-tax-invoice",
       label: "币种",
-      control: "select",
       required: true,
-    },
-    {
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
       path: "price.taxMode",
       section: "price-tax-invoice",
       label: "计税口径",
-      control: "select",
       required: true,
-    },
-    {
+      options: TAX_MODE_OPTIONS,
+    }),
+    selectEditorField({
       path: "price.invoiceType",
       section: "price-tax-invoice",
       label: "发票类型",
-      control: "select",
       required: true,
-    },
-    {
-      path: "delivery.riskTransfer",
-      section: "title-risk",
-      label: "风险转移",
-      control: "textarea",
+      options: [
+        { value: "vat-special", label: "增值税专用发票" },
+        { value: "vat-general", label: "增值税普通发票" },
+        { value: "other", label: "其他" },
+      ],
+    }),
+    textEditorField({
+      path: "price.invoiceTiming",
+      section: "price-tax-invoice",
+      label: "开票时间",
       required: true,
-    },
-    {
-      path: "acceptance.inspectionPeriod",
-      section: "inspection-acceptance",
-      label: "检验期限",
-      control: "textarea",
+      multiline: true,
+    }),
+    paymentScheduleEditorField("price.paymentSchedule", "payment"),
+    percentEditorField("price.retentionBps", "payment", "留存比例", false),
+    selectEditorField({
+      path: "delivery.method",
+      section: "delivery-packaging",
+      label: "交付方式",
       required: true,
-    },
+      options: [
+        { value: "seller-delivery", label: "卖方送货" },
+        { value: "buyer-pickup", label: "买方自提" },
+        { value: "carrier", label: "承运人运输" },
+      ],
+    }),
+    ...(
+      [
+        ["time", "交付时间", "delivery-packaging"],
+        ["place", "交付地点", "delivery-packaging"],
+        ["packaging", "包装", "delivery-packaging"],
+        ["freightAllocation", "运费承担", "delivery-packaging"],
+        ["insuranceAllocation", "保险承担", "delivery-packaging"],
+        ["titleTransfer", "所有权转移", "title-risk"],
+        ["riskTransfer", "风险转移", "title-risk"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `delivery.${path}`,
+        section,
+        label,
+        required: path !== "insuranceAllocation",
+        multiline: true,
+      }),
+    ),
+    repeatableEditorField({
+      path: "delivery.documents",
+      section: "delivery-packaging",
+      label: "交付单证",
+      required: false,
+      minItems: 0,
+      maxItems: 50,
+      item: { kind: "value", label: "单证", control: "text", valueKind: "string" },
+    }),
+    ...(
+      [
+        ["inspectionStandard", "检验标准", "inspection-acceptance"],
+        ["inspectionMethod", "检验方式", "inspection-acceptance"],
+        ["inspectionPeriod", "检验期限", "inspection-acceptance"],
+        ["objectionMethod", "异议方式", "inspection-acceptance"],
+        ["warranty", "质保", "quality-warranty"],
+        ["afterSales", "售后服务", "quality-warranty"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `acceptance.${path}`,
+        section,
+        label,
+        required: true,
+        multiline: true,
+      }),
+    ),
+    ...contractGeneralTermsEditorFields({
+      sectionFor(path) {
+        if (path === "noticeAddresses") return "notices";
+        if (path === "forceMajeure") return "force-majeure";
+        if (["termination", "breachRemedies"].includes(path)) return "breach-termination";
+        if (["governingLaw", "disputeMethod", "court", "arbitrationCommission"].includes(path))
+          return "governing-law-dispute";
+        return "miscellaneous";
+      },
+    }),
+    contractSignersEditorField({
+      section: "signatures",
+      partyOptions: [
+        { value: "seller", label: "卖方" },
+        { value: "buyer", label: "买方" },
+      ],
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -823,6 +940,35 @@ export const DOMESTIC_SALE_CONTRACT_REGISTRATION: TemplateRegistration<
   definition: DOMESTIC_SALE_CONTRACT_DEFINITION,
   parseDraft: parseDomesticDraft,
   createDraft: createDomesticDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    if (path === "goodsLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        unit: "件",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        qualityStandard: "待填写",
+      };
+    }
+    if (path === "price.paymentSchedule") {
+      return { id: input.id, trigger: "待填写", amountBps: 0, dueDays: 0 };
+    }
+    if (path === "delivery.documents") return "待填写";
+    if (path === "signers") {
+      return {
+        partyId: input.id,
+        role: { zhCN: "签署方" },
+        dateLabel: { zhCN: "日期" },
+        sealLabel: { zhCN: "盖章" },
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileDomesticDraft,
   preflight(value: unknown) {
     return analyzeDomesticDraft(parseDomesticDraft(value));

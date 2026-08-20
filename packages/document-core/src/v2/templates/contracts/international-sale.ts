@@ -24,6 +24,23 @@ import {
   type ContractSignerV1,
 } from "../contract-common.js";
 import {
+  CURRENCY_OPTIONS,
+  checkboxEditorField,
+  contractMetaEditorFields,
+  contractSignersEditorField,
+  entityPartyEditorFields,
+  INCOTERMS_OPTIONS,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  repeatableEditorField,
+  selectEditorField,
+  TAX_MODE_OPTIONS,
+  TRANSPORT_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
+import {
   DimensionCmV2Schema,
   HsCodeUserSuppliedV2Schema,
   IncotermsRuleV2Schema,
@@ -401,48 +418,284 @@ export const INTERNATIONAL_SALE_CONTRACT_DEFINITION = {
   sourceKeys: ["uncitral-cisg", "icc-incoterms-2020"],
   disclaimerProfile: "international",
   fieldManifest: [
-    {
+    ...contractMetaEditorFields({ section: "meta", languagePrioritySection: "language-priority" }),
+    ...entityPartyEditorFields({
+      prefix: "seller",
+      section: "bilingual-parties",
+      label: "卖方",
+      englishNameRequired: true,
+    }),
+    ...entityPartyEditorFields({
+      prefix: "buyer",
+      section: "bilingual-parties",
+      label: "买方",
+      englishNameRequired: true,
+    }),
+    repeatableEditorField({
       path: "goodsLines",
       section: "goods",
       label: "双语货品明细",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "中文名称", required: true }),
+          itemTextField({ path: "englishName", label: "英文名称", required: true }),
+          itemTextField({ path: "sku", label: "SKU", required: false }),
+          itemTextField({ path: "specification", label: "规格", required: false, localized: true }),
+          itemTextField({ path: "description", label: "说明", required: false, multiline: true }),
+          itemTextField({ path: "unit", label: "单位", required: true, localized: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemTextField({ path: "countryOfOrigin", label: "原产地", required: false }),
+          itemTextField({ path: "hsCodeUserSupplied", label: "HS编码", required: false }),
+          itemNumberField({ path: "netWeightKg", label: "净重kg", required: false }),
+          itemNumberField({ path: "grossWeightKg", label: "毛重kg", required: false }),
+          itemNumberField({ path: "lengthCm", label: "长度cm", required: false }),
+          itemNumberField({ path: "widthCm", label: "宽度cm", required: false }),
+          itemNumberField({ path: "heightCm", label: "高度cm", required: false }),
+        ],
+      },
+    }),
+    selectEditorField({
+      path: "price.currency",
+      section: "price",
+      label: "币种",
+      required: true,
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
+      path: "price.taxMode",
+      section: "price",
+      label: "计税口径",
+      required: true,
+      options: TAX_MODE_OPTIONS,
+    }),
+    textEditorField({
+      path: "price.adjustment",
+      section: "price",
+      label: "价格调整",
+      required: false,
+      localized: true,
+      multiline: true,
+    }),
+    selectEditorField({
       path: "trade.incotermsRule",
       section: "incoterms-delivery-risk",
       label: "Incoterms 2020规则",
-      control: "select",
       required: true,
-    },
-    {
+      options: INCOTERMS_OPTIONS,
+    }),
+    textEditorField({
+      path: "trade.namedPlace",
+      section: "incoterms-delivery-risk",
+      label: "指定地点",
+      required: true,
+      localized: true,
+    }),
+    selectEditorField({
+      path: "trade.transportMode",
+      section: "shipment",
+      label: "运输方式",
+      required: true,
+      options: TRANSPORT_MODE_OPTIONS,
+    }),
+    textEditorField({
+      path: "trade.shipmentWindow",
+      section: "shipment",
+      label: "装运期",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    checkboxEditorField({
+      path: "trade.partialShipment",
+      section: "shipment",
+      label: "允许分批装运",
+      required: true,
+    }),
+    checkboxEditorField({
+      path: "trade.transshipment",
+      section: "shipment",
+      label: "允许转运",
+      required: true,
+    }),
+    selectEditorField({
       path: "trade.exportClearanceParty",
       section: "clearance-insurance",
       label: "出口清关方",
-      control: "select",
       required: true,
-    },
-    {
+      options: [
+        { value: "seller", label: "卖方" },
+        { value: "buyer", label: "买方" },
+      ],
+    }),
+    selectEditorField({
+      path: "trade.importClearanceParty",
+      section: "clearance-insurance",
+      label: "进口清关方",
+      required: true,
+      options: [
+        { value: "seller", label: "卖方" },
+        { value: "buyer", label: "买方" },
+      ],
+    }),
+    textEditorField({
+      path: "trade.insurance",
+      section: "clearance-insurance",
+      label: "保险",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    repeatableEditorField({
+      path: "trade.shippingDocuments",
+      section: "documents",
+      label: "装运单证",
+      required: false,
+      minItems: 0,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        fields: [
+          itemTextField({ path: "zhCN", label: "中文", required: true }),
+          itemTextField({ path: "enUS", label: "英文", required: true }),
+        ],
+      },
+    }),
+    ...(
+      [
+        ["inspection", "检验", "inspection-claims"],
+        ["claimsPeriod", "索赔期限", "inspection-claims"],
+        ["titleTransfer", "所有权转移", "title"],
+        ["riskTransfer", "风险转移", "title"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `acceptance.${path}`,
+        section,
+        label,
+        required: true,
+        localized: true,
+        multiline: true,
+      }),
+    ),
+    selectEditorField({
+      path: "payment.method",
+      section: "payment-bank",
+      label: "付款方式",
+      required: true,
+      options: [
+        { value: "advance", label: "预付款" },
+        { value: "open-account", label: "赊账" },
+        { value: "letter-of-credit", label: "信用证" },
+        { value: "collection", label: "托收" },
+        { value: "custom", label: "自定义" },
+      ],
+    }),
+    textEditorField({
+      path: "payment.terms",
+      section: "payment-bank",
+      label: "付款条款",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "payment.letterOfCreditTerms",
+      section: "payment-bank",
+      label: "信用证条款",
+      required: false,
+      localized: true,
+      multiline: true,
+      visibleWhen: { path: "payment.method", equals: "letter-of-credit" },
+    }),
+    textEditorField({
+      path: "payment.bankCharges",
+      section: "payment-bank",
+      label: "银行费用",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    ...(
+      [
+        ["packaging", "包装", "packaging-marks"],
+        ["shippingMarks", "唛头", "packaging-marks"],
+        ["warranty", "质保", "warranty-ip"],
+        ["intellectualProperty", "知识产权", "warranty-ip"],
+        ["sanctionsAndExportControlAcknowledgement", "制裁与出口管制确认", "compliance"],
+        ["forceMajeureAndHardship", "不可抗力与情势变更", "force-majeure-hardship"],
+        ["breachRemedies", "违约救济", "breach-remedies"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `performance.${path}`,
+        section,
+        label,
+        required: true,
+        localized: true,
+        multiline: true,
+      }),
+    ),
+    selectEditorField({
       path: "legal.cisgChoice",
       section: "cisg-governing-law",
       label: "CISG选择",
-      control: "select",
       required: true,
-    },
-    {
+      options: [
+        { value: "apply", label: "适用" },
+        { value: "exclude", label: "排除" },
+        { value: "undecided", label: "待决定" },
+      ],
+    }),
+    textEditorField({
       path: "legal.governingLaw",
       section: "cisg-governing-law",
       label: "适用法",
-      control: "textarea",
       required: true,
-    },
-    {
-      path: "meta.languagePriority",
-      section: "language-priority",
-      label: "优先语言",
-      control: "select",
+      localized: true,
+      multiline: true,
+    }),
+    selectEditorField({
+      path: "legal.disputeMethod",
+      section: "dispute",
+      label: "争议解决方式",
       required: true,
-    },
+      options: [
+        { value: "court", label: "诉讼" },
+        { value: "arbitration", label: "仲裁" },
+      ],
+    }),
+    textEditorField({
+      path: "legal.forum",
+      section: "dispute",
+      label: "争议解决机构",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "legal.notices",
+      section: "notices",
+      label: "通知",
+      required: true,
+      localized: true,
+      multiline: true,
+    }),
+    contractSignersEditorField({
+      section: "signatures",
+      bilingual: true,
+      partyOptions: [
+        { value: "seller", label: "卖方" },
+        { value: "buyer", label: "买方" },
+      ],
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -949,6 +1202,33 @@ export const INTERNATIONAL_SALE_CONTRACT_REGISTRATION: TemplateRegistration<
   definition: INTERNATIONAL_SALE_CONTRACT_DEFINITION,
   parseDraft: parseInternationalDraft,
   createDraft: createInternationalDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    if (path === "goodsLines") {
+      return {
+        id: input.id,
+        name: "待填写",
+        englishName: "TBD",
+        unit: { zhCN: "件", enUS: "pcs" },
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "trade.shippingDocuments") return { zhCN: "待填写", enUS: "TBD" };
+    if (path === "signers") {
+      return {
+        partyId: input.id,
+        role: { zhCN: "签署方", enUS: "Signatory" },
+        dateLabel: { zhCN: "日期", enUS: "Date" },
+        sealLabel: { zhCN: "盖章", enUS: "Seal" },
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileInternationalDraft,
   preflight(value: unknown) {
     return analyzeInternationalDraft(parseInternationalDraft(value));

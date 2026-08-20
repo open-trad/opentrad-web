@@ -823,9 +823,14 @@ describe("V2 template registry", () => {
   });
 
   it("enforces typed manifest maxItems and refuses legacy repeatables as trusted factories", () => {
-    const base = createEditorRegistration();
+    const factory = vi.fn((_path: string, input: { readonly id: string }) => ({
+      id: input.id,
+      name: "新增项目",
+    }));
+    const base = createEditorRegistration(factory as never);
     const typedMaxOne = {
       ...base,
+      createRepeatableItem: factory,
       definition: {
         ...base.definition,
         fieldManifest: base.definition.fieldManifest.map((field) =>
@@ -845,6 +850,7 @@ describe("V2 template registry", () => {
         draft,
       }),
     ).toThrow();
+    expect(factory).not.toHaveBeenCalled();
 
     const legacyRepeatable = {
       ...base,

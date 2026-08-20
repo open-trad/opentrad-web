@@ -21,6 +21,25 @@ import {
   type PaymentScheduleV1,
   PaymentScheduleV1Schema,
 } from "../contract-common.js";
+import {
+  CURRENCY_OPTIONS,
+  checkboxEditorField,
+  contractGeneralTermsEditorFields,
+  contractMetaEditorFields,
+  contractSignersEditorField,
+  dateEditorField,
+  entityPartyEditorFields,
+  itemDateField,
+  itemMoneyField,
+  itemNumberField,
+  itemPercentField,
+  itemTextField,
+  paymentScheduleEditorField,
+  repeatableEditorField,
+  selectEditorField,
+  TAX_MODE_OPTIONS,
+  textEditorField,
+} from "../editor-manifest.js";
 import { DateV2Schema, ServiceLinesV2Schema, type ServiceLineV2 } from "../quote-common.js";
 import {
   ContractPartyV2Schema,
@@ -258,48 +277,254 @@ export const COMMERCIAL_SERVICE_CONTRACT_DEFINITION = {
   sourceKeys: ["samr-entrustment-2025", "prc-civil-code"],
   disclaimerProfile: "contract",
   fieldManifest: [
-    {
-      path: "engagement.serviceMatter",
+    ...contractMetaEditorFields({ section: "meta" }),
+    ...entityPartyEditorFields({ prefix: "client", section: "parties", label: "客户" }),
+    ...entityPartyEditorFields({ prefix: "provider", section: "parties", label: "服务方" }),
+    selectEditorField({
+      path: "engagement.type",
       section: "service-matter",
-      label: "服务事项",
-      control: "textarea",
+      label: "委托类型",
       required: true,
-    },
-    {
+      options: [
+        { value: "specific", label: "特定事项" },
+        { value: "general", label: "一般顾问" },
+      ],
+    }),
+    ...(
+      [
+        ["serviceMatter", "服务事项", "service-matter"],
+        ["scope", "服务范围", "service-matter"],
+        ["workRequirements", "工作要求", "work-requirements"],
+        ["serviceLocation", "服务地点", "term-location"],
+        ["reportingMethod", "汇报方式", "deliverables-reporting"],
+        ["clientDependencies", "客户配合事项", "client-dependencies"],
+      ] as const
+    ).map(([path, label, section]) =>
+      textEditorField({
+        path: `engagement.${path}`,
+        section,
+        label,
+        required: true,
+        multiline: true,
+      }),
+    ),
+    dateEditorField("engagement.startDate", "term-location", "服务开始日", true),
+    dateEditorField("engagement.endDate", "term-location", "服务结束日", true),
+    repeatableEditorField({
       path: "deliverables",
       section: "deliverables-reporting",
       label: "交付物",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "name", label: "交付物名称", required: true }),
+          itemDateField("dueDate", "交付日期", true),
+          itemTextField({
+            path: "acceptanceStandard",
+            label: "验收标准",
+            required: true,
+            multiline: true,
+          }),
+        ],
+      },
+    }),
+    selectEditorField({
+      path: "delegation.subcontractConsent",
+      section: "subcontract-parallel-engagement",
+      label: "转委托许可",
+      required: true,
+      options: [
+        { value: "allowed", label: "允许" },
+        { value: "written-consent", label: "需书面同意" },
+        { value: "prohibited", label: "禁止" },
+      ],
+    }),
+    selectEditorField({
+      path: "delegation.parallelEngagementConsent",
+      section: "subcontract-parallel-engagement",
+      label: "平行委托许可",
+      required: true,
+      options: [
+        { value: "allowed", label: "允许" },
+        { value: "written-consent", label: "需书面同意" },
+        { value: "prohibited", label: "禁止" },
+      ],
+    }),
+    selectEditorField({
+      path: "fees.currency",
+      section: "fees-expenses-payment",
+      label: "币种",
+      required: true,
+      options: CURRENCY_OPTIONS,
+    }),
+    selectEditorField({
+      path: "fees.taxMode",
+      section: "fees-expenses-payment",
+      label: "计税口径",
+      required: true,
+      options: TAX_MODE_OPTIONS,
+    }),
+    selectEditorField({
+      path: "fees.model",
+      section: "fees-expenses-payment",
+      label: "计费模式",
+      required: true,
+      options: [
+        { value: "fixed", label: "固定费用" },
+        { value: "time-material", label: "工时与成本" },
+        { value: "milestone", label: "里程碑" },
+      ],
+    }),
+    repeatableEditorField({
       path: "fees.lines",
       section: "fees-expenses-payment",
       label: "服务费明细",
-      control: "repeatable",
       required: true,
-    },
-    {
+      minItems: 1,
+      maxItems: 100,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [
+          itemTextField({ path: "serviceName", label: "服务名称", required: true }),
+          itemTextField({ path: "englishName", label: "英文名称", required: false }),
+          itemTextField({
+            path: "deliverable",
+            label: "交付内容",
+            required: true,
+            multiline: true,
+          }),
+          itemTextField({ path: "unit", label: "单位", required: true }),
+          itemNumberField({ path: "quantity", label: "数量", required: true }),
+          itemMoneyField("unitPriceMinor", "单价", true),
+          itemPercentField("discountBps", "折扣", true),
+          itemPercentField("taxRateBps", "税率", true),
+          itemNumberField({ path: "estimatedHours", label: "预计工时", required: false }),
+          itemTextField({ path: "milestoneId", label: "里程碑ID", required: false }),
+        ],
+      },
+    }),
+    textEditorField({
+      path: "fees.necessaryExpenses",
+      section: "fees-expenses-payment",
+      label: "必要费用",
+      required: true,
+      multiline: true,
+    }),
+    paymentScheduleEditorField("fees.paymentSchedule", "fees-expenses-payment"),
+    textEditorField({
+      path: "acceptance.standard",
+      section: "acceptance",
+      label: "验收标准",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "acceptance.period",
+      section: "acceptance",
+      label: "验收期限",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
+      path: "acceptance.deemedAcceptance",
+      section: "acceptance",
+      label: "视为验收",
+      required: false,
+      multiline: true,
+    }),
+    selectEditorField({
+      path: "rights.ipOwnership",
+      section: "ip-data-confidentiality",
+      label: "知识产权归属",
+      required: true,
+      options: [
+        { value: "client", label: "客户" },
+        { value: "provider", label: "服务方" },
+        { value: "shared", label: "共有" },
+        { value: "custom", label: "自定义" },
+      ],
+    }),
+    textEditorField({
+      path: "rights.ipCustomText",
+      section: "ip-data-confidentiality",
+      label: "自定义知识产权条款",
+      required: false,
+      multiline: true,
+      visibleWhen: { path: "rights.ipOwnership", equals: "custom" },
+    }),
+    textEditorField({
+      path: "rights.dataHandling",
+      section: "ip-data-confidentiality",
+      label: "数据处理",
+      required: false,
+      multiline: true,
+    }),
+    checkboxEditorField({
       path: "rights.personalDataInvolved",
       section: "ip-data-confidentiality",
       label: "涉及个人信息",
-      control: "checkbox",
       required: true,
-    },
-    {
+    }),
+    textEditorField({
+      path: "rights.personalDataTerms",
+      section: "ip-data-confidentiality",
+      label: "个人信息条款",
+      required: false,
+      multiline: true,
+      visibleWhen: { path: "rights.personalDataInvolved", equals: true },
+    }),
+    textEditorField({
+      path: "rights.confidentiality",
+      section: "ip-data-confidentiality",
+      label: "保密",
+      required: true,
+      multiline: true,
+    }),
+    selectEditorField({
       path: "agency.relationship",
       section: "agency-third-party",
       label: "代理关系",
-      control: "select",
       required: true,
-    },
-    {
+      options: [
+        { value: "no-agency", label: "不构成代理" },
+        { value: "authorized-agency", label: "授权代理" },
+      ],
+    }),
+    textEditorField({
+      path: "agency.thirdPartyAuthority",
+      section: "agency-third-party",
+      label: "对第三方权限",
+      required: false,
+      multiline: true,
+      visibleWhen: { path: "agency.relationship", equals: "authorized-agency" },
+    }),
+    textEditorField({
+      path: "terminationAtWill.handling",
+      section: "termination-at-will",
+      label: "任意解除处理",
+      required: true,
+      multiline: true,
+    }),
+    textEditorField({
       path: "terminationAtWill.compensation",
       section: "termination-at-will",
       label: "任意解除补偿",
-      control: "textarea",
       required: true,
-    },
+      multiline: true,
+    }),
+    ...contractGeneralTermsEditorFields({ sectionFor: () => "general-terms" }),
+    contractSignersEditorField({
+      section: "signatures",
+      partyOptions: [
+        { value: "client", label: "客户" },
+        { value: "provider", label: "服务方" },
+      ],
+    }),
   ],
 } as const satisfies TemplateDefinitionV2;
 
@@ -703,6 +928,43 @@ export const COMMERCIAL_SERVICE_CONTRACT_REGISTRATION: TemplateRegistration<
   definition: COMMERCIAL_SERVICE_CONTRACT_DEFINITION,
   parseDraft: parseCommercialServiceDraft,
   createDraft: createCommercialServiceDraft,
+  createRepeatableItem(
+    path: string,
+    input: { readonly id: string; readonly now: string | Date; readonly draft: unknown },
+  ) {
+    if (path === "deliverables") {
+      return {
+        id: input.id,
+        name: "待填写",
+        dueDate: contractDates(input.now).signingDate,
+        acceptanceStandard: "待填写",
+      };
+    }
+    if (path === "fees.lines") {
+      return {
+        id: input.id,
+        serviceName: "待填写",
+        deliverable: "待填写",
+        unit: "项",
+        quantity: "1",
+        unitPriceMinor: "0",
+        discountBps: 0,
+        taxRateBps: 0,
+      };
+    }
+    if (path === "fees.paymentSchedule") {
+      return { id: input.id, trigger: "待填写", amountBps: 0, dueDays: 0 };
+    }
+    if (path === "signers") {
+      return {
+        partyId: input.id,
+        role: { zhCN: "签署方" },
+        dateLabel: { zhCN: "日期" },
+        sealLabel: { zhCN: "盖章" },
+      };
+    }
+    throw new Error("不支持的重复项路径");
+  },
   compile: compileCommercialServiceDraft,
   preflight(value: unknown) {
     return analyzeCommercialServiceDraft(parseCommercialServiceDraft(value));

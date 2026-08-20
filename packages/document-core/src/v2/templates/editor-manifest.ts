@@ -57,6 +57,19 @@ export const LANGUAGE_PRIORITY_OPTIONS = [
   { value: "en-US", label: "英文优先" },
 ] as const;
 
+export const EFFECTIVE_MODE_OPTIONS = [
+  { value: "signature", label: "签署生效" },
+  { value: "date", label: "指定日期生效" },
+  { value: "condition", label: "条件成就生效" },
+] as const;
+
+export const DISPUTE_METHOD_OPTIONS = [
+  { value: "court", label: "诉讼" },
+  { value: "arbitration", label: "仲裁" },
+] as const;
+
+export const ATTACHMENT_MEDIA_TYPES = ["application/pdf", "image/png", "image/jpeg"] as const;
+
 function condition(visibleWhen?: TemplateFieldVisibleWhenV1) {
   return visibleWhen ? { visibleWhen } : {};
 }
@@ -213,6 +226,35 @@ export function repeatableEditorField(input: {
       };
 }
 
+export function attachmentEditorField(input: {
+  readonly path: string;
+  readonly section: string;
+  readonly label: string;
+  readonly required: boolean;
+  readonly multiple: boolean;
+  readonly maxItems: number;
+  readonly role: "source" | "submission" | "supporting";
+  readonly category: "qualification" | "technical" | "commercial" | "other";
+  readonly includeInSubmissionDefault: boolean;
+}): TemplateFieldManifestEntryV1 {
+  return {
+    path: input.path,
+    section: input.section,
+    label: input.label,
+    control: "attachment",
+    valueKind: input.multiple ? "attachment-id-list" : "attachment-id",
+    required: input.required,
+    cardinality: input.multiple ? "multiple" : "single",
+    maxItems: input.maxItems,
+    descriptorPath: "attachments",
+    role: input.role,
+    category: input.category,
+    allowedMediaTypes: ATTACHMENT_MEDIA_TYPES,
+    pdfPageCount: "user-confirmed",
+    includeInSubmissionDefault: input.includeInSubmissionDefault,
+  };
+}
+
 export function itemTextField(input: {
   readonly path: string;
   readonly label: string;
@@ -242,6 +284,14 @@ export function itemNumberField(input: {
     valueKind: input.integer ? "integer" : "decimal-string",
     required: input.required,
   };
+}
+
+export function itemDateField(
+  path: string,
+  label: string,
+  required: boolean,
+): TemplateRepeatableItemFieldV1 {
+  return { path, label, control: "date", valueKind: "date", required };
 }
 
 export function itemMoneyField(
@@ -333,6 +383,7 @@ export function entityPartyEditorFields(input: {
   readonly section: string;
   readonly label: string;
   readonly optionalParent?: boolean;
+  readonly englishNameRequired?: boolean;
 }): readonly TemplateFieldManifestEntryV1[] {
   const required = !input.optionalParent;
   const path = (key: string) => `${input.prefix}.${key}`;
@@ -347,7 +398,7 @@ export function entityPartyEditorFields(input: {
       path: path("englishName"),
       section: input.section,
       label: `${input.label}英文名称`,
-      required: false,
+      required: input.englishNameRequired ?? false,
     }),
     selectEditorField({
       path: path("entityType"),
@@ -490,5 +541,215 @@ export function bilingualPartyEditorFields(input: {
       label: `${input.label}邮箱`,
       required: false,
     }),
+  ];
+}
+
+export function contractMetaEditorFields(input: {
+  readonly section: string;
+  readonly languagePrioritySection?: string;
+}): readonly TemplateFieldManifestEntryV1[] {
+  return [
+    textEditorField({
+      path: "meta.contractNumber",
+      section: input.section,
+      label: "合同编号",
+      required: true,
+    }),
+    textEditorField({
+      path: "meta.title",
+      section: input.section,
+      label: "合同标题",
+      required: true,
+    }),
+    dateEditorField("meta.signingDate", input.section, "签署日期", true),
+    textEditorField({
+      path: "meta.signingPlace",
+      section: input.section,
+      label: "签署地点",
+      required: false,
+    }),
+    selectEditorField({
+      path: "meta.effectiveMode",
+      section: input.section,
+      label: "生效方式",
+      required: true,
+      options: EFFECTIVE_MODE_OPTIONS,
+    }),
+    dateEditorField("meta.effectiveDate", input.section, "生效日期", false),
+    {
+      ...textEditorField({
+        path: "meta.effectiveCondition",
+        section: input.section,
+        label: "生效条件",
+        required: false,
+        multiline: true,
+      }),
+      visibleWhen: { path: "meta.effectiveMode", equals: "condition" },
+    },
+    numberEditorField({
+      path: "meta.copies",
+      section: input.section,
+      label: "合同份数",
+      required: true,
+      integer: true,
+    }),
+    ...(input.languagePrioritySection
+      ? [
+          selectEditorField({
+            path: "meta.languagePriority",
+            section: input.languagePrioritySection,
+            label: "优先语言",
+            required: true,
+            options: LANGUAGE_PRIORITY_OPTIONS,
+          }),
+        ]
+      : []),
+  ].map((field) =>
+    field.path === "meta.effectiveDate"
+      ? { ...field, visibleWhen: { path: "meta.effectiveMode", equals: "date" } }
+      : field,
+  ) as readonly TemplateFieldManifestEntryV1[];
+}
+
+export function standardGoodsLinesEditorField(input: {
+  readonly path: string;
+  readonly section: string;
+  readonly label: string;
+}): TemplateFieldManifestEntryV1 {
+  return repeatableEditorField({
+    ...input,
+    required: true,
+    minItems: 1,
+    maxItems: 100,
+    item: {
+      kind: "object",
+      idPath: "id",
+      fields: [
+        itemTextField({ path: "name", label: "名称", required: true }),
+        itemTextField({ path: "englishName", label: "英文名称", required: false }),
+        itemTextField({ path: "sku", label: "SKU", required: false }),
+        itemTextField({ path: "specification", label: "规格", required: false }),
+        itemTextField({ path: "description", label: "说明", required: false, multiline: true }),
+        itemTextField({ path: "unit", label: "单位", required: true }),
+        itemNumberField({ path: "quantity", label: "数量", required: true }),
+        itemMoneyField("unitPriceMinor", "单价", true),
+        itemPercentField("discountBps", "折扣", true),
+        itemPercentField("taxRateBps", "税率", true),
+        itemTextField({ path: "countryOfOrigin", label: "原产地", required: false }),
+        itemTextField({ path: "hsCodeUserSupplied", label: "HS编码", required: false }),
+        itemNumberField({ path: "netWeightKg", label: "净重kg", required: false }),
+        itemNumberField({ path: "grossWeightKg", label: "毛重kg", required: false }),
+        itemNumberField({ path: "lengthCm", label: "长度cm", required: false }),
+        itemNumberField({ path: "widthCm", label: "宽度cm", required: false }),
+        itemNumberField({ path: "heightCm", label: "高度cm", required: false }),
+      ],
+    },
+  });
+}
+
+export function paymentScheduleEditorField(
+  path: string,
+  section: string,
+): TemplateFieldManifestEntryV1 {
+  return repeatableEditorField({
+    path,
+    section,
+    label: "付款进度",
+    required: true,
+    minItems: 1,
+    maxItems: 100,
+    item: {
+      kind: "object",
+      idPath: "id",
+      fields: [
+        itemTextField({ path: "trigger", label: "付款触发条件", required: true }),
+        itemPercentField("amountBps", "付款比例", true),
+        itemNumberField({ path: "dueDays", label: "到期天数", required: true, integer: true }),
+      ],
+    },
+  });
+}
+
+export function contractSignersEditorField(input: {
+  readonly section: string;
+  readonly partyOptions: readonly TemplateFieldOptionV1[];
+  readonly bilingual?: boolean;
+}): TemplateFieldManifestEntryV1 {
+  return repeatableEditorField({
+    path: "signers",
+    section: input.section,
+    label: "签署方",
+    required: true,
+    minItems: 2,
+    maxItems: 2,
+    item: {
+      kind: "object",
+      idPath: "partyId",
+      fields: [
+        itemSelectField({
+          path: "partyId",
+          label: "签署主体",
+          required: true,
+          options: input.partyOptions,
+        }),
+        itemTextField({ path: "role", label: "签署角色", required: true, localized: true }),
+        itemTextField({ path: "signatoryName", label: "签署人", required: false }),
+        itemTextField({ path: "signatoryTitle", label: "职务", required: false }),
+        itemTextField({
+          path: "dateLabel",
+          label: "日期标签",
+          required: true,
+          localized: true,
+        }),
+        itemTextField({
+          path: "sealLabel",
+          label: "盖章标签",
+          required: true,
+          localized: true,
+        }),
+      ],
+    },
+  });
+}
+
+export function contractGeneralTermsEditorFields(input: {
+  readonly sectionFor: (path: string) => string;
+}): readonly TemplateFieldManifestEntryV1[] {
+  const field = (path: string, label: string, required: boolean) =>
+    textEditorField({
+      path: `generalTerms.${path}`,
+      section: input.sectionFor(path),
+      label,
+      required,
+      multiline: true,
+    });
+  return [
+    field("noticeAddresses", "通知地址", true),
+    field("confidentiality", "保密", true),
+    field("forceMajeure", "不可抗力", true),
+    field("changeControl", "变更管理", true),
+    field("assignment", "权利义务转让", false),
+    field("compliance", "合规义务", false),
+    field("termination", "终止", true),
+    field("breachRemedies", "违约救济", true),
+    field("governingLaw", "适用法律", true),
+    selectEditorField({
+      path: "generalTerms.disputeMethod",
+      section: input.sectionFor("disputeMethod"),
+      label: "争议解决方式",
+      required: true,
+      options: DISPUTE_METHOD_OPTIONS,
+    }),
+    {
+      ...field("court", "管辖法院", false),
+      visibleWhen: { path: "generalTerms.disputeMethod", equals: "court" },
+    },
+    {
+      ...field("arbitrationCommission", "仲裁委员会", false),
+      visibleWhen: { path: "generalTerms.disputeMethod", equals: "arbitration" },
+    },
+    field("severability", "可分割性", true),
+    field("entireAgreement", "完整协议", true),
+    field("otherTerms", "其他约定", false),
   ];
 }

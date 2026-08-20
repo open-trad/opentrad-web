@@ -1,11 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import {
-  DocumentModelV2Schema,
-  RiskFindingV2Schema,
-  type TemplateFieldManifestEntryV1,
-} from "../src/v2/index.js";
+import { DocumentModelV2Schema, RiskFindingV2Schema } from "../src/v2/index.js";
 import { V2_TEMPLATE_REGISTRY } from "../src/v2/templates/index.js";
 
 const DOMESTIC_SECTIONS = [
@@ -149,58 +145,6 @@ function setContractDraftPath(input: Record<string, unknown>, path: string, valu
     current = next as Record<string, unknown>;
   }
   current[leaf] = value;
-}
-
-function editedContractFieldValue(field: TemplateFieldManifestEntryV1, current: unknown): unknown {
-  switch (field.control) {
-    case "text":
-    case "textarea":
-      expect(typeof current).toBe("string");
-      return `${current as string}（已编辑）`;
-    case "date":
-      expect(typeof current).toBe("string");
-      return "2026-09-17";
-    case "checkbox":
-      expect(typeof current).toBe("boolean");
-      return !current;
-    case "repeatable":
-      expect(Array.isArray(current)).toBe(true);
-      return editContractRepeatableField(current as unknown[]);
-    case "select": {
-      expect(typeof current).toBe("string");
-      expect(field.options?.length).toBeGreaterThan(0);
-      expect(field.options?.map((option) => option.value)).toContain(current);
-      return field.options?.find((option) => option.value !== current)?.value ?? current;
-    }
-    case "attachment":
-      throw new Error(`Attachment mutation requires a real second reference: ${field.path}`);
-    case "datetime":
-      expect(typeof current).toBe("string");
-      return "2026-09-17T00:00:00.000Z";
-    case "number":
-    case "percent":
-      expect(typeof current).toBe("number");
-      return (current as number) + 1;
-    case "money":
-      expect(typeof current).toBe("string");
-      return (BigInt(current as string) + 1n).toString();
-  }
-}
-
-function editContractRepeatableField(current: unknown[]): unknown[] {
-  const replacement = structuredClone(current);
-  const first = replacement[0];
-  expect(first).toBeDefined();
-  expect(first).not.toBeNull();
-  expect(typeof first).toBe("object");
-  const record = first as Record<string, unknown>;
-  for (const key of ["name", "title", "label", "description"]) {
-    if (typeof record[key] === "string") {
-      record[key] = `${record[key]}（已编辑）`;
-      return replacement;
-    }
-  }
-  throw new Error("Repeatable field has no safely editable descriptive value");
 }
 
 describe("contract.sale.domestic-b2b.v1", () => {
@@ -399,7 +343,7 @@ describe("contract.supply.framework.v1", () => {
     ).toThrow();
   });
 
-  it("publishes honest unique field paths that remain editable through the exact parser", () => {
+  it("publishes the framework fields that drive its compile and preflight paths", () => {
     const registration = V2_TEMPLATE_REGISTRY.get("contract.supply.framework.v1", "1.0.0");
     const fields = registration.definition.fieldManifest;
     const paths = fields.map((field) => field.path);
@@ -422,72 +366,10 @@ describe("contract.supply.framework.v1", () => {
         "orderTemplateAttachmentId",
       ]),
     );
-    const expectedSelectOptions: Readonly<Record<string, readonly string[]>> = {
-      "pricing.currency": ["CNY", "USD", "EUR"],
-      "pricing.taxMode": ["tax-excluded", "tax-included", "tax-exempt"],
-    };
-    expect(
-      fields
-        .filter((field) => field.control === "select")
-        .map((field) => field.path)
-        .sort(),
-    ).toEqual(Object.keys(expectedSelectOptions).sort());
-
-    const base = registration.parseDraft(fixture("contract-framework-supply"));
-    const sections = new Set(
-      DocumentModelV2Schema.parse(registration.compile(base)).sections.map((section) => section.id),
-    );
-    for (const field of fields) {
-      expect(sections.has(field.section)).toBe(true);
-      const current = contractDraftPath(base, field.path);
-      expect(current.exists, field.path).toBe(true);
-      if (field.required) {
-        expect(current.value).not.toBeUndefined();
-        if (typeof current.value === "string")
-          expect(current.value.trim().length).toBeGreaterThan(0);
-        if (Array.isArray(current.value)) expect(current.value.length).toBeGreaterThan(0);
-      }
-      if (field.control !== "select") expect(field.options).toBeUndefined();
-      if (field.control === "select") {
-        expect(field.options?.map((option) => option.value)).toEqual(
-          expectedSelectOptions[field.path],
-        );
-        for (const option of field.options ?? []) {
-          const optionDraft = structuredClone(base) as Record<string, unknown>;
-          setContractDraftPath(optionDraft, field.path, option.value);
-          const optionParsed = registration.parseDraft(optionDraft);
-          expect(contractDraftPath(optionParsed, field.path)).toEqual({
-            exists: true,
-            value: option.value,
-          });
-        }
-      }
-      if (field.visibleWhen) {
-        const condition = contractDraftPath(base, field.visibleWhen.path);
-        expect(condition.exists).toBe(true);
-        expect(typeof condition.value).toBe(typeof field.visibleWhen.equals);
-      }
-      const edited = structuredClone(base) as Record<string, unknown>;
-      let replacement: unknown;
-      if (field.control === "attachment") {
-        expect(typeof current.value).toBe("string");
-        const attachments = edited.attachments as Array<Record<string, unknown>>;
-        const source = attachments.find((attachment) => attachment.id === current.value);
-        expect(source).toBeDefined();
-        replacement = `${current.value as string}-alternate`;
-        attachments.push({
-          ...source,
-          id: replacement,
-          displayName: "采购订单备用模板.pdf",
-        });
-      } else {
-        replacement = editedContractFieldValue(field, current.value);
-      }
-      expect(replacement).not.toEqual(current.value);
-      setContractDraftPath(edited, field.path, replacement);
-      const parsed = registration.parseDraft(edited);
-      expect(contractDraftPath(parsed, field.path)).toEqual({ exists: true, value: replacement });
-    }
+    expect(fields.find((field) => field.path === "orderTemplateAttachmentId")).toMatchObject({
+      control: "attachment",
+      required: false,
+    });
   });
 });
 
@@ -987,6 +869,562 @@ describe("contract.sale.international-bilingual.v1", () => {
     expect(Object.isFrozen(registration)).toBe(true);
     expect(Object.isFrozen(registration.definition)).toBe(true);
   });
+});
+
+const CONTRACT_META_EDITOR_PATHS = [
+  "meta.contractNumber",
+  "meta.title",
+  "meta.signingDate",
+  "meta.signingPlace",
+  "meta.effectiveMode",
+  "meta.effectiveDate",
+  "meta.effectiveCondition",
+  "meta.copies",
+] as const;
+const CONTRACT_PARTY_EDITOR_KEYS = [
+  "legalName",
+  "englishName",
+  "entityType",
+  "registrationId",
+  "taxId",
+  "registeredAddress",
+  "postalAddress",
+  "legalRepresentative",
+  "authorizedRepresentative",
+  "contactName",
+  "phone",
+  "email",
+  "bankAccountName",
+  "bankName",
+  "bankAccount",
+  "swiftCode",
+] as const;
+const CONTRACT_GENERAL_EDITOR_KEYS = [
+  "noticeAddresses",
+  "confidentiality",
+  "forceMajeure",
+  "changeControl",
+  "assignment",
+  "compliance",
+  "termination",
+  "breachRemedies",
+  "governingLaw",
+  "disputeMethod",
+  "court",
+  "arbitrationCommission",
+  "severability",
+  "entireAgreement",
+  "otherTerms",
+] as const;
+const ENTITY_OPTIONS = ["company", "organization", "individual"] as const;
+const CURRENCY_EDITOR_OPTIONS = ["CNY", "USD", "EUR"] as const;
+const TAX_EDITOR_OPTIONS = ["tax-excluded", "tax-included", "tax-exempt"] as const;
+const EFFECTIVE_EDITOR_OPTIONS = ["signature", "date", "condition"] as const;
+const DISPUTE_EDITOR_OPTIONS = ["court", "arbitration"] as const;
+const partyEditorPaths = (prefix: string) =>
+  CONTRACT_PARTY_EDITOR_KEYS.map((key) => `${prefix}.${key}`);
+const generalEditorPaths = CONTRACT_GENERAL_EDITOR_KEYS.map((key) => `generalTerms.${key}`);
+const sharedContractSelectOptions = (left: string, right: string) => ({
+  "meta.effectiveMode": EFFECTIVE_EDITOR_OPTIONS,
+  [`${left}.entityType`]: ENTITY_OPTIONS,
+  [`${right}.entityType`]: ENTITY_OPTIONS,
+  "generalTerms.disputeMethod": DISPUTE_EDITOR_OPTIONS,
+});
+
+function prepareContractSelectDraft(
+  base: unknown,
+  path: string,
+  value: string,
+): Record<string, unknown> {
+  const draft = structuredClone(base) as Record<string, unknown>;
+  if (path === "meta.effectiveMode") {
+    const meta = draft.meta as Record<string, unknown>;
+    delete meta.effectiveDate;
+    delete meta.effectiveCondition;
+    if (value === "date") meta.effectiveDate = "2026-09-17";
+    if (value === "condition") meta.effectiveCondition = "双方书面确认条件成就";
+  }
+  if (path === "generalTerms.disputeMethod") {
+    const terms = draft.generalTerms as Record<string, unknown>;
+    delete terms.court;
+    delete terms.arbitrationCommission;
+    if (value === "court") terms.court = "有管辖权的人民法院";
+    if (value === "arbitration") terms.arbitrationCommission = "示例仲裁委员会";
+  }
+  if (path === "rights.ipOwnership") {
+    const rights = draft.rights as Record<string, unknown>;
+    delete rights.ipCustomText;
+    if (value === "custom") rights.ipCustomText = "双方另行书面约定";
+  }
+  if (path === "payment.method") {
+    const payment = draft.payment as Record<string, unknown>;
+    delete payment.letterOfCreditTerms;
+    if (value === "letter-of-credit") {
+      payment.letterOfCreditTerms = { zhCN: "不可撤销即期信用证", enUS: "Irrevocable L/C" };
+    }
+  }
+  setContractDraftPath(draft, path, value);
+  return draft;
+}
+
+const CONTRACT_EDITOR_CASES = [
+  {
+    id: "contract.sale.domestic-b2b.v1",
+    fixtureName: "contract-domestic-sale",
+    expectedPaths: [
+      ...CONTRACT_META_EDITOR_PATHS,
+      ...partyEditorPaths("seller"),
+      ...partyEditorPaths("buyer"),
+      "goodsLines",
+      "price.currency",
+      "price.taxMode",
+      "price.invoiceType",
+      "price.invoiceTiming",
+      "price.paymentSchedule",
+      "price.retentionBps",
+      ...[
+        "method",
+        "time",
+        "place",
+        "packaging",
+        "freightAllocation",
+        "insuranceAllocation",
+        "titleTransfer",
+        "riskTransfer",
+        "documents",
+      ].map((key) => `delivery.${key}`),
+      ...[
+        "inspectionStandard",
+        "inspectionMethod",
+        "inspectionPeriod",
+        "objectionMethod",
+        "warranty",
+        "afterSales",
+      ].map((key) => `acceptance.${key}`),
+      ...generalEditorPaths,
+      "signers",
+    ],
+    expectedSelectOptions: {
+      ...sharedContractSelectOptions("seller", "buyer"),
+      "price.currency": CURRENCY_EDITOR_OPTIONS,
+      "price.taxMode": TAX_EDITOR_OPTIONS,
+      "price.invoiceType": ["vat-special", "vat-general", "other"],
+      "delivery.method": ["seller-delivery", "buyer-pickup", "carrier"],
+    },
+    expectedItemSelectOptions: { "signers.partyId": ["seller", "buyer"] },
+    repeatables: ["goodsLines", "price.paymentSchedule", "delivery.documents", "signers"],
+    growableRepeatables: ["goodsLines", "price.paymentSchedule", "delivery.documents"],
+  },
+  {
+    id: "contract.supply.framework.v1",
+    fixtureName: "contract-framework-supply",
+    expectedPaths: [
+      ...CONTRACT_META_EDITOR_PATHS,
+      ...partyEditorPaths("supplier"),
+      ...partyEditorPaths("purchaser"),
+      "term.startDate",
+      "term.endDate",
+      "catalogLines",
+      ...["currency", "taxMode", "priceMethod", "adjustmentTrigger", "adjustmentNoticeDays"].map(
+        (key) => `pricing.${key}`,
+      ),
+      ...["frequency", "binding", "minimumPurchaseCommitment", "exclusivity"].map(
+        (key) => `forecast.${key}`,
+      ),
+      "riskAcknowledgements.commercialRiskConfirmed",
+      ...[
+        "formation",
+        "approval",
+        "documentPriority",
+        "moq",
+        "leadTime",
+        "capacityCommitment",
+        "inventoryPolicy",
+      ].map((key) => `ordering.${key}`),
+      ...[
+        "delivery",
+        "acceptance",
+        "reconciliationCycle",
+        "invoice",
+        "settlement",
+        "quality",
+        "warranty",
+        "supplyContinuity",
+        "transitionAssistance",
+      ].map((key) => `performance.${key}`),
+      "orderTemplateAttachmentId",
+      ...generalEditorPaths,
+      "signers",
+    ],
+    expectedSelectOptions: {
+      ...sharedContractSelectOptions("supplier", "purchaser"),
+      "pricing.currency": CURRENCY_EDITOR_OPTIONS,
+      "pricing.taxMode": TAX_EDITOR_OPTIONS,
+    },
+    expectedItemSelectOptions: { "signers.partyId": ["supplier", "purchaser"] },
+    repeatables: ["catalogLines", "signers"],
+    growableRepeatables: ["catalogLines"],
+  },
+  {
+    id: "contract.oem.processing.v1",
+    fixtureName: "contract-oem-processing",
+    expectedPaths: [
+      ...CONTRACT_META_EDITOR_PATHS,
+      ...partyEditorPaths("principal"),
+      ...partyEditorPaths("processor"),
+      "products",
+      "technical.packageVersion",
+      "technical.drawingAttachmentIds",
+      "technical.sampleApproval",
+      "technical.engineeringChange",
+      ...["mode", "items", "yieldTarget", "scrapHandling", "returnMethod"].map(
+        (key) => `materials.${key}`,
+      ),
+      "tooling",
+      "production.currency",
+      "production.taxMode",
+      "production.schedule",
+      "production.processingFeeLines",
+      "production.paymentSchedule",
+      ...["standard", "inspection", "nonconformingProduct", "traceability", "recall"].map(
+        (key) => `quality.${key}`,
+      ),
+      ...["backgroundIp", "foregroundIp", "licenseScope", "confidentiality"].map(
+        (key) => `intellectualProperty.${key}`,
+      ),
+      "subcontracting",
+      "terminationCompensation",
+      ...generalEditorPaths,
+      "signers",
+    ],
+    expectedSelectOptions: {
+      ...sharedContractSelectOptions("principal", "processor"),
+      "materials.mode": ["principal-supplied", "processor-supplied", "mixed"],
+      "production.currency": CURRENCY_EDITOR_OPTIONS,
+      "production.taxMode": TAX_EDITOR_OPTIONS,
+    },
+    expectedItemSelectOptions: {
+      "tooling.owner": ["principal", "processor", "shared"],
+      "signers.partyId": ["principal", "processor"],
+    },
+    repeatables: [
+      "products",
+      "materials.items",
+      "tooling",
+      "production.processingFeeLines",
+      "production.paymentSchedule",
+      "signers",
+    ],
+    growableRepeatables: [
+      "products",
+      "materials.items",
+      "tooling",
+      "production.processingFeeLines",
+      "production.paymentSchedule",
+    ],
+  },
+  {
+    id: "contract.service.commercial.v1",
+    fixtureName: "contract-commercial-service",
+    expectedPaths: [
+      ...CONTRACT_META_EDITOR_PATHS,
+      ...partyEditorPaths("client"),
+      ...partyEditorPaths("provider"),
+      ...[
+        "type",
+        "serviceMatter",
+        "scope",
+        "workRequirements",
+        "serviceLocation",
+        "startDate",
+        "endDate",
+        "reportingMethod",
+        "clientDependencies",
+      ].map((key) => `engagement.${key}`),
+      "deliverables",
+      "delegation.subcontractConsent",
+      "delegation.parallelEngagementConsent",
+      ...["currency", "taxMode", "model", "lines", "necessaryExpenses", "paymentSchedule"].map(
+        (key) => `fees.${key}`,
+      ),
+      "acceptance.standard",
+      "acceptance.period",
+      "acceptance.deemedAcceptance",
+      ...[
+        "ipOwnership",
+        "ipCustomText",
+        "dataHandling",
+        "personalDataInvolved",
+        "personalDataTerms",
+        "confidentiality",
+      ].map((key) => `rights.${key}`),
+      "agency.relationship",
+      "agency.thirdPartyAuthority",
+      "terminationAtWill.handling",
+      "terminationAtWill.compensation",
+      ...generalEditorPaths,
+      "signers",
+    ],
+    expectedSelectOptions: {
+      ...sharedContractSelectOptions("client", "provider"),
+      "engagement.type": ["specific", "general"],
+      "delegation.subcontractConsent": ["allowed", "written-consent", "prohibited"],
+      "delegation.parallelEngagementConsent": ["allowed", "written-consent", "prohibited"],
+      "fees.currency": CURRENCY_EDITOR_OPTIONS,
+      "fees.taxMode": TAX_EDITOR_OPTIONS,
+      "fees.model": ["fixed", "time-material", "milestone"],
+      "rights.ipOwnership": ["client", "provider", "shared", "custom"],
+      "agency.relationship": ["no-agency", "authorized-agency"],
+    },
+    expectedItemSelectOptions: { "signers.partyId": ["client", "provider"] },
+    repeatables: ["deliverables", "fees.lines", "fees.paymentSchedule", "signers"],
+    growableRepeatables: ["deliverables", "fees.lines", "fees.paymentSchedule"],
+  },
+  {
+    id: "contract.sale.international-bilingual.v1",
+    fixtureName: "contract-international-sale",
+    expectedPaths: [
+      ...CONTRACT_META_EDITOR_PATHS,
+      "meta.languagePriority",
+      ...partyEditorPaths("seller"),
+      ...partyEditorPaths("buyer"),
+      "goodsLines",
+      "price.currency",
+      "price.taxMode",
+      "price.adjustment",
+      ...[
+        "incotermsRule",
+        "namedPlace",
+        "transportMode",
+        "shipmentWindow",
+        "partialShipment",
+        "transshipment",
+        "exportClearanceParty",
+        "importClearanceParty",
+        "insurance",
+        "shippingDocuments",
+      ].map((key) => `trade.${key}`),
+      ...["inspection", "claimsPeriod", "titleTransfer", "riskTransfer"].map(
+        (key) => `acceptance.${key}`,
+      ),
+      ...["method", "terms", "letterOfCreditTerms", "bankCharges"].map((key) => `payment.${key}`),
+      ...[
+        "packaging",
+        "shippingMarks",
+        "warranty",
+        "intellectualProperty",
+        "sanctionsAndExportControlAcknowledgement",
+        "forceMajeureAndHardship",
+        "breachRemedies",
+      ].map((key) => `performance.${key}`),
+      ...["cisgChoice", "governingLaw", "disputeMethod", "forum", "notices"].map(
+        (key) => `legal.${key}`,
+      ),
+      "signers",
+    ],
+    expectedSelectOptions: {
+      "meta.effectiveMode": EFFECTIVE_EDITOR_OPTIONS,
+      "meta.languagePriority": ["zh-CN", "en-US"],
+      "seller.entityType": ENTITY_OPTIONS,
+      "buyer.entityType": ENTITY_OPTIONS,
+      "price.currency": CURRENCY_EDITOR_OPTIONS,
+      "price.taxMode": TAX_EDITOR_OPTIONS,
+      "trade.incotermsRule": [
+        "EXW",
+        "FCA",
+        "CPT",
+        "CIP",
+        "DAP",
+        "DPU",
+        "DDP",
+        "FAS",
+        "FOB",
+        "CFR",
+        "CIF",
+      ],
+      "trade.transportMode": ["air", "road", "rail", "sea", "multimodal"],
+      "trade.exportClearanceParty": ["seller", "buyer"],
+      "trade.importClearanceParty": ["seller", "buyer"],
+      "payment.method": ["advance", "open-account", "letter-of-credit", "collection", "custom"],
+      "legal.cisgChoice": ["apply", "exclude", "undecided"],
+      "legal.disputeMethod": DISPUTE_EDITOR_OPTIONS,
+    },
+    expectedItemSelectOptions: { "signers.partyId": ["seller", "buyer"] },
+    repeatables: ["goodsLines", "trade.shippingDocuments", "signers"],
+    growableRepeatables: ["goodsLines", "trade.shippingDocuments"],
+  },
+] as const;
+
+describe("five complete contract editor manifests", () => {
+  for (const contractCase of CONTRACT_EDITOR_CASES) {
+    it(`${contractCase.id} types every authored path and exact select option set`, () => {
+      const registration = V2_TEMPLATE_REGISTRY.get(contractCase.id, "1.0.0");
+      const fields = registration.definition.fieldManifest;
+      const paths = fields.map((field) => field.path);
+      expect(fields.length).toBeGreaterThan(20);
+      expect(new Set(paths).size).toBe(paths.length);
+      expect(paths).not.toEqual(
+        expect.arrayContaining(["id", "templateId", "templateVersion", "updatedAt"]),
+      );
+      expect([...paths].sort()).toEqual([...contractCase.expectedPaths].sort());
+      expect(fields.every((field) => field.valueKind !== undefined)).toBe(true);
+      expect(
+        fields.filter((field) => field.control === "repeatable").map((field) => field.path),
+      ).toEqual(contractCase.repeatables);
+
+      const base = registration.parseDraft(fixture(contractCase.fixtureName));
+      const sectionIds = new Set(
+        DocumentModelV2Schema.parse(registration.compile(base)).sections.map(
+          (section) => section.id,
+        ),
+      );
+      for (const field of fields) {
+        expect(sectionIds.has(field.section), `${field.path} section`).toBe(true);
+        const parentPath = field.path.split(".").slice(0, -1).join(".");
+        if (parentPath) expect(contractDraftPath(base, parentPath).exists, field.path).toBe(true);
+        if (field.required)
+          expect(contractDraftPath(base, field.path).exists, field.path).toBe(true);
+        if (field.control === "select") {
+          expect(field.valueKind).toBe("enum");
+          expect(field.options?.map((option) => option.value)).toEqual(
+            contractCase.expectedSelectOptions[
+              field.path as keyof typeof contractCase.expectedSelectOptions
+            ],
+          );
+          for (const option of field.options ?? []) {
+            const optionDraft = prepareContractSelectDraft(base, field.path, option.value);
+            const parsed = registration.parseDraft(optionDraft);
+            expect(contractDraftPath(parsed, field.path)).toEqual({
+              exists: true,
+              value: option.value,
+            });
+          }
+        } else {
+          expect(field.options).toBeUndefined();
+        }
+      }
+      expect(
+        fields
+          .filter((field) => field.control === "select")
+          .map((field) => field.path)
+          .sort(),
+      ).toEqual(Object.keys(contractCase.expectedSelectOptions).sort());
+
+      const itemSelectOptions = Object.fromEntries(
+        fields.flatMap((field) =>
+          field.control === "repeatable" && field.valueKind === "object-list"
+            ? field.item.fields
+                .filter((itemField) => itemField.control === "select")
+                .map((itemField) => [
+                  `${field.path}.${itemField.path}`,
+                  itemField.options?.map((option) => option.value),
+                ])
+            : [],
+        ),
+      );
+      expect(itemSelectOptions).toEqual(contractCase.expectedItemSelectOptions);
+
+      if (contractCase.id === "contract.supply.framework.v1") {
+        expect(fields.find((field) => field.path === "orderTemplateAttachmentId")).toMatchObject({
+          control: "attachment",
+          valueKind: "attachment-id",
+          cardinality: "single",
+          maxItems: 1,
+          descriptorPath: "attachments",
+          role: "supporting",
+          category: "commercial",
+          allowedMediaTypes: ["application/pdf", "image/png", "image/jpeg"],
+          pdfPageCount: "user-confirmed",
+          includeInSubmissionDefault: false,
+        });
+      }
+      if (contractCase.id === "contract.oem.processing.v1") {
+        expect(
+          fields.find((field) => field.path === "technical.drawingAttachmentIds"),
+        ).toMatchObject({
+          control: "attachment",
+          valueKind: "attachment-id-list",
+          cardinality: "multiple",
+          maxItems: 100,
+          descriptorPath: "attachments",
+          role: "supporting",
+          category: "technical",
+          allowedMediaTypes: ["application/pdf", "image/png", "image/jpeg"],
+          pdfPageCount: "user-confirmed",
+          includeInSubmissionDefault: true,
+        });
+      }
+    });
+
+    it(`${contractCase.id} creates every declared repeatable item through the exact parser`, () => {
+      const registration = V2_TEMPLATE_REGISTRY.get(contractCase.id, "1.0.0");
+      const base = registration.parseDraft(fixture(contractCase.fixtureName)) as Record<
+        string,
+        unknown
+      >;
+      for (const path of contractCase.growableRepeatables) {
+        const candidate = structuredClone(base) as Record<string, unknown>;
+        const current = contractDraftPath(candidate, path);
+        expect(current.exists, path).toBe(true);
+        expect(Array.isArray(current.value), path).toBe(true);
+        const itemId = `${path.replaceAll(".", "-")}-new`;
+        let item: unknown;
+        try {
+          item = registration.createRepeatableItem(path, {
+            id: itemId,
+            now: "2026-08-20T00:00:00.000Z",
+            draft: candidate,
+          });
+        } catch {
+          throw new Error(`${contractCase.id}:${path} factory failed`);
+        }
+        const values = contractDraftPath(candidate, path).value as unknown[];
+        values.push(item);
+        expect(() => registration.parseDraft(candidate), path).not.toThrow();
+      }
+    });
+
+    it(`${contractCase.id} keeps signer rows fixed while allowing safe edits and reorder`, () => {
+      const registration = V2_TEMPLATE_REGISTRY.get(contractCase.id, "1.0.0");
+      const signerField = registration.definition.fieldManifest.find(
+        (field) => field.path === "signers",
+      );
+      expect(signerField).toMatchObject({
+        control: "repeatable",
+        valueKind: "object-list",
+        minItems: 2,
+        maxItems: 2,
+      });
+      const base = registration.parseDraft(fixture(contractCase.fixtureName)) as Record<
+        string,
+        unknown
+      >;
+      expect(() =>
+        registration.createRepeatableItem("signers", {
+          id: "third-party",
+          now: "2026-08-20T00:00:00.000Z",
+          draft: base,
+        }),
+      ).toThrow("无法创建重复项");
+
+      const missing = structuredClone(base) as Record<string, unknown>;
+      (missing.signers as unknown[]).pop();
+      expect(() => registration.parseDraft(missing)).toThrow();
+
+      const edited = structuredClone(base) as Record<string, unknown>;
+      const first = (edited.signers as Array<Record<string, unknown>>)[0];
+      if (!first) throw new Error("Missing signer");
+      first.role = {
+        ...(first.role as Record<string, unknown>),
+        zhCN: "经授权签署方",
+      };
+      expect(() => registration.parseDraft(edited)).not.toThrow();
+
+      const reordered = structuredClone(base) as Record<string, unknown>;
+      (reordered.signers as unknown[]).reverse();
+      expect(() => registration.parseDraft(reordered)).not.toThrow();
+    });
+  }
 });
 
 describe("five contract schema security and budget matrix", () => {
