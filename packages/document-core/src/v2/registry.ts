@@ -1,3 +1,4 @@
+import { snapshotCompositeInput } from "../boundaries.js";
 import {
   type TemplateDefinitionV2,
   TemplateDefinitionV2Schema,
@@ -45,13 +46,19 @@ interface TemplateRegistrationShape {
   readonly createRepeatableItem?: CreateRepeatableItemV1<never>;
 }
 
+type RegistrationDraft<Registration extends TemplateRegistrationShape> = [Registration] extends [
+  never,
+]
+  ? unknown
+  : ReturnType<Registration["parseDraft"]>;
+
 type PublishedRegistration<Registration extends TemplateRegistrationShape> = {
   readonly definition: TemplateDefinitionV2;
   readonly parseDraft: Registration["parseDraft"];
   readonly createDraft: Registration["createDraft"];
   readonly compile: Registration["compile"];
   readonly preflight: Registration["preflight"];
-  readonly createRepeatableItem: CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>>;
+  readonly createRepeatableItem: CreateRepeatableItemV1<RegistrationDraft<Registration>>;
 };
 
 export interface TemplateRegistry<
@@ -224,42 +231,123 @@ function factoryInput<Draft>(value: CreateRepeatableItemInput<Draft>): {
   return { draft, id, now };
 }
 
+function safeSnapshot(value: unknown): unknown {
+  return snapshotCompositeInput(value, { maxTotalValues: 10_000 });
+}
+
+function plainArrayAt(value: unknown, path: string): unknown[] {
+  const items = readOwnPath(value, path);
+  if (!Array.isArray(items) || Object.getPrototypeOf(items) !== Array.prototype) {
+    throw new Error("invalid");
+  }
+  return items;
+}
+
+function objectListIdentities(items: readonly unknown[], idPath: string): Map<string, unknown> {
+  const identities = new Map<string, unknown>();
+  for (const item of items) {
+    const identity = readOwnPath(item, idPath);
+    if (typeof identity !== "string" || identities.has(identity)) throw new Error("invalid");
+    identities.set(identity, item);
+  }
+  return identities;
+}
+
+function addedStringListItem(before: readonly unknown[], after: readonly unknown[]): string {
+  const remaining = new Map<string, number>();
+  for (const item of before) {
+    if (typeof item !== "string") throw new Error("invalid");
+    remaining.set(item, (remaining.get(item) ?? 0) + 1);
+  }
+  let added: string | undefined;
+  for (const item of after) {
+    if (typeof item !== "string") throw new Error("invalid");
+    const count = remaining.get(item) ?? 0;
+    if (count > 0) {
+      remaining.set(item, count - 1);
+      continue;
+    }
+    if (added !== undefined) throw new Error("invalid");
+    added = item;
+  }
+  if (added === undefined || [...remaining.values()].some((count) => count !== 0)) {
+    throw new Error("invalid");
+  }
+  return added;
+}
+
 function publishedRepeatableFactory<Registration extends TemplateRegistrationShape>(
   candidate: RegistrationCandidate<Registration>,
-): CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>> {
+): CreateRepeatableItemV1<RegistrationDraft<Registration>> {
   const factory = (path: string, input: CreateRepeatableItemInput<unknown>) => {
     try {
       if (typeof path !== "string") throw new Error("invalid");
       const field = candidate.definition.fieldManifest.find((entry) => entry.path === path);
-      if (!field || field.control !== "repeatable") throw new Error("invalid");
-      if (!candidate.createRepeatableItem) throw new Error("invalid");
-      const safeInput = factoryInput(input);
-      const parsedDraft = candidate.parseDraft(safeInput.draft);
-      const parsedItems = readOwnPath(parsedDraft, path);
-      if (!Array.isArray(parsedItems) || Object.getPrototypeOf(parsedItems) !== Array.prototype) {
+      if (
+        !field ||
+        field.control !== "repeatable" ||
+        (field.valueKind !== "object-list" && field.valueKind !== "string-list") ||
+        !Number.isInteger(field.maxItems)
+      ) {
         throw new Error("invalid");
       }
-      const nextDraft = structuredClone(parsedDraft);
-      const nextItems = readOwnPath(nextDraft, path);
-      if (!Array.isArray(nextItems) || Object.getPrototypeOf(nextItems) !== Array.prototype) {
-        throw new Error("invalid");
+      if (!candidate.createRepeatableItem) throw new Error("invalid");
+      const safeInput = factoryInput(input);
+      const inputSnapshot = safeSnapshot(safeInput.draft);
+      const parsedDraft = safeSnapshot(candidate.parseDraft(inputSnapshot));
+      const parsedItems = plainArrayAt(parsedDraft, path);
+      if (parsedItems.length >= field.maxItems) throw new Error("invalid");
+      let originalIdentities: Map<string, unknown> | undefined;
+      let idPath: string | undefined;
+      if (field.valueKind === "object-list") {
+        idPath = field.item.idPath;
+        if (!idPath) throw new Error("invalid");
+        originalIdentities = objectListIdentities(parsedItems, idPath);
+        if (originalIdentities.has(safeInput.id)) throw new Error("invalid");
       }
       const now =
         typeof safeInput.now === "string"
           ? safeInput.now
           : new Date(Date.prototype.getTime.call(safeInput.now));
-      const item = candidate.createRepeatableItem(path, {
-        draft: parsedDraft as never,
+      const rawItem = candidate.createRepeatableItem(path, {
+        draft: safeSnapshot(parsedDraft) as never,
         id: safeInput.id,
         now,
       });
-      nextItems.push(item);
-      const parsedCandidate = candidate.parseDraft(nextDraft);
-      const candidateItems = readOwnPath(parsedCandidate, path);
-      if (!Array.isArray(candidateItems) || candidateItems.length !== parsedItems.length + 1) {
+      const item = safeSnapshot(rawItem);
+      if (
+        field.valueKind === "object-list" &&
+        readOwnPath(item, idPath as string) !== safeInput.id
+      ) {
         throw new Error("invalid");
       }
-      const parsedItem = ownDataProperty(candidateItems, String(parsedItems.length))?.value;
+      if (field.valueKind === "string-list" && typeof item !== "string") throw new Error("invalid");
+      const nextDraft = safeSnapshot(parsedDraft);
+      plainArrayAt(nextDraft, path).push(item);
+      const parsedCandidate = safeSnapshot(candidate.parseDraft(nextDraft));
+      const candidateItems = plainArrayAt(parsedCandidate, path);
+      if (
+        candidateItems.length !== parsedItems.length + 1 ||
+        candidateItems.length > field.maxItems
+      ) {
+        throw new Error("invalid");
+      }
+      let parsedItem: unknown;
+      if (field.valueKind === "object-list") {
+        const candidateIdentities = objectListIdentities(candidateItems, idPath as string);
+        if (
+          candidateIdentities.size !== (originalIdentities?.size ?? 0) + 1 ||
+          ![...(originalIdentities?.keys() ?? [])].every((identity) =>
+            candidateIdentities.has(identity),
+          ) ||
+          !candidateIdentities.has(safeInput.id)
+        ) {
+          throw new Error("invalid");
+        }
+        parsedItem = candidateIdentities.get(safeInput.id);
+      } else {
+        parsedItem = addedStringListItem(parsedItems, candidateItems);
+      }
       if (parsedItem === undefined) throw new Error("invalid");
       deepFreeze(parsedItem);
       return parsedItem;
@@ -267,7 +355,7 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
       throw new Error("无法创建重复项");
     }
   };
-  return Object.freeze(factory) as CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>>;
+  return Object.freeze(factory) as CreateRepeatableItemV1<RegistrationDraft<Registration>>;
 }
 
 function publishRegistration<Registration extends TemplateRegistrationShape>(

@@ -662,10 +662,20 @@ const FieldManifestRawSchema = isolatedArraySchema(TemplateFieldManifestEntryV1R
 });
 
 function visibleValueType(field: Record<string, unknown>): "boolean" | "string" | undefined {
-  if (
-    field.valueKind === "boolean" ||
-    (field.valueKind === undefined && field.control === "checkbox")
-  ) {
+  if (field.valueKind === undefined) {
+    if (field.control === "checkbox") return "boolean";
+    if (
+      field.control === "text" ||
+      field.control === "textarea" ||
+      field.control === "date" ||
+      field.control === "datetime" ||
+      field.control === "select"
+    ) {
+      return "string";
+    }
+    return undefined;
+  }
+  if (field.valueKind === "boolean") {
     return "boolean";
   }
   if (
@@ -675,8 +685,7 @@ function visibleValueType(field: Record<string, unknown>): "boolean" | "string" 
     field.valueKind === "decimal-string" ||
     field.valueKind === "money-minor" ||
     field.valueKind === "attachment-id" ||
-    field.valueKind === "enum" ||
-    (field.valueKind === undefined && field.control !== "checkbox")
+    field.valueKind === "enum"
   ) {
     return "string";
   }

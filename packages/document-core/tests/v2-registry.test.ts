@@ -490,6 +490,27 @@ describe("V2 common schemas", () => {
     expect(() =>
       TemplateDefinitionV2Schema.parse(withCondition({ path: "mode", equals: "custom" })),
     ).not.toThrow();
+
+    for (const control of ["number", "money", "percent", "repeatable", "attachment"] as const) {
+      expect(() =>
+        TemplateDefinitionV2Schema.parse({
+          ...createDefinition(),
+          fieldManifest: [
+            {
+              ...createDefinition().fieldManifest[0],
+              visibleWhen: { path: "legacyTarget", equals: "1" },
+            },
+            {
+              path: "legacyTarget",
+              section: "seller",
+              label: "旧字段",
+              control,
+              required: false,
+            },
+          ],
+        }),
+      ).toThrow();
+    }
   });
 
   it("rejects trailing isolated high surrogates in public localized and template text", () => {
@@ -764,6 +785,203 @@ describe("V2 template registry", () => {
 
     expect(() =>
       published.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("enforces typed manifest maxItems and refuses legacy repeatables as trusted factories", () => {
+    const base = createEditorRegistration();
+    const typedMaxOne = {
+      ...base,
+      definition: {
+        ...base.definition,
+        fieldManifest: base.definition.fieldManifest.map((field) =>
+          field.path === "items" ? { ...field, maxItems: 1 } : field,
+        ),
+      },
+    };
+    const typed = createTemplateRegistry([typedMaxOne as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = base.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+    expect(() =>
+      typed.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+
+    const legacyRepeatable = {
+      ...base,
+      definition: {
+        ...base.definition,
+        fieldManifest: base.definition.fieldManifest.map((field) => {
+          if (field.path !== "items") return field;
+          const {
+            valueKind: _valueKind,
+            minItems: _minItems,
+            maxItems: _maxItems,
+            item: _item,
+            ...legacy
+          } = field;
+          return legacy;
+        }),
+      },
+    };
+    const legacy = createTemplateRegistry([legacyRepeatable as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    expect(() =>
+      legacy.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("requires the requested own id and unique object-list identity", () => {
+    const draft = createEditorRegistration().createDraft({
+      id: "draft-1",
+      now: "2026-08-20T00:00:00Z",
+    });
+    const wrongId = createTemplateRegistry([
+      createEditorRegistration(() => ({ id: "wrong-id", name: "错误标识" })) as never,
+    ]).get("quotation.service.project.v1", "1.0.0");
+    expect(() =>
+      wrongId.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+
+    const duplicate = createTemplateRegistry([createEditorRegistration() as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    expect(() =>
+      duplicate.createRepeatableItem("items", {
+        id: "item-1",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("locates the requested identity after a parser reorders object-list rows", () => {
+    const registration = createEditorRegistration();
+    registration.parseDraft = (value: unknown) => {
+      const draft = structuredClone(value as TestDraft);
+      draft.items?.sort((left, right) => left.id.localeCompare(right.id));
+      return draft;
+    };
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(
+      published.createRepeatableItem("items", {
+        id: "item-0",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toEqual({ id: "item-0", name: "新增项目" });
+  });
+
+  it("snapshots caller-owned drafts before identity parsers and mutating factories", () => {
+    const registration = createEditorRegistration((_path, input) => {
+      const draft = input.draft as TestDraft;
+      if (draft.items?.[0]) draft.items[0].name = "已污染";
+      Object.freeze(draft);
+      return { id: input.id, name: "新增项目" };
+    });
+    registration.parseDraft = (value: unknown) => value as TestDraft;
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(
+      published.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toEqual({ id: "item-2", name: "新增项目" });
+    expect(draft.items).toEqual([{ id: "item-1", name: "首项" }]);
+    expect(Object.isFrozen(draft)).toBe(false);
+  });
+
+  it("rejects accessor and revoked draft values without executing user getters", () => {
+    const registration = createEditorRegistration();
+    registration.parseDraft = (value: unknown) => value as TestDraft;
+    const published = createTemplateRegistry([registration as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    );
+    const getter = vi.fn(() => "不应读取");
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+    Object.defineProperty(draft.items?.[0] ?? {}, "name", { enumerable: true, get: getter });
+    expect(() =>
+      published.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+    expect(getter).not.toHaveBeenCalled();
+
+    const { proxy, revoke } = Proxy.revocable(
+      registration.createDraft({ id: "draft-2", now: "2026-08-20T00:00:00Z" }),
+      {},
+    );
+    revoke();
+    expect(() =>
+      published.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft: proxy,
+      }),
+    ).toThrow();
+  });
+
+  it("snapshots factory results and rejects accessor or revoked rows before candidate parsing", () => {
+    const getter = vi.fn(() => "item-2");
+    const accessorRow = { name: "不应接受" } as Record<string, unknown>;
+    Object.defineProperty(accessorRow, "id", { enumerable: true, get: getter });
+    const accessorFactory = createTemplateRegistry([
+      createEditorRegistration(() => accessorRow) as never,
+    ]).get("quotation.service.project.v1", "1.0.0");
+    const draft = createEditorRegistration().createDraft({
+      id: "draft-1",
+      now: "2026-08-20T00:00:00Z",
+    });
+    expect(() =>
+      accessorFactory.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+    expect(getter).not.toHaveBeenCalled();
+
+    const { proxy, revoke } = Proxy.revocable({ id: "item-2", name: "撤销行" }, {});
+    revoke();
+    const revokedFactory = createTemplateRegistry([
+      createEditorRegistration(() => proxy) as never,
+    ]).get("quotation.service.project.v1", "1.0.0");
+    expect(() =>
+      revokedFactory.createRepeatableItem("items", {
         id: "item-2",
         now: "2026-08-20T00:00:00Z",
         draft,
