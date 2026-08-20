@@ -23,6 +23,24 @@ const SERVICE_SECTIONS = [
   "signature",
 ] as const;
 
+const OEM_SECTIONS = [
+  "title",
+  "quote-meta",
+  "parties",
+  "oem-basis",
+  "technical-basis",
+  "charge-lines",
+  "totals",
+  "sample-and-leadtime",
+  "tooling",
+  "materials",
+  "quality-acceptance",
+  "change-ip-confidentiality",
+  "delivery-payment-warranty",
+  "quote-notice",
+  "signature",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -188,5 +206,102 @@ describe("quotation.service.project.v1", () => {
       supportedCurrencies: ["CNY", "USD", "EUR"],
     });
     expect(Object.isFrozen(STANDARD_GOODS_QUOTE_TEMPLATE)).toBe(true);
+  });
+});
+
+describe("quotation.oem.custom.v1", () => {
+  it("parses the fixture, calculates exact charges and compiles fifteen stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("quotation-oem-custom"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "quotation.oem.custom.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLanguage: "zh-CN",
+      defaultLayout: "modern-business.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(OEM_SECTIONS);
+    expect(model.sections.some((section) => section.id === "disclaimer")).toBe(false);
+    expect(model.disclaimers).toEqual(["quotation-non-advice"]);
+    expect(JSON.stringify(model)).toContain("CNY 1,695.00");
+  });
+
+  it("enforces strict dense unique 1..100 charge lines and reparses compile/preflight", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-oem-custom")) as Record<
+      string,
+      unknown
+    >;
+    const lines = base.chargeLines as Array<Record<string, unknown>>;
+    expect(() => registration.parseDraft({ ...base, chargeLines: [] })).toThrow();
+    expect(() => registration.parseDraft({ ...base, chargeLines: [lines[0], lines[0]] })).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        chargeLines: Array.from({ length: 101 }, (_, index) => ({
+          ...lines[0],
+          id: `charge-${index}`,
+        })),
+      }),
+    ).toThrow();
+    expect(() => registration.compile({ ...base, unexpected: true })).toThrow();
+    const sparse = new Array(1);
+    expect(() => registration.preflight({ ...base, chargeLines: sparse })).toThrow();
+  });
+
+  it("emits exact ownership, material, IP, change and consistency findings", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-oem-custom")) as Record<
+      string,
+      unknown
+    >;
+    const project = base.project as Record<string, unknown>;
+    const terms = base.terms as Record<string, unknown>;
+    const risky = {
+      ...base,
+      project: { ...project, buyerSuppliedMaterials: true },
+      terms: {
+        ...terms,
+        toolingRequired: false,
+        toolingOwnership: "",
+        materialReceiptAndReturn: "",
+        intellectualProperty: "",
+        engineeringChange: "",
+      },
+    };
+    const findings = registration.preflight(risky);
+    expect(findings.map((finding) => [finding.code, finding.impact])).toEqual([
+      ["OEM_TOOLING_FLAG_INCONSISTENT", "blockSubmission"],
+      ["OEM_TOOLING_OWNERSHIP_MISSING", "blockSubmission"],
+      ["OEM_BUYER_MATERIAL_TERMS_MISSING", "blockSubmission"],
+      ["OEM_IP_TERMS_MISSING", "watermark"],
+      ["OEM_CHANGE_CONTROL_MISSING", "watermark"],
+    ]);
+    expect(findings.every(Object.isFrozen)).toBe(true);
+    const model = DocumentModelV2Schema.parse(registration.compile(risky));
+    expect(model.watermarks.map((watermark) => watermark.id)).toEqual(["review-required"]);
+  });
+
+  it("creates a local CNY draft without inventing ownership or material terms", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
+    const draft = registration.createDraft({ id: "oem-created", now: "2026-08-19T12:00:00Z" });
+    const parsed = registration.parseDraft(draft) as {
+      meta: Record<string, unknown>;
+      terms: Record<string, unknown>;
+    };
+    expect(parsed.meta).toMatchObject({
+      issueDate: "2026-08-19",
+      validUntil: "2026-09-18",
+      currency: "CNY",
+      language: "zh-CN",
+      layoutStyleId: "modern-business.v1",
+    });
+    expect(parsed.terms.toolingOwnership).toBeUndefined();
+    expect(parsed.terms.materialReceiptAndReturn).toBeUndefined();
+    expect(registration.preflight(draft).some((finding) => finding.impact === "watermark")).toBe(
+      true,
+    );
   });
 });
