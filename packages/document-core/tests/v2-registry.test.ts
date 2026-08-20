@@ -252,6 +252,30 @@ function createNestedDynamicEditorDefinition() {
   };
 }
 
+function withDynamicSourcePath(
+  definition: ReturnType<typeof createNestedDynamicEditorDefinition>,
+  sourcePath: string,
+) {
+  return {
+    ...definition,
+    fieldManifest: definition.fieldManifest.map((field) => {
+      if (field.path === "references") return { ...field, path: sourcePath };
+      if (field.control !== "repeatable" || field.item.kind !== "object") return field;
+      return {
+        ...field,
+        item: {
+          ...field.item,
+          fields: field.item.fields.map((itemField) =>
+            "optionSourcePath" in itemField && itemField.optionSourcePath === "references"
+              ? { ...itemField, optionSourcePath: sourcePath }
+              : itemField,
+          ),
+        },
+      };
+    }),
+  };
+}
+
 function createEditorRegistration(
   factory:
     | ((
@@ -542,6 +566,9 @@ describe("V2 common schemas", () => {
       },
     });
     expect(Object.isFrozen((items as { item?: unknown }).item)).toBe(true);
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withDynamicSourcePath(definition, "trade.references")),
+    ).not.toThrow();
   });
 
   it("rejects malformed dynamic select contracts and unsafe source graphs", () => {
@@ -657,6 +684,9 @@ describe("V2 common schemas", () => {
             : field,
         ),
       }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withDynamicSourcePath(definition, "one.two.three.four")),
     ).toThrow();
   });
 

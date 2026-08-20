@@ -1000,7 +1000,6 @@ function validateDynamicSelectGraph(
     const source = byPath.get(sourcePath);
     const sourceItem = source?.item as Record<string, unknown> | undefined;
     if (
-      sourcePath.includes(".") ||
       !source ||
       source.control !== "repeatable" ||
       source.valueKind !== "object-list" ||
