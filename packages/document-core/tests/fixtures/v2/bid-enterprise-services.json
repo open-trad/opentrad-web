@@ -1,0 +1,244 @@
+{
+  "id": "bid-enterprise-services-gold",
+  "templateId": "bid.enterprise.services.v1",
+  "templateVersion": "1.0.0",
+  "source": {
+    "issuer": "示例智能制造集团有限公司",
+    "agency": "示例采购管理中心",
+    "projectName": "工业数据平台运维服务项目",
+    "projectNumber": "EP-SVC-2026-0819",
+    "packageNumber": "服务包A",
+    "versionLabel": "企业服务采购文件正式版",
+    "issueDate": "2026-08-19",
+    "clarificationIds": [],
+    "versionEvidence": {
+      "mainSolicitationAttachmentId": "source-main",
+      "clarificationAttachments": [],
+      "allClarificationsIncluded": true,
+      "userConfirmedExactVersion": true
+    },
+    "bidDeadline": "2026-09-20T14:00:00+08:00",
+    "openingTime": "2026-09-20T14:30:00+08:00",
+    "openingPlace": "企业电子采购平台",
+    "bidValidityDays": 90,
+    "submissionMode": "electronic",
+    "signatureRules": "按企业采购文件要求完成电子签章",
+    "sealingRules": "电子响应文件加密后提交",
+    "currency": "CNY",
+    "taxBasis": "tax-included",
+    "evaluationMethod": "comprehensive-evaluation",
+    "maximumPriceMinor": "1000000",
+    "jointVentureAllowed": false,
+    "subcontractAllowed": false,
+    "submissionCopies": { "original": 0, "copies": 0, "electronic": 1 },
+    "guaranteeRequirement": { "required": false, "allowedMethods": [], "sourceRefIds": [] }
+  },
+  "bidder": {
+    "legalName": "宁波义星数字服务有限公司",
+    "entityType": "company",
+    "registrationId": "91330200EXAMPLEE2",
+    "registeredAddress": "宁波市鄞州区示例路5号",
+    "legalRepresentative": "王示例",
+    "authorizedRepresentative": "张示例",
+    "contactName": "张示例",
+    "phone": "0574-00000005",
+    "email": "enterprise-services@example.invalid"
+  },
+  "authorizedRepresentative": "张示例",
+  "consortiumMembers": [],
+  "requirements": [
+    {
+      "id": "req-availability",
+      "sourceRefIds": ["source-availability"],
+      "category": "service",
+      "requirementText": "平台月度可用性不低于99.9%。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "按SLA提供月度可用性目标及测量报告。",
+      "offeredValue": "99.9%",
+      "compliance": "yes",
+      "evidenceRefIds": [],
+      "owner": "服务经理",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "qualifications": [
+    {
+      "id": "qualification-license",
+      "sourceRefIds": ["source-qualification"],
+      "name": "营业执照",
+      "required": true,
+      "issuer": "宁波市市场监督管理局",
+      "certificateNumber": "91330200EXAMPLEE2",
+      "validUntil": "2036-08-19",
+      "attachmentId": "proof-license",
+      "status": "attached",
+      "userConfirmedTruth": true
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "id": "source-availability",
+      "kind": "solicitation",
+      "sourceRef": "服务采购文件 SLA 3.1",
+      "attachmentId": "source-main",
+      "page": 22
+    },
+    {
+      "id": "source-qualification",
+      "kind": "solicitation",
+      "sourceRef": "服务采购文件 供应商资格 2.1",
+      "attachmentId": "source-main",
+      "page": 5
+    }
+  ],
+  "businessDeviations": [],
+  "technicalDeviations": [],
+  "projectReferences": [
+    {
+      "id": "case-1",
+      "projectName": "用户提供的数据平台运维案例",
+      "customer": "示例客户有限公司",
+      "period": "2024-01至2025-12",
+      "scope": "平台监控、事件响应与月度服务报告",
+      "evidenceAttachmentId": "proof-case",
+      "userConfirmedTruth": true
+    }
+  ],
+  "attachments": [
+    {
+      "id": "source-main",
+      "category": "other",
+      "displayName": "企业服务采购文件正式版.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 55,
+      "required": true,
+      "sourceRef": "采购人提供的企业服务采购文件",
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-case",
+      "category": "commercial",
+      "displayName": "案例证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 5,
+      "required": false,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "priceDeclaration": {
+    "itemizedTotalMinor": "900000",
+    "bidLetterTotalMinor": "900000",
+    "openingTotalMinor": "900000",
+    "userConfirmed": true
+  },
+  "signSealChecklist": [
+    {
+      "id": "sign-proposal-letter",
+      "sourceRefIds": ["source-availability"],
+      "label": "服务建议书电子签章",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "finalReviewers": [
+    { "name": "李示例", "role": "企业采购复核", "reviewedAt": "2026-08-20T12:00:00+08:00" }
+  ],
+  "updatedAt": "2026-08-20T12:00:00+08:00",
+  "executiveSummary": "以可量化SLA、明确治理和风险闭环提供工业数据平台运维服务。",
+  "customerUnderstanding": "客户需要连续、可追溯且可审计的平台运维能力。",
+  "objectives": "保障平台稳定运行并按月交付服务报告。",
+  "scope": "监控、事件响应、问题管理、变更协同和月度报告。",
+  "methodology": "采用事件、问题、变更和持续改进闭环。",
+  "deliverables": [
+    {
+      "id": "deliverable-1",
+      "name": "月度运维报告",
+      "dueDate": "2026-10-31",
+      "acceptanceStandard": "指标完整且数据可追溯"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone-1",
+      "name": "服务启动",
+      "date": "2026-10-01",
+      "dependency": "采购人提供账号和系统资料"
+    }
+  ],
+  "team": [
+    {
+      "id": "staff-1",
+      "name": "赵示例",
+      "role": "服务经理",
+      "qualification": "用户提供的服务管理资质信息",
+      "experience": "用户提供的平台运维经历",
+      "allocation": "100%",
+      "userConfirmedTruth": true
+    }
+  ],
+  "governance": "设立月度服务委员会，明确决策与升级路径。",
+  "communicationPlan": "周报、月报和重大事件即时通报。",
+  "sla": [
+    {
+      "id": "sla-1",
+      "metric": "月度可用性",
+      "target": "不低于99.9%",
+      "measurement": "监控平台月度统计",
+      "remedy": "按采购文件约定处理"
+    }
+  ],
+  "qualityPlan": "每月复盘指标、问题和纠正措施。",
+  "securityPrivacy": "按采购文件执行访问控制、日志留存与最小必要的数据处理。",
+  "assumptions": ["采购人按计划提供必要账号"],
+  "dependencies": ["采购人确认变更窗口"],
+  "exclusions": ["未列入采购文件的系统改造"],
+  "servicePriceLines": [
+    {
+      "id": "service-1",
+      "serviceName": "工业数据平台运维服务",
+      "deliverable": "月度运维报告",
+      "unit": "项",
+      "quantity": "1",
+      "unitPriceMinor": "900000",
+      "discountBps": 0,
+      "taxRateBps": 600,
+      "estimatedHours": "1800",
+      "milestoneId": "milestone-1"
+    }
+  ],
+  "caseStudies": [
+    {
+      "id": "case-1",
+      "projectName": "用户提供的数据平台运维案例",
+      "customer": "示例客户有限公司",
+      "period": "2024-01至2025-12",
+      "scope": "平台监控、事件响应与月度服务报告",
+      "evidenceAttachmentId": "proof-case",
+      "userConfirmedTruth": true
+    }
+  ],
+  "riskRegister": [
+    {
+      "id": "risk-1",
+      "risk": "关键账号未按计划开通",
+      "probability": "medium",
+      "impact": "high",
+      "mitigation": "提前核对账号清单并设置升级路径",
+      "owner": "服务经理"
+    }
+  ],
+  "contractDeviations": []
+}

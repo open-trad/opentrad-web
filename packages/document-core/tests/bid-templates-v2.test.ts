@@ -102,6 +102,30 @@ const ENTERPRISE_GOODS_SECTIONS = [
   "signatures",
 ] as const;
 
+const ENTERPRISE_SERVICES_SECTIONS = [
+  "draft-cover",
+  "source-baseline",
+  "toc",
+  "proposal-letter",
+  "executive-summary",
+  "customer-understanding",
+  "scope",
+  "methodology",
+  "deliverables",
+  "schedule",
+  "team-governance",
+  "sla-quality",
+  "security-privacy",
+  "assumptions-dependencies-exclusions",
+  "commercial-offer",
+  "cases",
+  "risks",
+  "deviations",
+  "attachments",
+  "checklist",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -206,5 +230,33 @@ describe("bid.enterprise.goods.v1", () => {
     expect(serialized).toContain("库存方案：未提供");
     expect(serialized).toContain("厂商支持：未提供");
     expect(serialized).toContain("CNY 8,000.00");
+  });
+});
+
+describe("bid.enterprise.services.v1", () => {
+  it("keeps assumptions, dependencies and exclusions separately reviewable", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("bid.enterprise.services.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("bid-enterprise-services"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    const separation = model.sections.find(
+      (section) => section.id === "assumptions-dependencies-exclusions",
+    );
+
+    expect(registration.definition).toMatchObject({
+      id: "bid.enterprise.services.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLayout: "modern-business.v1",
+      sourceKeys: ["prc-tendering-law"],
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(ENTERPRISE_SERVICES_SECTIONS);
+    expect(model.watermarks).toEqual([]);
+    expect(separation?.blocks.map((block) => block.id)).toEqual([
+      "enterprise-service-assumptions",
+      "enterprise-service-dependencies",
+      "enterprise-service-exclusions",
+    ]);
+    expect(JSON.stringify(model)).toContain("是否适用招标法律规则取决于项目和采购主体");
+    expect(JSON.stringify(model)).toContain("CNY 9,000.00");
   });
 });
