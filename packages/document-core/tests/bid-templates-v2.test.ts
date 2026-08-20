@@ -260,3 +260,16 @@ describe("bid.enterprise.services.v1", () => {
     expect(JSON.stringify(model)).toContain("CNY 9,000.00");
   });
 });
+
+it("registers exactly fourteen immutable unique V2 template versions on one basis date", () => {
+  const definitions = V2_TEMPLATE_REGISTRY.list().map((registration) => registration.definition);
+  const keys = definitions.map((definition) => `${definition.id}@${definition.version}`);
+
+  expect(definitions).toHaveLength(14);
+  expect(new Set(keys).size).toBe(14);
+  expect(definitions.filter((definition) => definition.category === "quotation")).toHaveLength(4);
+  expect(definitions.filter((definition) => definition.category === "contract")).toHaveLength(5);
+  expect(definitions.filter((definition) => definition.category === "bid")).toHaveLength(5);
+  expect(definitions.every((definition) => definition.basisDate === "2026-08-19")).toBe(true);
+  expect(definitions.every((definition) => Object.isFrozen(definition))).toBe(true);
+});

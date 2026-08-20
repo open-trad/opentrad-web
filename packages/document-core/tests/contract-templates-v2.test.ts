@@ -691,13 +691,14 @@ describe("contract.sale.international-bilingual.v1", () => {
     expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
   });
 
-  it("finishes the immutable registry at four quotations and five contracts with JSON-safe models", () => {
+  it("keeps four quotations and five contracts in the final fourteen-template registry", () => {
     const registrations = V2_TEMPLATE_REGISTRY.list();
-    expect(registrations).toHaveLength(9);
+    expect(registrations).toHaveLength(14);
     expect(registrations.filter((item) => item.definition.category === "quotation")).toHaveLength(
       4,
     );
     expect(registrations.filter((item) => item.definition.category === "contract")).toHaveLength(5);
+    expect(registrations.filter((item) => item.definition.category === "bid")).toHaveLength(5);
     const registration = V2_TEMPLATE_REGISTRY.get(
       "contract.sale.international-bilingual.v1",
       "1.0.0",
