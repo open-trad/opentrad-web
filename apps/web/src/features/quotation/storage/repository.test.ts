@@ -60,7 +60,7 @@ describe("quotation IndexedDB repository", () => {
     ]);
     expect(database.transaction("drafts").store.indexNames.contains("by-saved-at")).toBe(true);
     const documentIndexes = database.transaction("documentsV2").store.indexNames;
-    expect(Array.from(documentIndexes)).toEqual(["by-saved-at", "by-template-id"]);
+    expect(Array.from(documentIndexes)).toEqual(["by-document-id", "by-saved-at", "by-template"]);
     expect(database.transaction("attachments").store.indexNames.contains("by-document-key")).toBe(
       true,
     );

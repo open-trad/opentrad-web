@@ -54,8 +54,13 @@ interface QuotationDatabase extends DBSchema {
   };
   documentsV2: {
     key: string;
-    value: { key: string; templateId: string; savedAt: string };
-    indexes: { "by-saved-at": string; "by-template-id": string };
+    value: {
+      key: string;
+      documentId: string;
+      templateKey: string;
+      savedAt: string;
+    };
+    indexes: { "by-saved-at": string; "by-template": string; "by-document-id": string };
   };
   attachments: {
     key: string;
@@ -180,7 +185,8 @@ function upgradeDatabase(database: IDBPDatabase<QuotationDatabase>, oldVersion: 
   if (oldVersion < 2) {
     const documents = database.createObjectStore(DOCUMENTS_V2_STORE, { keyPath: "key" });
     documents.createIndex("by-saved-at", "savedAt");
-    documents.createIndex("by-template-id", "templateId");
+    documents.createIndex("by-template", "templateKey");
+    documents.createIndex("by-document-id", "documentId");
     const attachments = database.createObjectStore(ATTACHMENTS_STORE, {
       keyPath: "localBlobKey",
     });
