@@ -57,6 +57,22 @@ const EXPORT_SECTIONS = [
   "signature",
 ] as const;
 
+const PROFORMA_SECTIONS = [
+  "proforma-banner",
+  "invoice-meta",
+  "exporter-importer",
+  "consignee-notify",
+  "goods-table",
+  "weights-dimensions",
+  "charges",
+  "totals",
+  "sale-term",
+  "payment-shipping",
+  "bank-instructions",
+  "proforma-declaration",
+  "signature",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -439,5 +455,100 @@ describe("quotation.export.bilingual.v1", () => {
       ]),
     );
     expect(JSON.stringify(created)).not.toMatch(/derivedTax|verifiedHs|translated/);
+  });
+});
+
+describe("quotation.proforma.invoice.v1", () => {
+  it("compiles exact adjustments and the corrected declaration in thirteen sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.proforma.invoice.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("quotation-proforma-invoice"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "quotation.proforma.invoice.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLanguage: "zh-en",
+      defaultLayout: "international-compact.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(PROFORMA_SECTIONS);
+    expect(model.sections.some((section) => section.id === "disclaimer")).toBe(false);
+    expect(model.disclaimers).toEqual(["international-choice-warning"]);
+    expect(JSON.stringify(model)).toContain("USD 325.00");
+    expect(JSON.stringify(model)).toContain(
+      "不替代税务发票、正式商业发票、付款凭证或运输单据，具体机构要求为准",
+    );
+  });
+
+  it("uses meta.validUntil as the only validity source and keeps insurance independent", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.proforma.invoice.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-proforma-invoice")) as Record<
+      string,
+      unknown
+    >;
+    const shipment = base.shipment as Record<string, unknown>;
+    expect(Object.hasOwn(shipment, "validityDate")).toBe(false);
+    expect(Object.hasOwn(shipment, "transportMode")).toBe(true);
+    expect(Object.hasOwn(shipment, "insuranceArrangement")).toBe(true);
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        shipment: { ...shipment, validityDate: "2026-09-30" },
+      }),
+    ).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        shipment: { ...shipment, totalGrossWeightKg: "9", totalNetWeightKg: "10" },
+      }),
+    ).toThrow();
+  });
+
+  it("calls proforma adjustments without automatically taxing freight or other charges", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.proforma.invoice.v1", "1.0.0");
+    const base = fixture("quotation-proforma-invoice") as Record<string, unknown>;
+    const model = DocumentModelV2Schema.parse(registration.compile(base));
+    const serialized = JSON.stringify(model);
+    expect(serialized).toContain("USD 10.00");
+    expect(serialized).toContain("USD 50.00");
+    expect(serialized).toContain("USD 25.00");
+    expect(serialized).toContain("USD 325.00");
+    expect(serialized).not.toMatch(/freightTax|insuranceTax|otherChargesTax/);
+    expect(() => registration.preflight({ ...base, unexpected: true })).toThrow();
+  });
+
+  it("emits bank, HS and shared international findings with no silent selections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.proforma.invoice.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-proforma-invoice")) as Record<
+      string,
+      unknown
+    >;
+    expect(registration.preflight(base).map((finding) => [finding.code, finding.impact])).toEqual([
+      ["HS_CODE_USER_SUPPLIED_UNVERIFIED", "advisory"],
+      ["BANK_INSTRUCTIONS_USER_SUPPLIED_UNVERIFIED", "advisory"],
+    ]);
+    const created = registration.createDraft({ id: "pi-created", now: "2028-01-31T23:00:00Z" });
+    const parsed = registration.parseDraft(created) as {
+      meta: Record<string, unknown>;
+      shipment: Record<string, unknown>;
+    };
+    expect(parsed.meta).toMatchObject({
+      issueDate: "2028-01-31",
+      validUntil: "2028-03-01",
+      currency: "USD",
+      language: "zh-en",
+      layoutStyleId: "international-compact.v1",
+    });
+    expect(parsed.shipment.incotermsRule).toBeUndefined();
+    expect(parsed.shipment.namedPlace).toBeUndefined();
+    expect(parsed.shipment.languagePriority).toBeUndefined();
+    expect(
+      registration.preflight(created).map((finding) => [finding.code, finding.impact]),
+    ).toEqual(
+      expect.arrayContaining([
+        ["INCOTERMS_SELECTION_MISSING", "blockSubmission"],
+        ["LANGUAGE_PRIORITY_MISSING", "blockSubmission"],
+      ]),
+    );
   });
 });
