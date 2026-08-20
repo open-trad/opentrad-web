@@ -1,0 +1,96 @@
+{
+  "id": "framework-supply-gold",
+  "templateId": "contract.supply.framework.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "contractNumber": "GY-2026-001",
+    "title": "框架供应合同",
+    "signingDate": "2026-08-19",
+    "effectiveMode": "date",
+    "effectiveDate": "2026-09-01",
+    "copies": 2,
+    "language": "zh-CN",
+    "layoutStyleId": "classic-formal.v1"
+  },
+  "supplier": {
+    "legalName": "宁波示例供应有限公司",
+    "entityType": "company",
+    "contactName": "周经理",
+    "registeredAddress": "宁波市示例路8号"
+  },
+  "purchaser": {
+    "legalName": "杭州示例采购有限公司",
+    "entityType": "company",
+    "contactName": "吴经理",
+    "registeredAddress": "杭州市示例路9号"
+  },
+  "term": { "startDate": "2026-09-01", "endDate": "2027-08-31" },
+  "catalogLines": [
+    {
+      "id": "catalog-1",
+      "name": "标准连接器",
+      "specification": "A型",
+      "unit": "件",
+      "quantity": "10",
+      "unitPriceMinor": "5000",
+      "discountBps": 0,
+      "taxRateBps": 1300
+    }
+  ],
+  "pricing": {
+    "currency": "CNY",
+    "taxMode": "tax-included",
+    "priceMethod": "目录单价作为订单议价基础",
+    "adjustmentTrigger": "主要原材料价格累计变动超过5%",
+    "adjustmentNoticeDays": 30
+  },
+  "forecast": {
+    "frequency": "每月滚动提供未来三个月预测",
+    "binding": false,
+    "minimumPurchaseCommitment": "年度最低采购1000件",
+    "exclusivity": "约定产品范围内独家供应"
+  },
+  "riskAcknowledgements": { "commercialRiskConfirmed": true },
+  "ordering": {
+    "formation": "采购订单经供应商书面确认后成立",
+    "approval": "双方授权联系人通过订单系统确认",
+    "documentPriority": "已确认订单优先于目录；本合同优先于订单通用条款",
+    "moq": "每批100件",
+    "leadTime": "订单确认后20日",
+    "capacityCommitment": "供应商保留每月2000件产能",
+    "inventoryPolicy": "安全库存不少于300件"
+  },
+  "performance": {
+    "delivery": "按订单指定地点交付",
+    "acceptance": "到货后五个工作日检验",
+    "reconciliationCycle": "自然月对账",
+    "invoice": "对账确认后开具增值税专用发票",
+    "settlement": "收到合格发票后30日付款",
+    "quality": "符合订单技术规格",
+    "warranty": "验收后十二个月",
+    "supplyContinuity": "供应中断风险出现时提前书面通知并提交恢复计划",
+    "transitionAssistance": "终止后提供三个月合理过渡协助"
+  },
+  "orderTemplateAttachmentId": "order-template",
+  "generalTerms": {
+    "noticeAddresses": "按合同登记地址送达",
+    "confidentiality": "双方对商业秘密保密",
+    "forceMajeure": "及时通知并提供证明",
+    "changeControl": "变更须书面确认",
+    "termination": "重大违约可解除，终止后完成订单交接",
+    "breachRemedies": "违约方承担实际损失",
+    "governingLaw": "中华人民共和国法律",
+    "disputeMethod": "court",
+    "court": "采购方所在地有管辖权的人民法院",
+    "severability": "部分无效不影响其他条款",
+    "entireAgreement": "合同、附件及已确认订单构成完整约定"
+  },
+  "signers": [
+    { "partyId": "supplier", "role": { "zhCN": "供应商" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } },
+    { "partyId": "purchaser", "role": { "zhCN": "采购方" }, "dateLabel": { "zhCN": "日期" }, "sealLabel": { "zhCN": "盖章" } }
+  ],
+  "attachments": [
+    { "id": "order-template", "category": "commercial", "displayName": "采购订单模板.pdf", "mediaType": "application/pdf", "pageCount": 2, "required": true, "status": "attached", "includedInSubmission": true }
+  ],
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

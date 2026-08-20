@@ -25,6 +25,27 @@ const DOMESTIC_SECTIONS = [
   "signatures",
 ] as const;
 
+const FRAMEWORK_SECTIONS = [
+  "cover",
+  "meta",
+  "parties",
+  "framework-purpose",
+  "term",
+  "catalog-price",
+  "forecast",
+  "minimum-or-exclusivity",
+  "orders-priority",
+  "capacity-inventory",
+  "delivery-acceptance",
+  "reconciliation-payment",
+  "quality-warranty",
+  "continuity",
+  "change-termination-transition",
+  "general-terms",
+  "order-template",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -145,6 +166,72 @@ describe("contract.sale.domestic-b2b.v1", () => {
       registration.parseDraft({
         ...base,
         acceptance: { ...acceptance, warranty: "保".repeat(20_001) },
+      }),
+    ).toThrow();
+  });
+});
+
+describe("contract.supply.framework.v1", () => {
+  it("pins sources, renders the nonbinding forecast rule and compiles stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.supply.framework.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("contract-framework-supply"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "contract.supply.framework.v1",
+      version: "1.0.0",
+      category: "contract",
+      basisDate: "2026-08-19",
+      languages: ["zh-CN"],
+      allowedLayouts: ["classic-formal.v1"],
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+      sourceKeys: ["prc-civil-code", "samr-contract-library"],
+      disclaimerProfile: "contract",
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(FRAMEWORK_SECTIONS);
+    const serialized = JSON.stringify(model);
+    expect(serialized).toContain("预测和目录不当然构成采购义务");
+    expect(serialized).toContain("CNY 500.00");
+    expect(serialized).toContain("供应中断风险");
+    expect(serialized).not.toContain("commercialRiskConfirmed");
+    expect(model.disclaimers).toEqual(["contract-generation-note"]);
+  });
+
+  it("keeps commercial confirmation in preflight only and reparses public operations", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.supply.framework.v1", "1.0.0");
+    const base = fixture("contract-framework-supply") as Record<string, unknown>;
+    const riskAcknowledgements = base.riskAcknowledgements as Record<string, unknown>;
+    const risky = {
+      ...base,
+      riskAcknowledgements: { ...riskAcknowledgements, commercialRiskConfirmed: false },
+    };
+    expect(registration.preflight(risky).map((finding) => [finding.code, finding.impact])).toEqual([
+      ["FRAMEWORK_COMMERCIAL_RISK_UNCONFIRMED", "watermark"],
+    ]);
+    expect(DocumentModelV2Schema.parse(registration.compile(risky)).watermarks).toHaveLength(1);
+    expect(registration.preflight(base)).toEqual([]);
+    const created = registration.createDraft({ id: "framework-created", now: "2026-08-19T00:00:00Z" }) as Record<string, unknown>;
+    const pricing = created.pricing as Record<string, unknown>;
+    expect(pricing.currency).toBeUndefined();
+    expect(pricing.taxMode).toBeUndefined();
+    expect(registration.preflight(created).map((finding) => finding.code)).toEqual(
+      expect.arrayContaining(["CONTRACT_CURRENCY_MISSING", "CONTRACT_TAX_MODE_MISSING"]),
+    );
+    expect(() => registration.compile({ ...created, unknown: true })).toThrow();
+    expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
+  });
+
+  it("cross-validates the order template, signer roles, dates and catalog ids", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.supply.framework.v1", "1.0.0");
+    const base = fixture("contract-framework-supply") as Record<string, unknown>;
+    const term = base.term as Record<string, unknown>;
+    const lines = base.catalogLines as Array<Record<string, unknown>>;
+    expect(() => registration.parseDraft({ ...base, orderTemplateAttachmentId: "missing" })).toThrow();
+    expect(() => registration.parseDraft({ ...base, term: { ...term, endDate: "2026-08-01" } })).toThrow();
+    expect(() => registration.parseDraft({ ...base, catalogLines: [lines[0], lines[0]] })).toThrow();
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "seller" }],
       }),
     ).toThrow();
   });
