@@ -152,6 +152,13 @@ const ServiceProjectQuoteDraftRawSchema = strictQuoteObject(
     updatedAt: IsoInstantV2RawSchema,
   },
   (draft, addIssue) => {
+    if (draft.meta.language !== "zh-CN") {
+      addIssue({
+        code: "custom",
+        message: "Project service quotation supports zh-CN only",
+        path: ["meta", "language"],
+      });
+    }
     const milestoneIds = new Set(draft.milestones.map((milestone) => milestone.id));
     draft.serviceLines.forEach((line, index) => {
       if (line.milestoneId !== undefined && !milestoneIds.has(line.milestoneId)) {
@@ -177,7 +184,7 @@ export const SERVICE_PROJECT_QUOTE_DEFINITION = {
   name: "项目服务报价单",
   summary: "按服务项、里程碑、验收与数据处理安排形成项目报价",
   basisDate: "2026-08-19",
-  languages: ["zh-CN", "en-US", "zh-en"],
+  languages: ["zh-CN"],
   defaultLanguage: "zh-CN",
   allowedLayouts: ["modern-business.v1", "classic-formal.v1"],
   defaultLayout: "modern-business.v1",

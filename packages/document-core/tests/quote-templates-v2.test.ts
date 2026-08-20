@@ -121,6 +121,17 @@ describe("quotation.service.project.v1", () => {
       language: "zh-CN",
       layoutStyleId: "modern-business.v1",
     });
+    expect(registration.definition.languages).toEqual(["zh-CN"]);
+    expect(() =>
+      registration.parseDraft({
+        ...draftRecord,
+        meta: {
+          ...parsed.meta,
+          language: "zh-en",
+          englishTitle: "Project Service Quotation",
+        },
+      }),
+    ).toThrow();
     expect(() => registration.compile({ ...draftRecord, unexpected: true })).toThrow();
     expect(() => registration.preflight({ ...draftRecord, unexpected: true })).toThrow();
     expect(() =>
@@ -330,6 +341,17 @@ describe("quotation.oem.custom.v1", () => {
       language: "zh-CN",
       layoutStyleId: "modern-business.v1",
     });
+    expect(registration.definition.languages).toEqual(["zh-CN"]);
+    expect(() =>
+      registration.parseDraft({
+        ...(draft as Record<string, unknown>),
+        meta: {
+          ...parsed.meta,
+          language: "en-US",
+          englishTitle: "OEM Custom Quotation",
+        },
+      }),
+    ).toThrow();
     expect(parsed.terms.toolingOwnership).toBeUndefined();
     expect(parsed.terms.materialReceiptAndReturn).toBeUndefined();
     expect(registration.preflight(draft).some((finding) => finding.impact === "watermark")).toBe(

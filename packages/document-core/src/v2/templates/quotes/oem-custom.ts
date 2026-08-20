@@ -155,18 +155,29 @@ const OemTermsSchema = strictQuoteObject({
   notes: OptionalText.optional(),
 });
 
-const OemCustomQuoteDraftRawSchema = strictQuoteObject({
-  id: IdentifierV2Schema,
-  templateId: z.literal("quotation.oem.custom.v1"),
-  templateVersion: z.literal("1.0.0"),
-  meta: QuoteMetaV2Schema,
-  seller: PartyV2Schema,
-  buyer: PartyV2Schema,
-  project: OemProjectSchema,
-  chargeLines: OemChargeLinesSchema,
-  terms: OemTermsSchema,
-  updatedAt: IsoInstantV2RawSchema,
-});
+const OemCustomQuoteDraftRawSchema = strictQuoteObject(
+  {
+    id: IdentifierV2Schema,
+    templateId: z.literal("quotation.oem.custom.v1"),
+    templateVersion: z.literal("1.0.0"),
+    meta: QuoteMetaV2Schema,
+    seller: PartyV2Schema,
+    buyer: PartyV2Schema,
+    project: OemProjectSchema,
+    chargeLines: OemChargeLinesSchema,
+    terms: OemTermsSchema,
+    updatedAt: IsoInstantV2RawSchema,
+  },
+  (draft, addIssue) => {
+    if (draft.meta.language !== "zh-CN") {
+      addIssue({
+        code: "custom",
+        message: "OEM custom quotation supports zh-CN only",
+        path: ["meta", "language"],
+      });
+    }
+  },
+);
 
 export const OemCustomQuoteDraftV1Schema = frozenQuoteSchema(OemCustomQuoteDraftRawSchema, {
   arrayLimits: { chargeLines: 100 },
@@ -179,7 +190,7 @@ export const OEM_CUSTOM_QUOTE_DEFINITION = {
   name: "OEM 定制报价单",
   summary: "覆盖量产单价、模具/NRE、来料、样品、质量与工程变更的定制报价",
   basisDate: "2026-08-19",
-  languages: ["zh-CN", "en-US", "zh-en"],
+  languages: ["zh-CN"],
   defaultLanguage: "zh-CN",
   allowedLayouts: ["modern-business.v1", "classic-formal.v1"],
   defaultLayout: "modern-business.v1",
