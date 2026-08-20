@@ -141,9 +141,21 @@ function containsLocalBlobKey(value: unknown): boolean {
   return false;
 }
 
-function portableAttachment(attachment: v2.AttachmentRefV1): v2.AttachmentRefV1 {
-  const { localBlobKey: _localBlobKey, ...portable } = attachment;
-  return portable;
+function isLocalOnlySourceRef(sourceRef: string): boolean {
+  const value = sourceRef.trim();
+  return (
+    /^[a-z][a-z0-9+.-]*:/iu.test(value) ||
+    /^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(value) ||
+    value.includes("\\")
+  );
+}
+
+function publicAttachment(attachment: v2.AttachmentRefV1): v2.AttachmentRefV1 {
+  const { localBlobKey: _localBlobKey, sourceRef, ...portable } = attachment;
+  return {
+    ...portable,
+    ...(sourceRef && !isLocalOnlySourceRef(sourceRef) ? { sourceRef } : {}),
+  };
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
@@ -181,8 +193,10 @@ export function validateDocumentEnvelope(
       throw new Error("文档模型身份不一致");
     }
     if (containsLocalBlobKey(model)) throw new Error("文档模型不得包含本地 Blob 引用");
-    const portableManifest = envelope.attachmentManifest.map(portableAttachment);
-    if (!sameJson(model.attachmentManifest, portableManifest)) {
+    const publicManifest = envelope.attachmentManifest
+      .filter((attachment) => attachment.includedInSubmission)
+      .map(publicAttachment);
+    if (!sameJson(model.attachmentManifest, publicManifest)) {
       throw new Error("附件清单与文档模型不一致");
     }
     return { envelope, model };
@@ -321,8 +335,28 @@ export function createDocumentRepository(options: {
       const { envelope, model } = validateDocumentEnvelope(input.envelope, options.registry);
       const key = documentStorageKey(envelope);
       const descriptors = new Map(envelope.attachmentManifest.map((entry) => [entry.id, entry]));
-      const opened = await getDatabase();
-      const existing = await opened.getAllFromIndex(ATTACHMENTS_STORE, "by-document-key", key);
+      const snapshot = await run(async (opened) => {
+        const transaction = opened.transaction([DOCUMENTS_V2_STORE, ATTACHMENTS_STORE], "readonly");
+        const [previousRaw, existing] = await Promise.all([
+          transaction.objectStore(DOCUMENTS_V2_STORE).get(key),
+          transaction.objectStore(ATTACHMENTS_STORE).index("by-document-key").getAll(key),
+        ]);
+        await transaction.done;
+        return {
+          existing,
+          previous: previousRaw ? parseStoredDocument(previousRaw, options.registry) : null,
+        };
+      });
+      if (input.failIfExists && snapshot.previous) {
+        throw new DocumentRepositoryError("DOCUMENT_EXISTS");
+      }
+      if (
+        input.expectedRevision !== undefined &&
+        input.expectedRevision !== (snapshot.previous?.revision ?? 0)
+      ) {
+        throw new DocumentRepositoryError("DOCUMENT_CONFLICT");
+      }
+      const existing = snapshot.existing;
       const finalRecords = new Map(existing.map((entry) => [entry.attachmentId, entry]));
       const changedIds = new Set<string>();
       for (const change of input.attachmentChanges) {
@@ -368,6 +402,9 @@ export function createDocumentRepository(options: {
             input.expectedRevision !== undefined &&
             input.expectedRevision !== (previous?.revision ?? 0)
           ) {
+            throw new DocumentRepositoryError("DOCUMENT_CONFLICT");
+          }
+          if ((previous?.revision ?? 0) !== (snapshot.previous?.revision ?? 0)) {
             throw new DocumentRepositoryError("DOCUMENT_CONFLICT");
           }
           const record: StoredDocumentV2 = {
@@ -450,13 +487,17 @@ export function createDocumentRepository(options: {
     async listAttachments(documentKey) {
       const key = safeKey(documentKey);
       return run(async (opened) => {
-        const records = await opened.getAllFromIndex(ATTACHMENTS_STORE, "by-document-key", key);
+        const transaction = opened.transaction([DOCUMENTS_V2_STORE, ATTACHMENTS_STORE], "readonly");
+        const [documentRaw, records] = await Promise.all([
+          transaction.objectStore(DOCUMENTS_V2_STORE).get(key),
+          transaction.objectStore(ATTACHMENTS_STORE).index("by-document-key").getAll(key),
+        ]);
+        await transaction.done;
+        const document = documentRaw ? parseStoredDocument(documentRaw, options.registry) : null;
         await validateAttachmentInventory({
           documentKey: key,
-          documentKind:
-            (await opened.get(DOCUMENTS_V2_STORE, key))?.model.documentKind ?? "quotation",
-          descriptors:
-            (await opened.get(DOCUMENTS_V2_STORE, key))?.envelope.attachmentManifest ?? [],
+          documentKind: document?.model.documentKind ?? "quotation",
+          descriptors: document?.envelope.attachmentManifest ?? [],
           records,
         });
         return records.sort((left, right) => left.attachmentId.localeCompare(right.attachmentId));

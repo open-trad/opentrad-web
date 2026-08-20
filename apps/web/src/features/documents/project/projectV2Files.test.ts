@@ -13,7 +13,7 @@ function bytes(text: string): Uint8Array {
   return new TextEncoder().encode(text);
 }
 
-function portableAttachment(): v2.AttachmentRefV1 {
+function portableAttachment(overrides: Partial<v2.AttachmentRefV1> = {}): v2.AttachmentRefV1 {
   return {
     id: "technical-spec",
     category: "technical",
@@ -23,38 +23,44 @@ function portableAttachment(): v2.AttachmentRefV1 {
     required: true,
     status: "attached",
     includedInSubmission: true,
+    ...overrides,
   };
 }
 
-function localEnvelope(): v2.ProjectEnvelopeV2 {
-  const portable = portableAttachment();
+function localEnvelope(
+  attachments: readonly v2.AttachmentRefV1[] = [portableAttachment()],
+  templateId: v2.ProjectEnvelopeV2["template"]["id"] = "contract.sale.domestic-b2b.v1",
+): v2.ProjectEnvelopeV2 {
   return {
     formatVersion: "2.0.0",
     template: {
-      id: "contract.sale.domestic-b2b.v1",
+      id: templateId,
       version: "1.0.0",
       basisDate: "2026-08-19",
     },
     draft: {
       id: "contract-1",
-      templateId: "contract.sale.domestic-b2b.v1",
+      templateId,
       templateVersion: "1.0.0",
-      attachments: [portable],
+      attachments,
     },
     presentation: { layoutStyleId: "classic-formal.v1", languageView: "zh-CN" },
-    attachmentManifest: [
-      {
-        ...portable,
-        localBlobKey: "contract.sale.domestic-b2b.v1@1.0.0:contract-1#technical-spec",
-      },
-    ],
+    attachmentManifest: attachments.map((attachment) => ({
+      ...attachment,
+      localBlobKey: `${templateId}@1.0.0:contract-1#${attachment.id}`,
+    })),
   };
 }
 
 function registry(overrides: { documentId?: string } = {}): DocumentTemplateRegistry {
   return {
     get(id, version) {
-      if (id !== "contract.sale.domestic-b2b.v1" || version !== "1.0.0") throw new Error();
+      if (
+        !["contract.sale.domestic-b2b.v1", "bid.government.goods.v1"].includes(id) ||
+        version !== "1.0.0"
+      ) {
+        throw new Error();
+      }
       return {
         definition: { id, version, basisDate: "2026-08-19" },
         parseDraft(input) {
@@ -68,7 +74,7 @@ function registry(overrides: { documentId?: string } = {}): DocumentTemplateRegi
             schemaVersion: "2.0.0",
             documentId: overrides.documentId ?? draft.id,
             template: { id, version, basisDate: "2026-08-19" },
-            documentKind: "contract",
+            documentKind: id.startsWith("bid.") ? "bid" : "contract",
             language: "zh-CN",
             title: { zhCN: "国内货物买卖合同" },
             pageDefaults: {
@@ -83,7 +89,9 @@ function registry(overrides: { documentId?: string } = {}): DocumentTemplateRegi
                   {
                     type: "attachmentIndex",
                     id: "attachment-index",
-                    attachmentIds: draft.attachments.map((entry) => entry.id),
+                    attachmentIds: draft.attachments
+                      .filter((entry) => entry.includedInSubmission)
+                      .map((entry) => entry.id),
                   },
                   {
                     type: "signatureGroup",
@@ -100,8 +108,18 @@ function registry(overrides: { documentId?: string } = {}): DocumentTemplateRegi
               },
             ],
             watermarks: [],
-            disclaimers: ["contract-generation-note"],
-            attachmentManifest: draft.attachments,
+            disclaimers: [id.startsWith("bid.") ? "bid-authority" : "contract-generation-note"],
+            attachmentManifest: draft.attachments
+              .filter((entry) => entry.includedInSubmission)
+              .map(({ localBlobKey: _localBlobKey, sourceRef, ...entry }) => ({
+                ...entry,
+                ...(sourceRef &&
+                !/^[a-z][a-z0-9+.-]*:/iu.test(sourceRef.trim()) &&
+                !/^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(sourceRef.trim()) &&
+                !sourceRef.includes("\\")
+                  ? { sourceRef }
+                  : {}),
+              })),
           };
         },
       };
@@ -320,6 +338,122 @@ describe("V2 .opentrad project ZIP", () => {
     expect(arrayBuffer).not.toHaveBeenCalled();
   });
 
+  it("orders entries by the final ASCII archive path, independent of id-prefix and extension", async () => {
+    const image = portableAttachment({
+      id: "a",
+      displayName: "a.png",
+      mediaType: "image/png",
+      pageCount: 1,
+    });
+    const pdf = portableAttachment({ id: "a-z", displayName: "a-z.pdf" });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([image, pdf]),
+      attachments: [
+        {
+          id: "a",
+          mediaType: "image/png",
+          pageCount: 1,
+          bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        },
+        { ...attachmentFile(), id: "a-z" },
+      ],
+      registry: registry(),
+    });
+    const paths = preflightProjectZip(new Uint8Array(await blob.arrayBuffer())).entries.map(
+      (entry) => entry.path,
+    );
+    expect(paths).toEqual([
+      "manifest.json",
+      "draft.json",
+      "attachments/a-z.pdf",
+      "attachments/a.png",
+    ]);
+  });
+
+  it("rejects hostile Blob-like getters, prototypes and revoked proxies without invoking getters", async () => {
+    const sizeGetter = vi.fn(() => 0);
+    const hostile = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(hostile, "size", { enumerable: true, get: sizeGetter });
+    Object.defineProperty(hostile, "arrayBuffer", {
+      enumerable: true,
+      value: vi.fn(async () => new ArrayBuffer(0)),
+    });
+    await expect(importProjectV2Zip(hostile as never, { registry: registry() })).rejects.toThrow(
+      "项目包输入无效",
+    );
+    expect(sizeGetter).not.toHaveBeenCalled();
+
+    await expect(
+      importProjectV2Zip(Object.create({ size: 0 }) as never, { registry: registry() }),
+    ).rejects.toThrow("项目包输入无效");
+    const { proxy, revoke } = Proxy.revocable(
+      { size: 0, arrayBuffer: async () => new ArrayBuffer(0) },
+      {},
+    );
+    revoke();
+    await expect(importProjectV2Zip(proxy, { registry: registry() })).rejects.toThrow(
+      "项目包输入无效",
+    );
+  });
+
+  it("reads Blob, Uint8Array and ArrayBuffer subclasses through native branded accessors", async () => {
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope(),
+      attachments: [attachmentFile()],
+      registry: registry(),
+    });
+    const archive = new Uint8Array(await blob.arrayBuffer());
+    const sizeGetter = vi.fn();
+    const blobReader = vi.fn();
+    class InheritedBlob extends NodeBlob {
+      override async arrayBuffer(): Promise<ArrayBuffer> {
+        blobReader();
+        return new ArrayBuffer(0);
+      }
+    }
+    Object.defineProperty(InheritedBlob.prototype, "size", {
+      configurable: true,
+      get() {
+        sizeGetter();
+        return 0;
+      },
+    });
+    await expect(
+      importProjectV2Zip(new InheritedBlob([archive]), { registry: registry() }),
+    ).resolves.toMatchObject({ requiresUserConfirmation: true });
+    expect(sizeGetter).not.toHaveBeenCalled();
+    expect(blobReader).not.toHaveBeenCalled();
+
+    const byteLengthGetter = vi.fn();
+    class InheritedBytes extends Uint8Array {
+      override get byteLength(): number {
+        byteLengthGetter();
+        return 0;
+      }
+    }
+    await expect(
+      importProjectV2Zip(new InheritedBytes(archive), { registry: registry() }),
+    ).resolves.toMatchObject({ requiresUserConfirmation: true });
+    expect(byteLengthGetter).not.toHaveBeenCalled();
+
+    const bufferLengthGetter = vi.fn();
+    class InheritedBuffer extends ArrayBuffer {
+      override get byteLength(): number {
+        bufferLengthGetter();
+        return 0;
+      }
+    }
+    const inheritedBuffer = new InheritedBuffer(archive.byteLength);
+    new Uint8Array(inheritedBuffer).set(archive);
+    await expect(
+      importProjectV2Zip(
+        { size: archive.byteLength, arrayBuffer: async () => inheritedBuffer },
+        { registry: registry() },
+      ),
+    ).resolves.toMatchObject({ requiresUserConfirmation: true });
+    expect(bufferLengthGetter).not.toHaveBeenCalled();
+  });
+
   it("rejects actual CRC corruption and strict manifest/draft mismatch after preflight", async () => {
     const blob = await exportProjectV2Zip({
       envelope: localEnvelope(),
@@ -354,5 +488,109 @@ describe("V2 .opentrad project ZIP", () => {
     await expect(importProjectV2Zip(unknownKey, { registry: registry() })).rejects.toThrow(
       "项目包 manifest 无效",
     );
+  });
+
+  it("rejects an archive-supplied localBlobKey even when it matches the derived local key", async () => {
+    const localBlobKey = "contract.sale.domestic-b2b.v1@1.0.0:contract-1#source-only";
+    const sourceRef = `section-${"x".repeat(localBlobKey.length - 5)}`;
+    expect(sourceRef.length).toBe(localBlobKey.length + 3);
+    const descriptor = portableAttachment({
+      id: "source-only",
+      displayName: "采购方招标文件.pdf",
+      pageCount: 1,
+      includedInSubmission: false,
+      sourceRef,
+    });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([descriptor]),
+      attachments: [{ ...attachmentFile(), id: "source-only", pageCount: 1 }],
+      registry: registry(),
+    });
+    let archive: Uint8Array = new Uint8Array(await blob.arrayBuffer());
+    const rewriteOuterManifest = (data: Uint8Array): Uint8Array => {
+      const text = new TextDecoder().decode(data);
+      const start = text.indexOf('"attachmentManifest":[');
+      expect(start).toBeGreaterThanOrEqual(0);
+      const before = `"sourceRef":${JSON.stringify(sourceRef)}`;
+      const after = `"localBlobKey":${JSON.stringify(localBlobKey)}`;
+      expect(before.length).toBe(after.length);
+      const position = text.indexOf(before, start);
+      expect(position).toBeGreaterThan(start);
+      return bytes(`${text.slice(0, position)}${after}${text.slice(position + before.length)}`);
+    };
+    archive = rewriteStoredEntry(archive, "manifest.json", rewriteOuterManifest);
+    archive = rewriteStoredEntry(archive, "draft.json", rewriteOuterManifest);
+
+    await expect(importProjectV2Zip(archive, { registry: registry() })).rejects.toThrow(
+      "项目包不得包含本地 Blob 引用",
+    );
+  });
+
+  it("enforces the bid attachment aggregate page limit on direct export", async () => {
+    const atLimit = portableAttachment({ pageCount: 80 });
+    const bidEnvelope = localEnvelope([atLimit], "bid.government.goods.v1");
+    const atLimitBlob = await exportProjectV2Zip({
+      envelope: bidEnvelope,
+      attachments: [{ ...attachmentFile(), pageCount: 80 }],
+      registry: registry(),
+    });
+    expect(atLimitBlob).toBeInstanceOf(Blob);
+
+    const overLimit = portableAttachment({ pageCount: 81 });
+    await expect(
+      exportProjectV2Zip({
+        envelope: localEnvelope([overLimit], "bid.government.goods.v1"),
+        attachments: [{ ...attachmentFile(), pageCount: 81 }],
+        registry: registry(),
+      }),
+    ).rejects.toThrow("投标附件页数超过 80 页");
+
+    let overLimitArchive: Uint8Array = new Uint8Array(await atLimitBlob.arrayBuffer());
+    const raisePageCount = (data: Uint8Array) => {
+      const text = new TextDecoder().decode(data);
+      const changed = text.replaceAll('"pageCount":80', '"pageCount":81');
+      expect(changed).not.toBe(text);
+      return bytes(changed);
+    };
+    overLimitArchive = rewriteStoredEntry(overLimitArchive, "manifest.json", raisePageCount);
+    overLimitArchive = rewriteStoredEntry(overLimitArchive, "draft.json", raisePageCount);
+    await expect(importProjectV2Zip(overLimitArchive, { registry: registry() })).rejects.toThrow(
+      "投标附件页数超过 80 页",
+    );
+  });
+
+  it("backs up excluded source attachment bytes without publishing local refs in draft or model", async () => {
+    const included = portableAttachment();
+    const sourceOnly = portableAttachment({
+      id: "source-only",
+      displayName: "采购方招标文件.pdf",
+      pageCount: 1,
+      sourceRef: "https://example.invalid/private-source.pdf",
+      includedInSubmission: false,
+    });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([included, sourceOnly]),
+      attachments: [attachmentFile(), { ...attachmentFile(), id: "source-only", pageCount: 1 }],
+      registry: registry(),
+    });
+    const archive = new Uint8Array(await blob.arrayBuffer());
+
+    expect(preflightProjectZip(archive).entries.map((entry) => entry.path)).toContain(
+      "attachments/source-only.pdf",
+    );
+    expect(new TextDecoder().decode(archive)).not.toContain("example.invalid/private-source.pdf");
+    const imported = await importProjectV2Zip(archive, { registry: registry() });
+    expect(imported.attachments.map((entry) => entry.id)).toEqual([
+      "source-only",
+      "technical-spec",
+    ]);
+    expect(imported.portableEnvelope.attachmentManifest).toContainEqual(
+      expect.objectContaining({
+        id: "source-only",
+        includedInSubmission: false,
+      }),
+    );
+    expect(imported.portableEnvelope.attachmentManifest[1]).not.toHaveProperty("sourceRef");
+    expect(imported.model.attachmentManifest.map((entry) => entry.id)).toEqual(["technical-spec"]);
   });
 });

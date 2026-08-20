@@ -4,6 +4,7 @@ import {
   type AttachmentMediaType,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENT_TOTAL_BYTES,
+  MAX_BID_ATTACHMENT_PAGES,
   validateAttachmentBytes,
 } from "../storage/attachmentValidation";
 import {
@@ -23,6 +24,44 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const DANGEROUS_IDS = new Set(["__proto__", "constructor", "prototype"]);
 const ATTACHMENT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
+
+function isLocalOnlySourceRef(sourceRef: string): boolean {
+  const value = sourceRef.trim();
+  return (
+    /^[a-z][a-z0-9+.-]*:/iu.test(value) ||
+    /^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(value) ||
+    value.includes("\\")
+  );
+}
+
+function nativeTypedArrayMetadata(value: unknown): { kind: string; byteLength: number } {
+  const typedArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
+  const kindGetter = Reflect.getOwnPropertyDescriptor(typedArrayPrototype, Symbol.toStringTag)?.get;
+  const byteLengthGetter = Reflect.getOwnPropertyDescriptor(typedArrayPrototype, "byteLength")?.get;
+  if (!kindGetter || !byteLengthGetter) throw projectError("项目包输入无效");
+  return {
+    kind: Reflect.apply(kindGetter, value, []) as string,
+    byteLength: Reflect.apply(byteLengthGetter, value, []) as number,
+  };
+}
+
+function copyUint8Array(value: unknown, message: string): Uint8Array {
+  try {
+    const metadata = nativeTypedArrayMetadata(value);
+    if (metadata.kind !== "Uint8Array") throw new Error();
+    const copy = new Uint8Array(metadata.byteLength);
+    Reflect.apply(Uint8Array.prototype.set, copy, [value]);
+    return copy;
+  } catch {
+    throw projectError(message);
+  }
+}
+
+function nativeArrayBufferByteLength(value: unknown): number {
+  const getter = Reflect.getOwnPropertyDescriptor(ArrayBuffer.prototype, "byteLength")?.get;
+  if (!getter) throw projectError("项目包输入无效");
+  return Reflect.apply(getter, value, []) as number;
+}
 
 export interface ProjectV2AttachmentFile {
   readonly id: string;
@@ -109,16 +148,13 @@ function snapshotAttachmentFiles(input: unknown): ProjectV2AttachmentFile[] {
         !["application/pdf", "image/png", "image/jpeg"].includes(mediaType as string) ||
         !Number.isSafeInteger(pageCount) ||
         (pageCount as number) < 1 ||
-        !ArrayBuffer.isView(attachmentBytes) ||
-        Object.prototype.toString.call(attachmentBytes) !== "[object Uint8Array]"
+        !ArrayBuffer.isView(attachmentBytes)
       ) {
         throw new Error();
       }
       if (ids.has(id)) throw new Error();
       ids.add(id);
-      const sourceBytes = attachmentBytes as Uint8Array;
-      const copiedBytes = new Uint8Array(sourceBytes.byteLength);
-      copiedBytes.set(sourceBytes);
+      const copiedBytes = copyUint8Array(attachmentBytes, "附件输入无效");
       result.push({
         id,
         mediaType: mediaType as AttachmentMediaType,
@@ -126,14 +162,39 @@ function snapshotAttachmentFiles(input: unknown): ProjectV2AttachmentFile[] {
         bytes: copiedBytes,
       });
     }
-    return result.sort((left, right) => left.id.localeCompare(right.id, "en"));
+    return result;
   } catch {
     throw projectError("附件输入无效");
   }
 }
 
 function portableAttachment(attachment: v2.AttachmentRefV1): v2.AttachmentRefV1 {
-  const { localBlobKey: _localBlobKey, ...portable } = attachment;
+  const { localBlobKey: _localBlobKey, sourceRef, ...portable } = attachment;
+  return {
+    ...portable,
+    ...(sourceRef && !isLocalOnlySourceRef(sourceRef) ? { sourceRef } : {}),
+  };
+}
+
+function portableProjectValue(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(portableProjectValue);
+  const portable = Object.create(null) as Record<string, unknown>;
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !("value" in descriptor) || typeof key !== "string") {
+      throw projectError("项目草稿包含非数据属性");
+    }
+    if (key === "localBlobKey") continue;
+    if (
+      key === "sourceRef" &&
+      typeof descriptor.value === "string" &&
+      isLocalOnlySourceRef(descriptor.value)
+    ) {
+      continue;
+    }
+    portable[key] = portableProjectValue(descriptor.value);
+  }
   return portable;
 }
 
@@ -145,12 +206,27 @@ function extension(mediaType: AttachmentMediaType): "pdf" | "png" | "jpg" {
   return mediaType === "application/pdf" ? "pdf" : mediaType === "image/png" ? "png" : "jpg";
 }
 
+function attachmentPath(file: Pick<ProjectV2AttachmentFile, "id" | "mediaType">): string {
+  return `attachments/${file.id}.${extension(file.mediaType)}`;
+}
+
+function compareAsciiPaths(
+  left: Pick<ProjectV2AttachmentFile, "id" | "mediaType">,
+  right: Pick<ProjectV2AttachmentFile, "id" | "mediaType">,
+): number {
+  const leftPath = attachmentPath(left);
+  const rightPath = attachmentPath(right);
+  return leftPath < rightPath ? -1 : leftPath > rightPath ? 1 : 0;
+}
+
 function validateFilesAgainstEnvelope(
   envelope: v2.ProjectEnvelopeV2,
   files: readonly ProjectV2AttachmentFile[],
+  documentKind: v2.DocumentModelV2["documentKind"],
 ): void {
   const byId = new Map(files.map((file) => [file.id, file]));
   let totalBytes = 0;
+  let totalPages = 0;
   for (const descriptor of envelope.attachmentManifest) {
     const file = byId.get(descriptor.id);
     const expectedLocalKey = `${documentStorageKey(envelope)}#${descriptor.id}`;
@@ -172,6 +248,7 @@ function validateFilesAgainstEnvelope(
       }
       validateAttachmentBytes(file.bytes, file.mediaType);
       totalBytes += file.bytes.byteLength;
+      totalPages += file.pageCount;
       if (totalBytes > MAX_ATTACHMENT_TOTAL_BYTES) {
         throw projectError("项目包附件超过 50 MiB");
       }
@@ -182,6 +259,9 @@ function validateFilesAgainstEnvelope(
     }
   }
   if (byId.size > 0) throw projectError("附件文件未在清单中声明");
+  if (documentKind === "bid" && totalPages > MAX_BID_ATTACHMENT_PAGES) {
+    throw projectError("投标附件页数超过 80 页");
+  }
 }
 
 function stableJson(value: unknown): string {
@@ -288,7 +368,7 @@ function manifestFor(
     attachmentManifest: envelope.attachmentManifest.map(portableAttachment),
     files: files.map((file) => ({
       id: file.id,
-      path: `attachments/${file.id}.${extension(file.mediaType)}`,
+      path: attachmentPath(file),
       mediaType: file.mediaType,
       byteLength: file.bytes.byteLength,
       pageCount: file.pageCount,
@@ -301,11 +381,12 @@ export async function exportProjectV2Zip(input: {
   readonly attachments: unknown;
   readonly registry: DocumentTemplateRegistry;
 }): Promise<Blob> {
-  const { envelope } = validateDocumentEnvelope(input.envelope, input.registry);
-  const files = snapshotAttachmentFiles(input.attachments);
-  validateFilesAgainstEnvelope(envelope, files);
+  const { envelope, model } = validateDocumentEnvelope(input.envelope, input.registry);
+  const files = snapshotAttachmentFiles(input.attachments).sort(compareAsciiPaths);
+  validateFilesAgainstEnvelope(envelope, files, model.documentKind);
   const portableEnvelope = v2.ProjectEnvelopeV2Schema.parse({
     ...envelope,
+    draft: portableProjectValue(envelope.draft),
     attachmentManifest: envelope.attachmentManifest.map(portableAttachment),
   });
   const manifest = manifestFor(portableEnvelope, files);
@@ -313,7 +394,7 @@ export async function exportProjectV2Zip(input: {
     { path: "manifest.json", data: encoder.encode(stableJson(manifest)) },
     { path: "draft.json", data: encoder.encode(v2.serializeProjectV2(portableEnvelope)) },
     ...files.map((file) => ({
-      path: `attachments/${file.id}.${extension(file.mediaType)}`,
+      path: attachmentPath(file),
       data: file.bytes,
     })),
   ];
@@ -503,25 +584,99 @@ function parseManifest(input: unknown): ProjectZipManifest {
   }
 }
 
-async function readZipInput(input: Uint8Array | ProjectV2ZipFileLike): Promise<Uint8Array> {
-  if (input instanceof Uint8Array) {
-    if (input.byteLength > MAX_PROJECT_ZIP_BYTES) throw projectError("项目包超过 52 MiB");
-    return new Uint8Array(input);
+function snapshotZipFileLike(input: unknown): ProjectV2ZipFileLike {
+  try {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error();
+    if (typeof Blob !== "undefined" && input instanceof Blob) {
+      const ownSize = Reflect.getOwnPropertyDescriptor(input, "size");
+      const ownArrayBuffer = Reflect.getOwnPropertyDescriptor(input, "arrayBuffer");
+      if ((ownSize && !("value" in ownSize)) || (ownArrayBuffer && !("value" in ownArrayBuffer))) {
+        throw new Error();
+      }
+      const sizeGetter = Reflect.getOwnPropertyDescriptor(Blob.prototype, "size")?.get;
+      const nativeArrayBuffer = Reflect.getOwnPropertyDescriptor(
+        Blob.prototype,
+        "arrayBuffer",
+      )?.value;
+      if (!sizeGetter || typeof nativeArrayBuffer !== "function") throw new Error();
+      const size = Reflect.apply(sizeGetter, input, []) as number;
+      return {
+        size,
+        arrayBuffer: () =>
+          Reflect.apply(nativeArrayBuffer as () => Promise<ArrayBuffer>, input, []),
+      };
+    }
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) throw new Error();
+    const sizeDescriptor = Reflect.getOwnPropertyDescriptor(input, "size");
+    const readerDescriptor = Reflect.getOwnPropertyDescriptor(input, "arrayBuffer");
+    if (
+      !sizeDescriptor ||
+      !("value" in sizeDescriptor) ||
+      !readerDescriptor ||
+      !("value" in readerDescriptor) ||
+      typeof readerDescriptor.value !== "function"
+    ) {
+      throw new Error();
+    }
+    return {
+      size: sizeDescriptor.value as number,
+      arrayBuffer: () =>
+        Reflect.apply(readerDescriptor.value as () => Promise<ArrayBuffer>, input, []),
+    };
+  } catch {
+    throw projectError("项目包输入无效");
   }
+}
+
+async function readZipInput(input: Uint8Array | ProjectV2ZipFileLike): Promise<Uint8Array> {
+  let isByteArray = false;
+  try {
+    isByteArray = input instanceof Uint8Array;
+  } catch {
+    throw projectError("项目包输入无效");
+  }
+  if (isByteArray) {
+    const byteLength = nativeTypedArrayMetadata(input).byteLength;
+    if (byteLength > MAX_PROJECT_ZIP_BYTES) throw projectError("项目包超过 52 MiB");
+    return copyUint8Array(input, "项目包输入无效");
+  }
+  const snapshot = snapshotZipFileLike(input);
   if (
-    input === null ||
-    typeof input !== "object" ||
-    !Number.isSafeInteger(input.size) ||
-    input.size < 0 ||
-    input.size > MAX_PROJECT_ZIP_BYTES
+    !Number.isSafeInteger(snapshot.size) ||
+    snapshot.size < 0 ||
+    snapshot.size > MAX_PROJECT_ZIP_BYTES
   ) {
     throw projectError(
-      input?.size && input.size > MAX_PROJECT_ZIP_BYTES ? "项目包超过 52 MiB" : "项目包输入无效",
+      snapshot.size > MAX_PROJECT_ZIP_BYTES ? "项目包超过 52 MiB" : "项目包输入无效",
     );
   }
-  const buffer = await input.arrayBuffer();
-  if (buffer.byteLength !== input.size) throw projectError("项目包读取长度不一致");
-  return new Uint8Array(buffer);
+  const buffer = await snapshot.arrayBuffer();
+  let bufferByteLength: number;
+  try {
+    bufferByteLength = nativeArrayBufferByteLength(buffer);
+  } catch {
+    throw projectError("项目包输入无效");
+  }
+  if (bufferByteLength !== snapshot.size) {
+    throw projectError("项目包读取长度不一致");
+  }
+  const result = new Uint8Array(bufferByteLength);
+  result.set(new Uint8Array(buffer, 0, bufferByteLength));
+  return result;
+}
+
+function containsPortableLocalBlobKey(value: unknown): boolean {
+  if (value === null || typeof value !== "object") return false;
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !("value" in descriptor)) {
+      throw projectError("项目包数据无效");
+    }
+    if (key === "localBlobKey") return true;
+    if (containsPortableLocalBlobKey(descriptor.value)) return true;
+  }
+  return false;
 }
 
 export async function importProjectV2Zip(
@@ -543,6 +698,9 @@ export async function importProjectV2Zip(
   }
   if (parsedProject.formatVersion !== "2.0.0") throw projectError("项目包必须使用 V2 格式");
   const portableEnvelope = v2.ProjectEnvelopeV2Schema.parse(parsedProject);
+  if (containsPortableLocalBlobKey(portableEnvelope)) {
+    throw projectError("项目包不得包含本地 Blob 引用");
+  }
   if (
     !sameJson(manifest.template, portableEnvelope.template) ||
     !sameJson(manifest.presentation, portableEnvelope.presentation) ||
@@ -569,8 +727,8 @@ export async function importProjectV2Zip(
   if (!sameJson([...entries.keys()], expectedEntryPaths)) {
     throw projectError("manifest 与 ZIP 条目不一致");
   }
-  validateFilesAgainstEnvelope(portableEnvelope, attachmentFiles);
   const { model } = validateDocumentEnvelope(portableEnvelope, options.registry);
+  validateFilesAgainstEnvelope(portableEnvelope, attachmentFiles, model.documentKind);
   const key = documentStorageKey(portableEnvelope);
   const envelope = v2.ProjectEnvelopeV2Schema.parse({
     ...portableEnvelope,

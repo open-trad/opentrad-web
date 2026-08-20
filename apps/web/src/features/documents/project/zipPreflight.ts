@@ -11,6 +11,10 @@ const textDecoder = new TextDecoder("utf-8", { fatal: true });
 const ATTACHMENT_PATH = /^attachments\/[A-Za-z0-9][A-Za-z0-9._-]{0,199}\.(?:pdf|png|jpg)$/;
 const DANGEROUS_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
+function compareAscii(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export interface ZipPreflightEntry {
   readonly path: string;
   readonly method: 0;
@@ -95,7 +99,7 @@ function assertCanonicalLayout(paths: readonly string[]): void {
   if (attachmentPaths.some((path) => !ATTACHMENT_PATH.test(path))) {
     invalid("项目包路径不安全");
   }
-  const sorted = [...attachmentPaths].sort((left, right) => left.localeCompare(right, "en"));
+  const sorted = [...attachmentPaths].sort(compareAscii);
   if (attachmentPaths.some((path, index) => path !== sorted[index])) {
     invalid("项目包条目顺序无效");
   }

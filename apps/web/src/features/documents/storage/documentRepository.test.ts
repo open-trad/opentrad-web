@@ -22,10 +22,10 @@ function pdfBlob(): Blob {
   });
 }
 
-function attachment(status: "missing" | "attached" | "rejected" = "attached") {
-  const localBlobKey = "quotation.service.project.v1@1.0.0:doc-1#spec";
+function attachment(status: "missing" | "attached" | "rejected" = "attached", id = "spec") {
+  const localBlobKey = `quotation.service.project.v1@1.0.0:doc-1#${id}`;
   return {
-    id: "spec",
+    id,
     category: "technical" as const,
     displayName: "技术规格.pdf",
     mediaType: "application/pdf" as const,
@@ -98,7 +98,17 @@ function registryFor(
             sections: [],
             watermarks: [],
             disclaimers: ["quotation-non-advice"],
-            attachmentManifest: draft.attachments ?? [],
+            attachmentManifest: (draft.attachments ?? [])
+              .filter((entry) => entry.includedInSubmission)
+              .map(({ localBlobKey: _localBlobKey, sourceRef, ...entry }) => ({
+                ...entry,
+                ...(sourceRef &&
+                !/^[a-z][a-z0-9+.-]*:/iu.test(sourceRef.trim()) &&
+                !/^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(sourceRef.trim()) &&
+                !sourceRef.includes("\\")
+                  ? { sourceRef }
+                  : {}),
+              })),
           };
         },
       };
@@ -190,6 +200,70 @@ describe("V2 document repository", () => {
     });
     expect(second.revision).toBe(2);
     repository.close();
+  });
+
+  it("rejects one of two updates that validated the same attachment snapshot", async () => {
+    const initialManifest = [attachment("attached", "first"), attachment("attached", "second")];
+    const databaseName = "v2-concurrent-attachment-snapshot";
+    const firstRepository = createDocumentRepository({
+      databaseName,
+      registry: registryFor(initialManifest),
+    });
+    const initial = await firstRepository.commit({
+      envelope: envelope(initialManifest),
+      savedAt: "2026-08-20T08:00:00.000Z",
+      makeCurrent: false,
+      attachmentChanges: initialManifest.map((entry) => ({
+        type: "put" as const,
+        attachmentId: entry.id,
+        blob: pdfBlob(),
+        pageCountConfirmed: true,
+      })),
+    });
+    const secondRepository = createDocumentRepository({
+      databaseName,
+      registry: registryFor(initialManifest),
+    });
+    await secondRepository.get(initial.key);
+
+    const nativeArrayBuffer = NodeBlob.prototype.arrayBuffer;
+    let reads = 0;
+    let release!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(NodeBlob.prototype, "arrayBuffer").mockImplementation(async function (this: NodeBlob) {
+      reads += 1;
+      if (reads === 2) release();
+      await barrier;
+      return nativeArrayBuffer.call(this);
+    });
+
+    const results = await Promise.allSettled([
+      firstRepository.commit({
+        envelope: envelope([attachment("attached", "first")]),
+        savedAt: "2026-08-20T08:01:00.000Z",
+        makeCurrent: false,
+        attachmentChanges: [{ type: "remove", attachmentId: "second" }],
+      }),
+      secondRepository.commit({
+        envelope: envelope([attachment("attached", "second")]),
+        savedAt: "2026-08-20T08:02:00.000Z",
+        makeCurrent: false,
+        attachmentChanges: [{ type: "remove", attachmentId: "first" }],
+      }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toEqual([
+      expect.objectContaining({ reason: expect.objectContaining({ code: "DOCUMENT_CONFLICT" }) }),
+    ]);
+    const stored = await firstRepository.get(initial.key);
+    expect(
+      (await firstRepository.listAttachments(initial.key)).map((entry) => entry.attachmentId),
+    ).toEqual(stored?.envelope.attachmentManifest.map((entry) => entry.id));
+    firstRepository.close();
+    secondRepository.close();
   });
 
   it("removes attachments and deletes document, pointer and blobs in single transactions", async () => {
@@ -363,10 +437,95 @@ describe("V2 document repository", () => {
     repository.close();
   });
 
+  it("lists a validated document and its attachments from one readonly snapshot", async () => {
+    const manifest = [attachment()];
+    const repository = createDocumentRepository({
+      databaseName: "v2-single-list-transaction",
+      registry: registryFor(manifest),
+    });
+    const stored = await repository.commit({
+      envelope: envelope(manifest),
+      savedAt: "2026-08-20T08:00:00.000Z",
+      makeCurrent: false,
+      attachmentChanges: [
+        { type: "put", attachmentId: "spec", blob: pdfBlob(), pageCountConfirmed: true },
+      ],
+    });
+    const transaction = vi.spyOn(IDBDatabase.prototype, "transaction");
+
+    expect(await repository.listAttachments(stored.key)).toHaveLength(1);
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0]?.[0]).toEqual([DOCUMENTS_V2_STORE, ATTACHMENTS_STORE]);
+    expect(transaction.mock.calls[0]?.[1]).toBe("readonly");
+    repository.close();
+  });
+
   it("derives a version-keyed identity without invoking getters", () => {
     expect(documentStorageKey(envelope())).toBe("quotation.service.project.v1@1.0.0:doc-1");
     expect(() =>
       documentStorageKey(Object.create({ template: envelope().template }) as never),
     ).toThrow();
+  });
+
+  it("stores source-only attachment blobs while comparing the model to the included portable subset", async () => {
+    const included = attachment();
+    const sourceOnly = {
+      ...attachment(),
+      id: "source-only",
+      displayName: "采购方招标文件.pdf",
+      sourceRef: "file:///Users/example/private-source.pdf",
+      includedInSubmission: false,
+      localBlobKey: "quotation.service.project.v1@1.0.0:doc-1#source-only",
+    };
+    const manifest = [included, sourceOnly];
+    const repository = createDocumentRepository({
+      databaseName: "v2-source-only-attachment",
+      registry: registryFor(manifest),
+    });
+
+    const stored = await repository.commit({
+      envelope: envelope(manifest),
+      savedAt: "2026-08-20T08:00:00.000Z",
+      makeCurrent: false,
+      attachmentChanges: [
+        { type: "put", attachmentId: "spec", blob: pdfBlob(), pageCountConfirmed: true },
+        {
+          type: "put",
+          attachmentId: "source-only",
+          blob: pdfBlob(),
+          pageCountConfirmed: true,
+        },
+      ],
+    });
+
+    expect(stored.envelope.attachmentManifest).toHaveLength(2);
+    expect(stored.model.attachmentManifest.map((entry) => entry.id)).toEqual(["spec"]);
+    expect(await repository.listAttachments(stored.key)).toHaveLength(2);
+    repository.close();
+  });
+
+  it("strips an included local URI reference before comparing the public model", async () => {
+    const included = {
+      ...attachment(),
+      sourceRef: "https://example.invalid/private-source.pdf",
+    };
+    const repository = createDocumentRepository({
+      databaseName: "v2-public-local-uri",
+      registry: registryFor([included]),
+    });
+
+    const stored = await repository.commit({
+      envelope: envelope([included]),
+      savedAt: "2026-08-20T08:00:00.000Z",
+      makeCurrent: false,
+      attachmentChanges: [
+        { type: "put", attachmentId: "spec", blob: pdfBlob(), pageCountConfirmed: true },
+      ],
+    });
+
+    expect(stored.envelope.attachmentManifest[0]).toHaveProperty("sourceRef");
+    expect(stored.model.attachmentManifest[0]).not.toHaveProperty("sourceRef");
+    repository.close();
   });
 });
