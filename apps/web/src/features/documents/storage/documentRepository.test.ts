@@ -129,6 +129,10 @@ function registryFor(
                 ...(sourceRef &&
                 !/^[a-z][a-z0-9+.-]*:/iu.test(sourceRef.trim()) &&
                 !/^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(sourceRef.trim()) &&
+                !(
+                  sourceRef.includes("/") &&
+                  /\.(?:pdf|png|jpe?g)(?:[?#].*)?$/iu.test(sourceRef.trim())
+                ) &&
                 !sourceRef.includes("\\")
                   ? { sourceRef }
                   : {}),
@@ -571,5 +575,23 @@ describe("V2 document repository", () => {
     expect(validated.model.attachmentManifest.map((entry) => entry.id)).not.toContain(
       "source-main",
     );
+  });
+
+  it.each(["private/contracts/source.pdf", "Users/example/private.pdf"])(
+    "strips the relative local attachment path %s from the public comparison",
+    (sourceRef) => {
+      const included = { ...attachment(), sourceRef };
+      const validated = validateDocumentEnvelope(envelope([included]), registryFor([included]));
+
+      expect(validated.envelope.attachmentManifest[0]?.sourceRef).toBe(sourceRef);
+      expect(validated.model.attachmentManifest[0]).not.toHaveProperty("sourceRef");
+    },
+  );
+
+  it("preserves a safe slash-delimited business reference in the public comparison", () => {
+    const included = { ...attachment(), sourceRef: "第三章/2.1" };
+    const validated = validateDocumentEnvelope(envelope([included]), registryFor([included]));
+
+    expect(validated.model.attachmentManifest[0]?.sourceRef).toBe("第三章/2.1");
   });
 });

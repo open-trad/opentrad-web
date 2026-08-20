@@ -30,7 +30,8 @@ function isLocalOnlySourceRef(sourceRef: string): boolean {
   return (
     /^[a-z][a-z0-9+.-]*:/iu.test(value) ||
     /^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(value) ||
-    value.includes("\\")
+    value.includes("\\") ||
+    (value.includes("/") && /\.(?:pdf|png|jpe?g)(?:[?#].*)?$/iu.test(value))
   );
 }
 

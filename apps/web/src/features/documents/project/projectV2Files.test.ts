@@ -117,6 +117,10 @@ function registry(overrides: { documentId?: string } = {}): DocumentTemplateRegi
                 ...(sourceRef &&
                 !/^[a-z][a-z0-9+.-]*:/iu.test(sourceRef.trim()) &&
                 !/^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(sourceRef.trim()) &&
+                !(
+                  sourceRef.includes("/") &&
+                  /\.(?:pdf|png|jpe?g)(?:[?#].*)?$/iu.test(sourceRef.trim())
+                ) &&
                 !sourceRef.includes("\\")
                   ? { sourceRef }
                   : {}),
@@ -744,5 +748,35 @@ describe("V2 .opentrad project ZIP", () => {
 
     expect(evidenceRefs[0]?.sourceRef).toBe("https://example.invalid/solicitation.pdf#page=18");
     expect(imported.model.documentKind).toBe("bid");
+  });
+
+  it.each(["private/contracts/source.pdf", "Users/example/private.pdf"])(
+    "strips the relative local attachment path %s from the portable archive",
+    async (sourceRef) => {
+      const descriptor = portableAttachment({ sourceRef });
+      const blob = await exportProjectV2Zip({
+        envelope: localEnvelope([descriptor]),
+        attachments: [attachmentFile()],
+        registry: registry(),
+      });
+      const archive = new TextDecoder().decode(await blob.arrayBuffer());
+
+      expect(archive).not.toContain(sourceRef);
+      const imported = await importProjectV2Zip(blob, { registry: registry() });
+      expect(imported.portableEnvelope.attachmentManifest[0]).not.toHaveProperty("sourceRef");
+    },
+  );
+
+  it("preserves a safe slash-delimited attachment business reference", async () => {
+    const descriptor = portableAttachment({ sourceRef: "第三章/2.1" });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([descriptor]),
+      attachments: [attachmentFile()],
+      registry: registry(),
+    });
+
+    expect(new TextDecoder().decode(await blob.arrayBuffer())).toContain("第三章/2.1");
+    const imported = await importProjectV2Zip(blob, { registry: registry() });
+    expect(imported.portableEnvelope.attachmentManifest[0]?.sourceRef).toBe("第三章/2.1");
   });
 });
