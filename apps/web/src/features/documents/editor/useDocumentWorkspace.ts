@@ -1,5 +1,6 @@
 import { v2 } from "@opentrad/document-core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ImportedProjectV2 } from "../project/projectV2Files";
 import type { StoredAttachmentV2 } from "../storage/attachmentValidation";
 import {
   type AttachmentChange,
@@ -10,6 +11,7 @@ import {
   type StoredDocumentV2,
 } from "../storage/documentRepository";
 import type { AttachmentTransactionResult } from "./attachments";
+import { assertImportedProjectConfirmed } from "./attachments";
 
 type Registration = ReturnType<typeof v2.V2_TEMPLATE_REGISTRY.get>;
 export type DocumentAutosaveStatus = "idle" | "saving" | "saved" | "error" | "conflict" | "invalid";
@@ -38,6 +40,7 @@ export interface DocumentWorkspaceOptions {
 interface SaveJob {
   readonly envelope: v2.ProjectEnvelopeV2;
   readonly attachmentChanges: readonly AttachmentChange[];
+  readonly generation: number;
   ready: boolean;
 }
 
@@ -139,6 +142,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   >([]);
   const [autosaveStatus, setAutosaveStatus] = useState<DocumentAutosaveStatus>("idle");
   const [attachmentRecords, setAttachmentRecords] = useState<readonly StoredAttachmentV2[]>([]);
+  const [hydrationKey, setHydrationKey] = useState(0);
 
   const mountedRef = useRef(false);
   const envelopeRef = useRef<v2.ProjectEnvelopeV2 | null>(null);
@@ -149,6 +153,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   const drainingRef = useRef<Promise<void> | null>(null);
   const conflictRef = useRef(false);
   const initializationRef = useRef<Promise<StoredDocumentV2> | null>(null);
+  const generationRef = useRef(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -175,11 +180,11 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
           attachmentChanges: job.attachmentChanges,
         });
         revisionRef.current = stored.revision;
-        envelopeRef.current = stored.envelope;
         if (mountedRef.current) {
           setRevision(stored.revision);
-          setEnvelope(stored.envelope);
+          if (job.generation === generationRef.current) setEnvelope(stored.envelope);
         }
+        if (job.generation === generationRef.current) envelopeRef.current = stored.envelope;
         if (!pendingRef.current) {
           attachmentChangesRef.current = [];
           setStatusIfMounted("saved");
@@ -209,9 +214,11 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   const schedule = useCallback(
     (nextEnvelope: v2.ProjectEnvelopeV2) => {
       if (conflictRef.current) return;
+      generationRef.current += 1;
       pendingRef.current = {
         envelope: nextEnvelope,
         attachmentChanges: attachmentChangesRef.current,
+        generation: generationRef.current,
         ready: false,
       };
       clearTimer();
@@ -240,6 +247,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   }, [clearTimer, startDrain]);
 
   const hydrate = useCallback((stored: StoredDocumentV2) => {
+    generationRef.current += 1;
     const validated = v2.ProjectEnvelopeV2Schema.parse(stored.envelope);
     const nextSnapshot = snapshot(registrationRef.current, validated, trustedAsOfRef.current);
     revisionRef.current = stored.revision;
@@ -252,6 +260,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     setRevisionSnapshot(nextSnapshot);
     setValidationIssueList([]);
     setAttachmentRecords([]);
+    setHydrationKey((current) => current + 1);
     setAutosaveStatus("idle");
     setLoadError(null);
   }, []);
@@ -416,6 +425,62 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     return true;
   }, [clearTimer, hydrate, repository]);
 
+  const importConfirmedProject = useCallback(
+    async (imported: ImportedProjectV2, userConfirmed: boolean) => {
+      assertImportedProjectConfirmed(imported, userConfirmed);
+      if (
+        imported.envelope.template.id !== registrationRef.current.definition.id ||
+        imported.envelope.template.version !== registrationRef.current.definition.version
+      ) {
+        throw new Error("项目包模板或版本与当前编辑器不一致");
+      }
+      clearTimer();
+      pendingRef.current = null;
+      generationRef.current += 1;
+      attachmentChangesRef.current = [];
+      if (drainingRef.current) await drainingRef.current;
+      conflictRef.current = false;
+      setStatusIfMounted("saving");
+      try {
+        const key = documentStorageKey(imported.envelope);
+        const [previous, previousAttachments] = await Promise.all([
+          repository.get(key),
+          repository.listAttachments(key),
+        ]);
+        const incomingIds = new Set(imported.attachments.map((attachment) => attachment.id));
+        const removals: AttachmentChange[] = previousAttachments
+          .filter((attachment) => !incomingIds.has(attachment.attachmentId))
+          .map((attachment) => ({ type: "remove", attachmentId: attachment.attachmentId }));
+        const puts: AttachmentChange[] = imported.attachments.map((attachment) => ({
+          type: "put",
+          attachmentId: attachment.id,
+          blob: new Blob([attachment.bytes.slice().buffer], { type: attachment.mediaType }),
+          pageCountConfirmed: attachment.mediaType === "application/pdf" ? true : undefined,
+        }));
+        const stored = await repository.commit({
+          envelope: imported.envelope,
+          savedAt: nowRef.current(),
+          makeCurrent: true,
+          expectedRevision: previous?.revision ?? 0,
+          attachmentChanges: [...removals, ...puts],
+        });
+        hydrate(stored);
+        setAttachmentRecords(await repository.listAttachments(stored.key));
+        setStatusIfMounted("saved");
+        return stored;
+      } catch (error) {
+        if (error instanceof DocumentRepositoryError && error.code === "DOCUMENT_CONFLICT") {
+          conflictRef.current = true;
+          setStatusIfMounted("conflict");
+        } else {
+          setStatusIfMounted("error");
+        }
+        throw error;
+      }
+    },
+    [clearTimer, hydrate, repository, setStatusIfMounted],
+  );
+
   const statusMessage =
     autosaveStatus === "saving"
       ? "正在保存"
@@ -436,6 +501,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     rawDraft,
     revision,
     attachmentRecords,
+    hydrationKey,
     snapshot: revisionSnapshot,
     validationIssues: validationIssueList,
     autosaveStatus,
@@ -445,6 +511,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     updatePresentation,
     reportValidationIssues,
     applyAttachmentTransaction,
+    importConfirmedProject,
     reload,
     flush,
   };

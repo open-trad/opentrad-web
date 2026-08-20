@@ -6,15 +6,25 @@ export function DocumentPreviewPanel({
   snapshot,
   stale = false,
   panelRef,
+  tabPanel,
 }: {
   readonly snapshot: DocumentRevisionSnapshot;
   readonly stale?: boolean;
   readonly panelRef?: Ref<HTMLElement>;
+  readonly tabPanel?: {
+    readonly id: string;
+    readonly labelledBy: string;
+    readonly hidden: boolean;
+  };
 }) {
   const isContract = snapshot.model.documentKind === "contract";
   return (
     <section
       ref={panelRef}
+      id={tabPanel?.id}
+      role={tabPanel ? "tabpanel" : undefined}
+      aria-labelledby={tabPanel?.labelledBy}
+      hidden={tabPanel?.hidden}
       className="document-editor-v2__preview"
       aria-label="A4 文书预览"
       tabIndex={-1}

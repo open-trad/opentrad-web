@@ -268,11 +268,31 @@ export function parseRawFieldValue(
     case "string":
       return stringRaw(raw);
     case "localized-text": {
-      const output =
-        currentValue === undefined
-          ? (Object.create(null) as SafeRecord)
-          : (safeSnapshot(currentValue) as SafeRecord);
-      output.zhCN = stringRaw(raw);
+      const output = Object.create(null) as SafeRecord;
+      if (typeof raw === "string") {
+        const current =
+          currentValue === undefined
+            ? (Object.create(null) as SafeRecord)
+            : (safeSnapshot(currentValue) as SafeRecord);
+        for (const key of ["zhCN", "enUS"] as const) {
+          const descriptor = Reflect.getOwnPropertyDescriptor(current, key);
+          if (descriptor && "value" in descriptor && typeof descriptor.value === "string") {
+            output[key] = descriptor.value;
+          }
+        }
+        output.zhCN = stringRaw(raw);
+        return output;
+      }
+      if (raw === null || typeof raw !== "object") invalidRawValue();
+      const prototype = Object.getPrototypeOf(raw);
+      if (prototype !== Object.prototype && prototype !== null) invalidRawValue();
+      const keys = Reflect.ownKeys(raw);
+      if (keys.some((key) => key !== "zhCN" && key !== "enUS")) invalidRawValue();
+      const zh = Reflect.getOwnPropertyDescriptor(raw, "zhCN");
+      const en = Reflect.getOwnPropertyDescriptor(raw, "enUS");
+      if (!zh || !("value" in zh)) invalidRawValue();
+      output.zhCN = stringRaw(zh.value);
+      if (en && "value" in en && stringRaw(en.value).length > 0) output.enUS = stringRaw(en.value);
       return output;
     }
     case "date": {

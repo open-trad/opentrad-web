@@ -11,9 +11,15 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import type { ProjectV2AttachmentFile } from "../project/projectV2Files";
+import {
+  type ImportedProjectV2,
+  importProjectV2Zip,
+  PROJECT_V2_ZIP_MIME,
+  type ProjectV2AttachmentFile,
+} from "../project/projectV2Files";
+import { MAX_PROJECT_ZIP_BYTES } from "../project/zipPreflight";
 import { prepareAttachmentAddition, prepareAttachmentRemoval } from "./attachments";
 import { BidPreflightPanel, resolveBidExportDecision } from "./BidPreflightPanel";
 import { DocumentPreviewPanel } from "./DocumentPreviewPanel";
@@ -48,6 +54,13 @@ function sectionLabel(registration: Registration, section: string): string {
   );
   if (firstField && /\p{Script=Han}/u.test(firstField.label)) return firstField.label;
   return "文书章节";
+}
+
+function importErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return message.length > 0 && message.length <= 120 && /\p{Script=Han}/u.test(message)
+    ? message
+    : "项目 ZIP 无效，请确认文件来自 OpenTrad 后重试";
 }
 
 interface PendingAttachment {
@@ -199,14 +212,31 @@ function EditorWorkspace({
   const [exportAttachments, setExportAttachments] = useState<readonly ProjectV2AttachmentFile[]>(
     [],
   );
+  const [pendingImport, setPendingImport] = useState<ImportedProjectV2 | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const importConfirmRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLElement>(null);
   const previewRef = useRef<HTMLElement>(null);
-  const switchedRef = useRef(false);
+  const fillTabRef = useRef<HTMLButtonElement>(null);
+  const previewTabRef = useRef<HTMLButtonElement>(null);
+  const focusDestinationRef = useRef<"panel" | "tab" | null>(null);
+  const fillTabId = useId();
+  const previewTabId = useId();
+  const fillPanelId = useId();
+  const previewPanelId = useId();
   const isMobile = useMobileEditor();
 
   useEffect(() => {
-    if (!switchedRef.current) return;
-    (mobileView === "preview" ? previewRef.current : formRef.current)?.focus();
+    const destination = focusDestinationRef.current;
+    if (!destination) return;
+    focusDestinationRef.current = null;
+    if (destination === "panel") {
+      (mobileView === "preview" ? previewRef.current : formRef.current)?.focus();
+    } else {
+      (mobileView === "preview" ? previewTabRef.current : fillTabRef.current)?.focus();
+    }
   }, [mobileView]);
 
   useEffect(() => {
@@ -232,6 +262,14 @@ function EditorWorkspace({
       active = false;
     };
   }, [workspace.attachmentRecords]);
+
+  useEffect(() => {
+    if (pendingImport) importConfirmRef.current?.focus();
+  }, [pendingImport]);
+
+  useEffect(() => {
+    if (importError && !importBusy) importInputRef.current?.focus();
+  }, [importBusy, importError]);
 
   if (workspace.loading) {
     return (
@@ -272,9 +310,26 @@ function EditorWorkspace({
       ? resolveBidExportDecision(currentSnapshot, workspaceOptions?.trustedAsOf)
       : null;
 
-  const selectView = (view: "form" | "preview") => {
-    switchedRef.current = true;
+  const selectView = (view: "form" | "preview", destination: "panel" | "tab" = "panel") => {
+    if (view === mobileView) {
+      if (destination === "panel") {
+        (view === "preview" ? previewRef.current : formRef.current)?.focus();
+      } else {
+        (view === "preview" ? previewTabRef.current : fillTabRef.current)?.focus();
+      }
+      return;
+    }
+    focusDestinationRef.current = destination;
     setMobileView(view);
+  };
+
+  const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
+    let view: "form" | "preview" | undefined;
+    if (event.key === "ArrowRight" || event.key === "End") view = "preview";
+    if (event.key === "ArrowLeft" || event.key === "Home") view = "form";
+    if (!view) return;
+    event.preventDefault();
+    selectView(view, "tab");
   };
 
   const confirmAttachment = async (pageCount: number, confirmed: boolean) => {
@@ -323,6 +378,48 @@ function EditorWorkspace({
       );
     } catch (error) {
       setAttachmentError(error instanceof Error ? error.message : "附件删除失败");
+    }
+  };
+
+  const parseImport = async (file: File) => {
+    setImportBusy(true);
+    setImportError("");
+    setPendingImport(null);
+    try {
+      if (file.size > MAX_PROJECT_ZIP_BYTES) throw new Error("项目包超过 52 MiB");
+      const imported = await importProjectV2Zip(file, { registry: v2.V2_TEMPLATE_REGISTRY });
+      if (
+        imported.envelope.template.id !== definition.id ||
+        imported.envelope.template.version !== definition.version
+      ) {
+        throw new Error("项目包模板或版本与当前编辑器不一致，请在对应模板编辑器中导入");
+      }
+      setPendingImport(imported);
+    } catch (error) {
+      setImportError(importErrorMessage(error));
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const cancelImport = () => {
+    setPendingImport(null);
+    importInputRef.current?.focus();
+  };
+
+  const confirmImport = async () => {
+    if (!pendingImport) return;
+    setImportBusy(true);
+    setImportError("");
+    try {
+      await workspace.importConfirmedProject(pendingImport, true);
+      setPendingImport(null);
+      importInputRef.current?.focus();
+    } catch (error) {
+      setImportError(importErrorMessage(error));
+      importConfirmRef.current?.focus();
+    } finally {
+      setImportBusy(false);
     }
   };
 
@@ -378,6 +475,22 @@ function EditorWorkspace({
           <button type="button" onClick={() => void workspace.flush()}>
             <Save aria-hidden="true" /> 立即保存
           </button>
+          <label className="document-editor-v2__import-action">
+            <Upload aria-hidden="true" />
+            <span>{importBusy ? "正在读取项目…" : "导入本地项目 ZIP"}</span>
+            <input
+              ref={importInputRef}
+              type="file"
+              aria-label="导入本地项目 ZIP"
+              accept={`.zip,${PROJECT_V2_ZIP_MIME}`}
+              disabled={importBusy}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                if (file) void parseImport(file);
+              }}
+            />
+          </label>
         </div>
       </header>
 
@@ -394,20 +507,82 @@ function EditorWorkspace({
         ) : null}
       </div>
 
+      {importError ? (
+        <p className="document-editor-v2__import-error" role="alert">
+          {importError}
+        </p>
+      ) : null}
+
+      {pendingImport ? (
+        <div className="document-editor-v2__import-backdrop">
+          <section
+            className="document-editor-v2__import-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label="确认导入本地项目"
+          >
+            <span className="eyebrow">本机项目预检</span>
+            <h2>确认导入本地项目</h2>
+            <dl>
+              <div>
+                <dt>模板与版本</dt>
+                <dd>
+                  {pendingImport.envelope.template.id}@{pendingImport.envelope.template.version}
+                </dd>
+              </div>
+              <div>
+                <dt>附件</dt>
+                <dd>{pendingImport.attachments.length} 个附件</dd>
+              </div>
+            </dl>
+            <ul className="document-editor-v2__import-warnings">
+              <li>只有点击“确认并导入”后，项目与附件才会原子写入本机存储。</li>
+              <li>导入将切换到项目包中的文书；请先确认当前编辑已保存。</li>
+              {pendingImport.attachments.length > 0 ? (
+                <li>附件页数来自项目包，请在对外使用前人工复核。</li>
+              ) : null}
+            </ul>
+            <div>
+              <button type="button" disabled={importBusy} onClick={cancelImport}>
+                取消导入
+              </button>
+              <button
+                ref={importConfirmRef}
+                type="button"
+                disabled={importBusy}
+                onClick={() => void confirmImport()}
+              >
+                <Check aria-hidden="true" /> 确认并导入
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {isMobile ? (
         <div className="document-editor-v2__tabs" role="tablist" aria-label="编辑视图">
           <button
+            ref={fillTabRef}
+            id={fillTabId}
             type="button"
             role="tab"
+            aria-controls={fillPanelId}
             aria-selected={mobileView === "form"}
+            tabIndex={mobileView === "form" ? 0 : -1}
+            onKeyDown={handleTabKey}
             onClick={() => selectView("form")}
           >
             <FilePenLine aria-hidden="true" /> 填写
           </button>
           <button
+            ref={previewTabRef}
+            id={previewTabId}
             type="button"
             role="tab"
+            aria-controls={previewPanelId}
             aria-selected={mobileView === "preview"}
+            tabIndex={mobileView === "preview" ? 0 : -1}
+            onKeyDown={handleTabKey}
             onClick={() => selectView("preview")}
           >
             <Eye aria-hidden="true" /> 预览
@@ -444,6 +619,10 @@ function EditorWorkspace({
 
         <section
           ref={formRef}
+          id={isMobile ? fillPanelId : undefined}
+          role={isMobile ? "tabpanel" : undefined}
+          aria-labelledby={isMobile ? fillTabId : undefined}
+          hidden={isMobile && mobileView !== "form"}
           className="document-editor-v2__form"
           aria-label="文书填写区"
           tabIndex={-1}
@@ -456,6 +635,7 @@ function EditorWorkspace({
             <p>{definition.summary}</p>
           </div>
           <SchemaForm
+            key={workspace.hydrationKey}
             registration={registration}
             draft={currentEnvelope.draft}
             issues={workspace.validationIssues as readonly FormIssue[]}
@@ -511,7 +691,20 @@ function EditorWorkspace({
             </span>
             <span>A4 · 局部滚动</span>
           </div>
-          <DocumentPreviewPanel panelRef={previewRef} snapshot={currentSnapshot} stale={stale} />
+          <DocumentPreviewPanel
+            panelRef={previewRef}
+            snapshot={currentSnapshot}
+            stale={stale}
+            tabPanel={
+              isMobile
+                ? {
+                    id: previewPanelId,
+                    labelledBy: previewTabId,
+                    hidden: mobileView !== "preview",
+                  }
+                : undefined
+            }
+          />
         </div>
       </div>
     </div>

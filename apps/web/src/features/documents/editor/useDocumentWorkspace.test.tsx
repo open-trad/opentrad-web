@@ -1,5 +1,13 @@
 import { v2 } from "@opentrad/document-core";
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DocumentRepositoryError,
@@ -8,7 +16,7 @@ import {
   type StoredDocumentV2,
 } from "../storage/documentRepository";
 import { prepareAttachmentAddition, prepareAttachmentRemoval } from "./attachments";
-import { setDraftField } from "./fieldPaths";
+import { getDraftField, setDraftField } from "./fieldPaths";
 import { SchemaForm } from "./SchemaForm";
 import { useDocumentWorkspace } from "./useDocumentWorkspace";
 
@@ -99,7 +107,34 @@ function IntegratedSchemaWorkspace({
   );
 }
 
+function ReloadableSchemaWorkspace({ repository }: { readonly repository: DocumentRepositoryV2 }) {
+  const workspace = useDocumentWorkspace({
+    registration: registration(),
+    repository,
+    createId: () => "unused",
+    now: () => NOW,
+  });
+  if (workspace.loading || !workspace.envelope) return <p>loading</p>;
+  return (
+    <>
+      <SchemaForm
+        key={workspace.hydrationKey}
+        registration={registration()}
+        draft={workspace.envelope.draft}
+        issues={workspace.validationIssues}
+        onDraftChange={workspace.acceptParsedDraft}
+        onValidationChange={workspace.reportValidationIssues}
+      />
+      <button type="button" onClick={() => void workspace.reload()}>
+        重新载入测试文书
+      </button>
+      <output data-testid="workspace-snapshot">{JSON.stringify(workspace.snapshot?.draft)}</output>
+    </>
+  );
+}
+
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
 });
 
@@ -339,6 +374,64 @@ describe("generic V2 document workspace", () => {
     );
   });
 
+  it("never hydrates an older commit over a newer pending edit", async () => {
+    vi.useFakeTimers();
+    const existing = stored(envelope(), 3);
+    const repository = fakeRepository(existing);
+    const first = deferred<StoredDocumentV2>();
+    const second = deferred<StoredDocumentV2>();
+    vi.mocked(repository.commit)
+      .mockImplementationOnce(async () => first.promise)
+      .mockImplementationOnce(async () => second.promise);
+    const { result } = renderHook(() =>
+      useDocumentWorkspace({
+        registration: registration(),
+        repository,
+        createId: () => "unused",
+        now: () => NOW,
+      }),
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "编辑 A"),
+      );
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    const envelopeA = vi.mocked(repository.commit).mock.calls[0]?.[0]
+      .envelope as v2.ProjectEnvelopeV2;
+    expect(getDraftField(envelopeA.draft, "project.projectName")).toBe("编辑 A");
+
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "编辑 B"),
+      );
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    expect(repository.commit).toHaveBeenCalledTimes(1);
+
+    first.resolve(stored(envelopeA, 4));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(getDraftField(result.current.envelope?.draft, "project.projectName")).toBe("编辑 B");
+    expect(repository.commit).toHaveBeenCalledTimes(2);
+    const envelopeB = vi.mocked(repository.commit).mock.calls[1]?.[0]
+      .envelope as v2.ProjectEnvelopeV2;
+    expect(envelopeB).not.toBe(envelopeA);
+    expect(getDraftField(envelopeB.draft, "project.projectName")).toBe("编辑 B");
+
+    second.resolve(stored(envelopeB, 5));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(getDraftField(result.current.envelope?.draft, "project.projectName")).toBe("编辑 B");
+    expect(result.current.revision).toBe(5);
+  });
+
   it("stops retrying on a revision conflict and exposes an explicit reload action", async () => {
     vi.useFakeTimers();
     const existing = stored(envelope(), 2);
@@ -376,6 +469,49 @@ describe("generic V2 document workspace", () => {
 
     await act(async () => result.current.reload());
     expect(result.current.autosaveStatus).toBe("idle");
+  });
+
+  it("resets invalid SchemaForm raw state when conflict reload hydrates repository data", async () => {
+    vi.useFakeTimers();
+    const initial = stored(envelope(), 2);
+    let repositoryVersion = initial;
+    const repository: DocumentRepositoryV2 = {
+      ...fakeRepository(initial),
+      commit: vi.fn(async () => {
+        throw new DocumentRepositoryError("DOCUMENT_CONFLICT");
+      }),
+      get: vi.fn(async () => repositoryVersion),
+      getCurrent: vi.fn(async () => initial),
+      list: vi.fn(async () => [initial]),
+    };
+    render(<ReloadableSchemaWorkspace repository={repository} />);
+    await act(async () => Promise.resolve());
+    const projectName = screen.getByRole("textbox", { name: /项目名称.*必填/u });
+    const unitPrice = screen.getByRole("textbox", { name: /未税单价.*必填/u });
+
+    fireEvent.change(projectName, { target: { value: "触发冲突的旧编辑" } });
+    fireEvent.change(unitPrice, { target: { value: "" } });
+    expect(unitPrice).toHaveValue("");
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+
+    const nextDraft = registration().parseDraft(
+      setDraftField(
+        setDraftField(initial.envelope.draft, "project.projectName", "仓库新版本"),
+        "serviceLines.0.unitPriceMinor",
+        "2500",
+      ),
+    ) as v2.ProjectDraftV2;
+    repositoryVersion = stored({ ...initial.envelope, draft: nextDraft }, 3);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "重新载入测试文书" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("textbox", { name: /项目名称.*必填/u })).toHaveValue("仓库新版本");
+    expect(screen.getByRole("textbox", { name: /未税单价.*必填/u })).toHaveValue("25");
+    expect(screen.getByTestId("workspace-snapshot")).toHaveTextContent("仓库新版本");
+    expect(screen.getByTestId("workspace-snapshot")).toHaveTextContent("2500");
   });
 
   it("retains invalid raw input and the last-valid preview without scheduling a save", async () => {

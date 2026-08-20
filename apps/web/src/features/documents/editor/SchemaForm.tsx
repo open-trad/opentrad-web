@@ -4,7 +4,7 @@ import type {
   v2,
 } from "@opentrad/document-core";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { type ReactNode, useId, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { getDraftField, parseRawFieldValue, setDraftField, updateDraftFromRaw } from "./fieldPaths";
 
 type RepeatableItemField = v2.TemplateRepeatableItemFieldV1;
@@ -107,6 +107,80 @@ function stableId(prefix: string, sequence: number): string {
   return `${prefix}-${sequence}`;
 }
 
+function ownLocalizedText(value: unknown): { readonly zhCN: string; readonly enUS: string } {
+  if (value === null || typeof value !== "object") return { zhCN: "", enUS: "" };
+  const zh = Reflect.getOwnPropertyDescriptor(value, "zhCN");
+  const en = Reflect.getOwnPropertyDescriptor(value, "enUS");
+  return {
+    zhCN: zh && "value" in zh && typeof zh.value === "string" ? zh.value : "",
+    enUS: en && "value" in en && typeof en.value === "string" ? en.value : "",
+  };
+}
+
+function repeatableIdentityCandidates(
+  registration: Registration,
+  draft: unknown,
+): readonly string[] {
+  const output: string[] = [];
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.length > 0 && !output.includes(value))
+      output.push(value);
+  };
+  for (const manifestField of registration.definition.fieldManifest) {
+    if (manifestField.control === "select" && "optionSourcePath" in manifestField) {
+      const source = getDraftField(draft, manifestField.optionSourcePath);
+      if (Array.isArray(source)) {
+        for (const item of source) add(getDraftField(item, manifestField.optionValuePath));
+      }
+    }
+    if (manifestField.control === "attachment") {
+      const descriptors = getDraftField(draft, manifestField.descriptorPath);
+      if (Array.isArray(descriptors))
+        for (const descriptor of descriptors) add(getDraftField(descriptor, "id"));
+      const references = getDraftField(draft, manifestField.path);
+      if (Array.isArray(references)) references.forEach(add);
+      else add(references);
+    }
+    if (
+      manifestField.control === "repeatable" &&
+      manifestField.item.kind === "object" &&
+      manifestField.item.idPath
+    ) {
+      const items = getDraftField(draft, manifestField.path);
+      if (Array.isArray(items)) {
+        for (const item of items) add(getDraftField(item, manifestField.item.idPath));
+      }
+    }
+  }
+  return output;
+}
+
+function repeatableBlockedReason(path: string): string {
+  if (/matrix|deviation/iu.test(path)) return "请先创建对应要求，再添加此项。";
+  if (/performance|caseStudies|experience/iu.test(path)) return "请先创建项目业绩，再添加此项。";
+  if (/evidence/iu.test(path)) return "请先附加来源文件，再添加此项。";
+  return "请先创建所需来源或附件，再添加此项。";
+}
+
+function resolveRepeatableFactory(
+  registration: Registration,
+  field: Extract<TemplateFieldManifestEntryV1, { control: "repeatable" }>,
+  draft: unknown,
+  generatedId: string,
+  now: string,
+): { readonly item?: unknown; readonly reason?: string } {
+  const candidates = [generatedId, ...repeatableIdentityCandidates(registration, draft)];
+  for (const id of new Set(candidates)) {
+    try {
+      const item = registration.createRepeatableItem(field.path, { id, now, draft });
+      return { item };
+    } catch {
+      // A factory may require an existing canonical source identity; try the next declared id.
+    }
+  }
+  return { reason: repeatableBlockedReason(field.path) };
+}
+
 interface FieldControlProps {
   readonly field: EditorField;
   readonly path: string;
@@ -138,7 +212,28 @@ function FieldControl({
   };
 
   let control: ReactNode;
-  if (field.control === "checkbox") {
+  if (field.valueKind === "localized-text") {
+    const localized = ownLocalizedText(rawOverride ?? value);
+    const required = field.required ? "（必填）" : "";
+    const LocalizedControl = field.control === "textarea" ? "textarea" : "input";
+    control = (
+      <div className="document-localized-field-v2">
+        <LocalizedControl
+          {...shared}
+          aria-label={`${field.label}（中文）${required}`}
+          value={localized.zhCN}
+          onChange={(event) => onRawChange({ ...localized, zhCN: event.currentTarget.value })}
+        />
+        <LocalizedControl
+          {...shared}
+          aria-label={`${field.label}（英文）${required}`}
+          data-field-path={`${path}.enUS`}
+          value={localized.enUS}
+          onChange={(event) => onRawChange({ ...localized, enUS: event.currentTarget.value })}
+        />
+      </div>
+    );
+  } else if (field.control === "checkbox") {
     control = (
       <input
         {...shared}
@@ -353,10 +448,20 @@ function RepeatableControl({
   const items = Array.isArray(values) ? values : [];
   const prefix = useId();
   const nextKey = useRef(items.length);
+  const pendingActionFocus = useRef<string | undefined>(undefined);
+  const actionRefs = useRef(new Map<string, HTMLButtonElement>());
   const [sessionKeys, setSessionKeys] = useState(() =>
     items.map((_, index) => stableId(prefix, index)),
   );
   const fixed = field.minItems === field.maxItems;
+  const blockedReasonId = `${prefix}-add-reason`;
+  const factoryPreview = resolveRepeatableFactory(
+    registration,
+    field,
+    draft,
+    `web-probe-${field.path.replaceAll(".", "-")}`,
+    "2026-08-20T00:00:00.000Z",
+  );
 
   const itemKey = (item: unknown, index: number): string => {
     if (field.item.kind === "object" && field.item.idPath) {
@@ -369,6 +474,13 @@ function RepeatableControl({
   const commitItems = (nextItems: readonly unknown[]) =>
     onCandidate(setDraftField(draft, field.path, nextItems));
 
+  useEffect(() => {
+    const action = pendingActionFocus.current;
+    if (!action) return;
+    pendingActionFocus.current = undefined;
+    actionRefs.current.get(action)?.focus();
+  });
+
   return (
     <section className="repeatable-field-v2" aria-label={field.label}>
       <header>
@@ -379,8 +491,9 @@ function RepeatableControl({
       </header>
       {items.map((item, index) => {
         const rowPath = `${field.path}.${index}`;
+        const rowKey = itemKey(item, index);
         return (
-          <fieldset key={itemKey(item, index)} aria-label={`${field.label} 第 ${index + 1} 项`}>
+          <fieldset key={rowKey} aria-label={`${field.label} 第 ${index + 1} 项`}>
             <legend>第 {index + 1} 项</legend>
             {field.item.kind === "value" ? (
               <div className="document-field-v2">
@@ -450,82 +563,102 @@ function RepeatableControl({
                 );
               })
             )}
-            {!fixed ? (
-              <div className="repeatable-row-actions-v2">
+            <div className="repeatable-row-actions-v2">
+              <button
+                type="button"
+                aria-label="上移"
+                ref={(node) => {
+                  const action = `${rowKey}-up`;
+                  if (node) actionRefs.current.set(action, node);
+                  else actionRefs.current.delete(action);
+                }}
+                disabled={index === 0}
+                onClick={() => {
+                  pendingActionFocus.current = `${rowKey}-down`;
+                  const next = [...items];
+                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                  setSessionKeys((current) => {
+                    const keys = [...current];
+                    const previousKey = keys[index - 1] ?? stableId(prefix, index - 1);
+                    const currentKey = keys[index] ?? stableId(prefix, index);
+                    keys[index - 1] = currentKey;
+                    keys[index] = previousKey;
+                    return keys;
+                  });
+                  commitItems(next);
+                }}
+              >
+                <ArrowUp size={14} aria-hidden="true" /> 上移
+              </button>
+              <button
+                type="button"
+                aria-label="下移"
+                ref={(node) => {
+                  const action = `${rowKey}-down`;
+                  if (node) actionRefs.current.set(action, node);
+                  else actionRefs.current.delete(action);
+                }}
+                disabled={index === items.length - 1}
+                onClick={() => {
+                  pendingActionFocus.current = `${rowKey}-up`;
+                  const next = [...items];
+                  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                  setSessionKeys((current) => {
+                    const keys = [...current];
+                    const currentKey = keys[index] ?? stableId(prefix, index);
+                    const nextKey = keys[index + 1] ?? stableId(prefix, index + 1);
+                    keys[index] = nextKey;
+                    keys[index + 1] = currentKey;
+                    return keys;
+                  });
+                  commitItems(next);
+                }}
+              >
+                <ArrowDown size={14} aria-hidden="true" /> 下移
+              </button>
+              {!fixed && items.length > field.minItems ? (
                 <button
                   type="button"
-                  aria-label="上移"
-                  disabled={index === 0}
+                  aria-label="删除"
                   onClick={() => {
-                    const next = [...items];
-                    [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                    setSessionKeys((current) => {
-                      const keys = [...current];
-                      const previousKey = keys[index - 1] ?? stableId(prefix, index - 1);
-                      const currentKey = keys[index] ?? stableId(prefix, index);
-                      keys[index - 1] = currentKey;
-                      keys[index] = previousKey;
-                      return keys;
-                    });
-                    commitItems(next);
+                    commitItems(items.filter((_, itemIndex) => itemIndex !== index));
+                    setSessionKeys((current) =>
+                      current.filter((_, itemIndex) => itemIndex !== index),
+                    );
                   }}
                 >
-                  <ArrowUp size={14} aria-hidden="true" /> 上移
+                  <Trash2 size={14} aria-hidden="true" /> 删除
                 </button>
-                <button
-                  type="button"
-                  aria-label="下移"
-                  disabled={index === items.length - 1}
-                  onClick={() => {
-                    const next = [...items];
-                    [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                    setSessionKeys((current) => {
-                      const keys = [...current];
-                      const currentKey = keys[index] ?? stableId(prefix, index);
-                      const nextKey = keys[index + 1] ?? stableId(prefix, index + 1);
-                      keys[index] = nextKey;
-                      keys[index + 1] = currentKey;
-                      return keys;
-                    });
-                    commitItems(next);
-                  }}
-                >
-                  <ArrowDown size={14} aria-hidden="true" /> 下移
-                </button>
-                {items.length > field.minItems ? (
-                  <button
-                    type="button"
-                    aria-label="删除"
-                    onClick={() => {
-                      commitItems(items.filter((_, itemIndex) => itemIndex !== index));
-                      setSessionKeys((current) =>
-                        current.filter((_, itemIndex) => itemIndex !== index),
-                      );
-                    }}
-                  >
-                    <Trash2 size={14} aria-hidden="true" /> 删除
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </fieldset>
         );
       })}
       {!fixed && items.length < field.maxItems ? (
         <button
           type="button"
+          disabled={!factoryPreview.item}
+          aria-describedby={!factoryPreview.item ? blockedReasonId : undefined}
           onClick={() => {
-            const item = registration.createRepeatableItem(field.path, {
-              id: crypto.randomUUID(),
-              now: new Date().toISOString(),
+            const resolved = resolveRepeatableFactory(
+              registration,
+              field,
               draft,
-            });
+              crypto.randomUUID(),
+              new Date().toISOString(),
+            );
+            if (!resolved.item) return;
             setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
-            commitItems([...items, item]);
+            commitItems([...items, resolved.item]);
           }}
         >
           <Plus size={15} aria-hidden="true" /> 添加{field.label}
         </button>
+      ) : null}
+      {!fixed && items.length < field.maxItems && !factoryPreview.item ? (
+        <small id={blockedReasonId} className="document-field-help-v2">
+          {factoryPreview.reason}
+        </small>
       ) : null}
     </section>
   );
