@@ -78,6 +78,30 @@ const CONSTRUCTION_WORKS_SECTIONS = [
   "signatures",
 ] as const;
 
+const ENTERPRISE_GOODS_SECTIONS = [
+  "draft-cover",
+  "source-baseline",
+  "toc",
+  "offer-letter",
+  "bidder-profile",
+  "qualifications",
+  "executive-summary",
+  "price",
+  "goods-offer",
+  "requirements-matrix",
+  "technical-solution",
+  "delivery",
+  "quality-acceptance",
+  "warranty-aftersales",
+  "continuity",
+  "commercial-terms",
+  "deviations",
+  "cases",
+  "attachments",
+  "checklist",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -158,5 +182,29 @@ describe("bid.construction.works.v1", () => {
     expect(JSON.stringify(model)).toContain("boq-main");
     expect(JSON.stringify(model)).toContain("赵示例");
     expect(JSON.stringify(model)).toContain("CNY 50,000.00");
+  });
+});
+
+describe("bid.enterprise.goods.v1", () => {
+  it("keeps the law source contextual and renders optional continuity details explicitly", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("bid.enterprise.goods.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("bid-enterprise-goods"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    const serialized = JSON.stringify(model);
+
+    expect(registration.definition).toMatchObject({
+      id: "bid.enterprise.goods.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLayout: "modern-business.v1",
+      sourceKeys: ["prc-tendering-law"],
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(ENTERPRISE_GOODS_SECTIONS);
+    expect(model.watermarks).toEqual([]);
+    expect(serialized).toContain("是否适用招标法律规则取决于项目和采购主体");
+    expect(serialized).toContain("供应连续性：未提供");
+    expect(serialized).toContain("库存方案：未提供");
+    expect(serialized).toContain("厂商支持：未提供");
+    expect(serialized).toContain("CNY 8,000.00");
   });
 });

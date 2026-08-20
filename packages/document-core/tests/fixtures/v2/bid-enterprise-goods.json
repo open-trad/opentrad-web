@@ -1,0 +1,217 @@
+{
+  "id": "bid-enterprise-goods-gold",
+  "templateId": "bid.enterprise.goods.v1",
+  "templateVersion": "1.0.0",
+  "source": {
+    "issuer": "示例智能制造集团有限公司",
+    "agency": "示例采购管理中心",
+    "projectName": "生产线检测终端采购项目",
+    "projectNumber": "EP-GOODS-2026-0819",
+    "packageNumber": "标包A",
+    "versionLabel": "企业采购文件正式版",
+    "issueDate": "2026-08-19",
+    "clarificationIds": [],
+    "versionEvidence": {
+      "mainSolicitationAttachmentId": "source-main",
+      "clarificationAttachments": [],
+      "allClarificationsIncluded": true,
+      "userConfirmedExactVersion": true
+    },
+    "bidDeadline": "2026-09-18T14:00:00+08:00",
+    "openingTime": "2026-09-18T14:30:00+08:00",
+    "openingPlace": "企业电子采购平台",
+    "bidValidityDays": 90,
+    "submissionMode": "electronic",
+    "signatureRules": "按企业采购文件要求完成电子签章",
+    "sealingRules": "电子响应文件加密后提交",
+    "currency": "CNY",
+    "taxBasis": "tax-included",
+    "evaluationMethod": "comprehensive-evaluation",
+    "maximumPriceMinor": "1000000",
+    "jointVentureAllowed": false,
+    "subcontractAllowed": false,
+    "submissionCopies": { "original": 0, "copies": 0, "electronic": 1 },
+    "guaranteeRequirement": { "required": false, "allowedMethods": [], "sourceRefIds": [] }
+  },
+  "bidder": {
+    "legalName": "宁波义星工业科技有限公司",
+    "entityType": "company",
+    "registrationId": "91330200EXAMPLEE1",
+    "registeredAddress": "宁波市北仑区示例路4号",
+    "legalRepresentative": "王示例",
+    "authorizedRepresentative": "张示例",
+    "contactName": "张示例",
+    "phone": "0574-00000004",
+    "email": "enterprise-goods@example.invalid"
+  },
+  "authorizedRepresentative": "张示例",
+  "consortiumMembers": [],
+  "requirements": [
+    {
+      "id": "req-terminal",
+      "sourceRefIds": ["source-terminal"],
+      "category": "technical",
+      "requirementText": "检测终端须支持采购文件所列接口。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "所投型号按响应矩阵逐项响应接口要求。",
+      "offeredValue": "YX-I200",
+      "compliance": "yes",
+      "evidenceRefIds": ["proof-spec"],
+      "owner": "技术负责人",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "qualifications": [
+    {
+      "id": "qualification-license",
+      "sourceRefIds": ["source-qualification"],
+      "name": "营业执照",
+      "required": true,
+      "issuer": "宁波市市场监督管理局",
+      "certificateNumber": "91330200EXAMPLEE1",
+      "validUntil": "2036-08-19",
+      "attachmentId": "proof-license",
+      "status": "attached",
+      "userConfirmedTruth": true
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "id": "source-terminal",
+      "kind": "solicitation",
+      "sourceRef": "采购文件 技术规格 2.1",
+      "attachmentId": "source-main",
+      "page": 15
+    },
+    {
+      "id": "source-qualification",
+      "kind": "solicitation",
+      "sourceRef": "采购文件 供应商资格 3.1",
+      "attachmentId": "source-main",
+      "page": 5
+    },
+    {
+      "id": "proof-spec",
+      "kind": "proof",
+      "attachmentId": "proof-spec",
+      "page": 1,
+      "label": "制造商规格书"
+    }
+  ],
+  "businessDeviations": [],
+  "technicalDeviations": [],
+  "projectReferences": [
+    {
+      "id": "case-1",
+      "projectName": "用户提供的检测终端交付案例",
+      "customer": "示例客户有限公司",
+      "period": "2025-01至2025-06",
+      "scope": "检测终端供货和部署",
+      "evidenceAttachmentId": "proof-case",
+      "userConfirmedTruth": true
+    }
+  ],
+  "attachments": [
+    {
+      "id": "source-main",
+      "category": "other",
+      "displayName": "企业采购文件正式版.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 48,
+      "required": true,
+      "sourceRef": "采购人提供的企业采购文件",
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-spec",
+      "category": "technical",
+      "displayName": "制造商规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 10,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-case",
+      "category": "commercial",
+      "displayName": "案例证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 4,
+      "required": false,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "priceDeclaration": {
+    "itemizedTotalMinor": "800000",
+    "bidLetterTotalMinor": "800000",
+    "openingTotalMinor": "800000",
+    "userConfirmed": true
+  },
+  "signSealChecklist": [
+    {
+      "id": "sign-offer-letter",
+      "sourceRefIds": ["source-terminal"],
+      "label": "报价函电子签章",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "finalReviewers": [
+    { "name": "李示例", "role": "企业采购复核", "reviewedAt": "2026-08-20T12:00:00+08:00" }
+  ],
+  "updatedAt": "2026-08-20T12:00:00+08:00",
+  "executiveSummary": "提供可追溯的检测终端供货、交付、验收和售后方案。",
+  "goodsOfferLines": [
+    {
+      "id": "goods-1",
+      "name": "工业检测终端",
+      "brand": "义星",
+      "model": "YX-I200",
+      "manufacturer": "宁波义星工业科技有限公司",
+      "origin": "中国宁波",
+      "specification": "详见制造商规格书和需求响应矩阵",
+      "quantity": "4",
+      "unit": "台",
+      "unitPriceMinor": "200000",
+      "taxRateBps": 1300
+    }
+  ],
+  "requirementMatrix": [
+    {
+      "id": "req-terminal",
+      "sourceRefIds": ["source-terminal"],
+      "category": "technical",
+      "requirementText": "检测终端须支持采购文件所列接口。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "所投型号按响应矩阵逐项响应接口要求。",
+      "offeredValue": "YX-I200",
+      "compliance": "yes",
+      "evidenceRefIds": ["proof-spec"],
+      "owner": "技术负责人",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "commercialOffer": "价格、付款和合同条件以报价表及偏差表为准。",
+  "technicalOffer": "按采购文件要求提供检测终端、部署配置与技术资料。",
+  "deliveryPlan": "合同生效后30日内交付至采购人指定地点。",
+  "qualityAssurance": "执行出厂检验、到货检查和问题闭环。",
+  "inspectionAcceptance": "按采购文件、规格书和经确认的验收方案逐项验收。",
+  "warranty": "验收合格后两年。",
+  "afterSales": "7×24小时受理，4小时内响应。",
+  "contractAcceptanceDeviations": []
+}
