@@ -6,20 +6,30 @@ import {
 } from "./common.js";
 import type { RiskFindingV2 } from "./risk.js";
 
+export interface TemplateEvaluationContext {
+  readonly asOf?: string;
+}
+
 export interface TemplateRegistration<Draft = unknown, Model = unknown> {
   readonly definition: TemplateDefinitionV2;
   readonly parseDraft: (value: unknown) => Draft;
   readonly createDraft: (input: { id: string; now: string | Date }) => Draft;
-  readonly compile: (draft: Draft) => Model;
-  readonly preflight: (draft: Draft) => readonly RiskFindingV2[];
+  readonly compile: (draft: Draft, context?: TemplateEvaluationContext) => Model;
+  readonly preflight: (
+    draft: Draft,
+    context?: TemplateEvaluationContext,
+  ) => readonly RiskFindingV2[];
 }
 
 interface TemplateRegistrationShape {
   readonly definition: TemplateDefinitionV2;
   readonly parseDraft: (value: unknown) => unknown;
   readonly createDraft: (input: { id: string; now: string | Date }) => unknown;
-  readonly compile: (draft: never) => unknown;
-  readonly preflight: (draft: never) => readonly RiskFindingV2[];
+  readonly compile: (draft: never, context?: TemplateEvaluationContext) => unknown;
+  readonly preflight: (
+    draft: never,
+    context?: TemplateEvaluationContext,
+  ) => readonly RiskFindingV2[];
 }
 
 type PublishedRegistration<Registration extends TemplateRegistrationShape> = {

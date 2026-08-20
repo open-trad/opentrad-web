@@ -11,15 +11,17 @@ import {
   MoneyMinorV2Schema,
   QuantityV2Schema,
 } from "../../money.js";
-import type { TemplateRegistration } from "../../registry.js";
+import type { TemplateEvaluationContext, TemplateRegistration } from "../../registry.js";
 import { type RiskFindingV2, RiskFindingV2Schema } from "../../risk.js";
 import {
   type BidDraftBaseV1,
   BidDraftBaseV1Schema,
   decideBidExport,
+  evaluateBidDeadline,
   preflightBidCommon,
   type RequirementResponseV1,
   RequirementResponseV1Schema,
+  requiredBidContentFindings,
 } from "../bid-common.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -268,6 +270,60 @@ export function show(value: string | undefined): string {
   return value?.trim() ? value : "未提供";
 }
 
+export function sameBidData(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+    return false;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((item, index) => sameBidData(item, right[index]))
+    );
+  }
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every(
+      (key) =>
+        Object.hasOwn(right, key) &&
+        sameBidData(
+          (left as Record<string, unknown>)[key],
+          (right as Record<string, unknown>)[key],
+        ),
+    )
+  );
+}
+
+export function publicBidAttachmentManifest(draft: BidDraftBaseV1) {
+  const isLocalOnlySourceRef = (sourceRef: string): boolean => {
+    const value = sourceRef.trim();
+    return (
+      /^[a-z][a-z0-9+.-]*:/iu.test(value) ||
+      /^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(value) ||
+      value.includes("\\")
+    );
+  };
+  return draft.attachments
+    .filter((attachment) => attachment.includedInSubmission)
+    .map((attachment) => ({
+      id: attachment.id,
+      category: attachment.category,
+      displayName: attachment.displayName,
+      mediaType: attachment.mediaType,
+      ...(attachment.pageCount === undefined ? {} : { pageCount: attachment.pageCount }),
+      required: attachment.required,
+      ...(attachment.sourceRef === undefined || isLocalOnlySourceRef(attachment.sourceRef)
+        ? {}
+        : { sourceRef: attachment.sourceRef }),
+      status: attachment.status,
+      includedInSubmission: true,
+    }));
+}
+
 export function bidFinding(code: string, message: string, path?: readonly string[]): RiskFindingV2 {
   return RiskFindingV2Schema.parse({
     code,
@@ -484,7 +540,7 @@ export const GovernmentGoodsBidDraftV1Schema = createSpecializedBidSchema(
   GOVERNMENT_GOODS_SPECIALIZED_KEYS,
   GovernmentGoodsSpecializedSchema,
   (draft, addIssue) => {
-    const requirementIds = new Set(draft.requirements.map((item) => item.id));
+    const requirements = new Map(draft.requirements.map((item) => [item.id, item]));
     const attachmentIds = new Set(draft.attachments.map((item) => item.id));
     const matrixIds = new Set<string>();
     for (const [field, expectedCategory, matrix] of [
@@ -492,10 +548,11 @@ export const GovernmentGoodsBidDraftV1Schema = createSpecializedBidSchema(
       ["businessMatrix", "commercial", draft.businessMatrix],
     ] as const) {
       matrix.forEach((item, index) => {
-        if (!requirementIds.has(item.id)) {
+        const canonical = requirements.get(item.id);
+        if (!canonical || !sameBidData(canonical, item)) {
           addIssue({
             code: "custom",
-            message: "Matrix row must reference a canonical requirement",
+            message: "Matrix row must exactly match a canonical requirement",
             path: [field, index, "id"],
           });
         }
@@ -643,6 +700,7 @@ function calculateGoods(draft: GovernmentGoodsBidDraftV1) {
 
 function analyzeGovernmentGoodsDraft(draft: GovernmentGoodsBidDraftV1): readonly RiskFindingV2[] {
   const findings = commonBidFindings(draft);
+  const placeholder = /^(?:\s*|待填写|待确认|未提供|未绑定)$/u;
   if (draft.goodsOfferLines.length === 0) {
     findings.push(
       bidFinding("BID_GOODS_LINES_MISSING", "至少需要一项由用户提供的货物报价明细", [
@@ -659,6 +717,62 @@ function analyzeGovernmentGoodsDraft(draft: GovernmentGoodsBidDraftV1): readonly
     findings.push(
       bidFinding("BID_BUSINESS_MATRIX_MISSING", "商务响应矩阵尚未提供", ["businessMatrix"]),
     );
+  }
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: ["goodsOfferLines"],
+        value: draft.goodsOfferLines.map((line) => ({
+          name: line.name,
+          brand: line.brand,
+          model: line.model,
+          manufacturer: line.manufacturer,
+          origin: line.origin,
+          specification: line.specification,
+          unit: line.unit,
+        })),
+      },
+      {
+        path: ["technicalMatrix"],
+        value: draft.technicalMatrix.map((row) => ({
+          requirementText: row.requirementText,
+          responseText: row.responseText,
+        })),
+      },
+      {
+        path: ["businessMatrix"],
+        value: draft.businessMatrix.map((row) => ({
+          requirementText: row.requirementText,
+          responseText: row.responseText,
+        })),
+      },
+      {
+        path: ["plans"],
+        value: {
+          delivery: draft.plans.delivery,
+          acceptance: draft.plans.acceptance,
+          warranty: draft.plans.warranty,
+          afterSales: draft.plans.afterSales,
+        },
+      },
+      {
+        path: ["policyDeclarations"],
+        value: draft.policyDeclarations.map((policy) => ({
+          policyName: policy.policyName,
+          statement: policy.statement,
+        })),
+      },
+    ]),
+  );
+  for (const [field, value, code, label] of [
+    ["delivery", draft.plans.delivery, "BID_GOODS_DELIVERY_PLAN_MISSING", "交付方案"],
+    ["acceptance", draft.plans.acceptance, "BID_GOODS_ACCEPTANCE_PLAN_MISSING", "验收方案"],
+    ["warranty", draft.plans.warranty, "BID_GOODS_WARRANTY_PLAN_MISSING", "质保方案"],
+    ["afterSales", draft.plans.afterSales, "BID_GOODS_AFTERSALES_PLAN_MISSING", "售后方案"],
+  ] as const) {
+    if (placeholder.test(value)) {
+      findings.push(bidFinding(code, `${label}尚未提供`, ["plans", field]));
+    }
   }
   if (draft.source.taxBasis === "as-specified") {
     findings.push(
@@ -706,14 +820,20 @@ function analyzeGovernmentGoodsDraft(draft: GovernmentGoodsBidDraftV1): readonly
   return freezeBidFindings(findings);
 }
 
-function compileGovernmentGoodsDraft(value: unknown): DocumentModelV2 {
+function compileGovernmentGoodsDraft(
+  value: unknown,
+  context?: TemplateEvaluationContext,
+): DocumentModelV2 {
   const draft = parseGovernmentGoodsDraft(value);
-  const findings = analyzeGovernmentGoodsDraft(draft);
+  const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+  const findings = freezeBidFindings([...analyzeGovernmentGoodsDraft(draft), ...deadline.findings]);
   const decision = decideBidExport({
     draft: projectBidBaseDraft(draft),
     findings,
-    asOf: draft.updatedAt,
+    ...(deadline.asOf === undefined ? {} : { asOf: deadline.asOf }),
   });
+  const attachmentManifest = publicBidAttachmentManifest(draft);
+  const publicAttachmentIds = new Set(attachmentManifest.map((attachment) => attachment.id));
   const calculation = calculateGoods(draft);
   const calculatedLines = new Map(calculation?.lines.map((line) => [line.lineId, line.totalMinor]));
   const money = (minor: string) => formatMoneyMinorV2(minor, draft.source.currency);
@@ -847,7 +967,9 @@ function compileGovernmentGoodsDraft(value: unknown): DocumentModelV2 {
           type: "attachmentIndex" as const,
           id: "qualification-attachment-index",
           attachmentIds: draft.qualifications.flatMap((item) =>
-            item.attachmentId ? [item.attachmentId] : [],
+            item.attachmentId && publicAttachmentIds.has(item.attachmentId)
+              ? [item.attachmentId]
+              : [],
           ),
         },
       ],
@@ -1129,7 +1251,7 @@ function compileGovernmentGoodsDraft(value: unknown): DocumentModelV2 {
     sections,
     watermarks: decision.watermarks,
     disclaimers: ["bid-authority"],
-    attachmentManifest: draft.attachments,
+    attachmentManifest,
   }) as DocumentModelV2;
 }
 
@@ -1141,8 +1263,9 @@ export const GOVERNMENT_GOODS_BID_REGISTRATION: TemplateRegistration<
   parseDraft: parseGovernmentGoodsDraft,
   createDraft: createGovernmentGoodsDraft,
   compile: compileGovernmentGoodsDraft,
-  preflight(value: unknown) {
+  preflight(value: unknown, context?: TemplateEvaluationContext) {
     const draft = parseGovernmentGoodsDraft(value);
-    return analyzeGovernmentGoodsDraft(draft);
+    const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+    return freezeBidFindings([...analyzeGovernmentGoodsDraft(draft), ...deadline.findings]);
   },
 });

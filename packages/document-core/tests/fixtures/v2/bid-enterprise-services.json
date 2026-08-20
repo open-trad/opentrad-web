@@ -115,7 +115,7 @@
       "required": true,
       "sourceRef": "采购人提供的企业服务采购文件",
       "status": "attached",
-      "includedInSubmission": true
+      "includedInSubmission": false
     },
     {
       "id": "proof-license",

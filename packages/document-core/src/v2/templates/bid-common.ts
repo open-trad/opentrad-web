@@ -9,6 +9,7 @@ import type { EntityPartyV2 } from "../common.js";
 import type { WatermarkPolicyV2 } from "../document-model.js";
 import { MoneyMinorV2Schema } from "../money.js";
 import type { AttachmentRefV1 } from "../project.js";
+import type { TemplateEvaluationContext } from "../registry.js";
 import { type RiskFindingV2, RiskFindingV2Schema } from "../risk.js";
 import { PartyV2Schema } from "./quote-common.js";
 
@@ -873,7 +874,116 @@ function finding(code: string, message: string, path?: readonly string[]): RiskF
   });
 }
 
-function isAttachmentReady(attachment: AttachmentRefV1 | undefined): boolean {
+const EXACT_BID_PLACEHOLDER_PATTERN =
+  /^(?:TBD|TODO|TBC|TO\s+BE\s+(?:DETERMINED|CONFIRMED|PROVIDED)|待填写|待确认|待补(?:充)?|待定|未提供|未绑定|未确认)$/iu;
+const ANY_BID_PLACEHOLDER_PATTERN =
+  /(?:\bTBD\b|\bTODO\b|\bTBC\b|\bTO\s+BE\s+(?:DETERMINED|CONFIRMED|PROVIDED)\b|待填写|待确认|待补(?:充)?|待定|未提供|未绑定|未确认)/iu;
+const DEFAULT_IGNORABLE_PATTERN = /[\p{Default_Ignorable_Code_Point}\p{Cf}]/gu;
+
+function normalizeBidContent(value: string): string {
+  return value.normalize("NFKC").replace(DEFAULT_IGNORABLE_PATTERN, "").trim();
+}
+
+function isPlaceholderValue(value: string): boolean {
+  const normalized = normalizeBidContent(value);
+  if (EXACT_BID_PLACEHOLDER_PATTERN.test(normalized)) return true;
+  const noteStart = normalized.search(/[:(]/u);
+  return noteStart > 0 && EXACT_BID_PLACEHOLDER_PATTERN.test(normalized.slice(0, noteStart).trim());
+}
+
+function containsBidPlaceholder(value: string): boolean {
+  const normalized = normalizeBidContent(value);
+  if (isPlaceholderValue(normalized)) return true;
+  const colon = normalized.lastIndexOf(":");
+  if (colon >= 0 && isPlaceholderValue(normalized.slice(colon + 1))) return true;
+  for (const match of normalized.matchAll(/\(([^()]*)\)/gu)) {
+    if (isPlaceholderValue(match[1] ?? "")) return true;
+  }
+  return false;
+}
+
+function containsAnyBidPlaceholder(value: string): boolean {
+  return ANY_BID_PLACEHOLDER_PATTERN.test(normalizeBidContent(value));
+}
+
+export function requiredBidContentFindings(
+  roots: readonly { readonly value: unknown; readonly path: readonly string[] }[],
+): readonly RiskFindingV2[] {
+  const findings: RiskFindingV2[] = [];
+  const visit = (value: unknown, path: readonly string[]): void => {
+    if (typeof value === "string") {
+      if (containsBidPlaceholder(value)) {
+        findings.push(
+          finding(
+            "BID_REQUIRED_CONTENT_PLACEHOLDER",
+            "Required bid content still contains a placeholder",
+            path,
+          ),
+        );
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const [index, item] of value.entries()) {
+        visit(item, [...path, String(index)]);
+      }
+      return;
+    }
+    if (value !== null && typeof value === "object") {
+      for (const key of Object.keys(value)) {
+        visit((value as Record<string, unknown>)[key], [...path, key]);
+      }
+    }
+  };
+  for (const root of roots) visit(root.value, root.path);
+  return Object.freeze(findings);
+}
+
+const BidEvaluationContextRawSchema = strictIsolatedObjectSchema({
+  asOf: OffsetDateTimeRawSchema.optional(),
+});
+const BidEvaluationContextSchema = frozenCompositeSchema(BidEvaluationContextRawSchema);
+
+export interface BidDeadlineEvaluationV1 extends TemplateEvaluationContext {
+  readonly findings: readonly RiskFindingV2[];
+}
+
+export function evaluateBidDeadline(
+  draft: BidDraftBaseV1,
+  input?: unknown,
+): BidDeadlineEvaluationV1 {
+  const context = BidEvaluationContextSchema.parse(input ?? {});
+  const findings: RiskFindingV2[] = [];
+  if (context.asOf === undefined) {
+    findings.push(
+      finding(
+        "BID_DEADLINE_NOT_EVALUATED",
+        "A trusted evaluation time is required before submission",
+        ["source", "bidDeadline"],
+      ),
+    );
+  } else if (
+    draft.source.bidDeadline !== "" &&
+    Date.parse(context.asOf) >= Date.parse(draft.source.bidDeadline)
+  ) {
+    findings.push(
+      finding("BID_DEADLINE_REACHED", "The bid deadline has been reached", [
+        "source",
+        "bidDeadline",
+      ]),
+    );
+  }
+  return Object.freeze({
+    ...(context.asOf === undefined ? {} : { asOf: context.asOf }),
+    findings: Object.freeze(findings),
+  });
+}
+
+function sourceAttachmentReady(attachment: AttachmentRefV1 | undefined): boolean {
+  return attachment?.status === "attached";
+}
+
+function submissionEvidenceReady(attachment: AttachmentRefV1 | undefined): boolean {
   return attachment?.status === "attached" && attachment.includedInSubmission;
 }
 
@@ -885,15 +995,82 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
   const deviations = new Set(
     [...draft.businessDeviations, ...draft.technicalDeviations].map((item) => item.requirementId),
   );
-
-  if (draft.attachments.some((item) => item.required && !isAttachmentReady(item))) {
-    findings.push(
-      finding(
-        "BID_REQUIRED_ATTACHMENT_NOT_READY",
-        "A required manifest attachment is not attached and included",
-      ),
-    );
-  }
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: ["bidder"],
+        value: { legalName: draft.bidder.legalName, contactName: draft.bidder.contactName },
+      },
+      {
+        path: ["consortiumMembers"],
+        value: draft.consortiumMembers.map((member) => ({
+          legalName: member.legalName,
+          contactName: member.contactName,
+        })),
+      },
+      {
+        path: ["requirements"],
+        value: draft.requirements.map((item) => ({
+          requirementText: item.requirementText,
+          responseText: item.responseText,
+        })),
+      },
+      {
+        path: ["qualifications"],
+        value: draft.qualifications.map((item) => ({
+          name: item.name,
+          ...(item.issuer === undefined ? {} : { issuer: item.issuer }),
+          ...(item.certificateNumber === undefined
+            ? {}
+            : { certificateNumber: item.certificateNumber }),
+        })),
+      },
+      {
+        path: ["businessDeviations"],
+        value: draft.businessDeviations.map((item) => ({
+          requirement: item.requirement,
+          response: item.response,
+          deviation: item.deviation,
+        })),
+      },
+      {
+        path: ["technicalDeviations"],
+        value: draft.technicalDeviations.map((item) => ({
+          requirement: item.requirement,
+          response: item.response,
+          deviation: item.deviation,
+        })),
+      },
+      {
+        path: ["projectReferences"],
+        value: draft.projectReferences.map((item) => ({
+          projectName: item.projectName,
+          customer: item.customer,
+          period: item.period,
+          scope: item.scope,
+        })),
+      },
+      ...(draft.bidGuarantee === undefined
+        ? []
+        : [
+            {
+              path: ["bidGuarantee"],
+              value: {
+                method: draft.bidGuarantee.method,
+                reference: draft.bidGuarantee.reference,
+              },
+            },
+          ]),
+      {
+        path: ["signSealChecklist"],
+        value: draft.signSealChecklist.map((item) => ({ label: item.label })),
+      },
+      {
+        path: ["finalReviewers"],
+        value: draft.finalReviewers.map((item) => ({ name: item.name, role: item.role })),
+      },
+    ]),
+  );
 
   const sourceAttachmentIds = new Set<string>();
   const mainAttachmentId = draft.source.versionEvidence.mainSolicitationAttachmentId;
@@ -904,7 +1081,23 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
   for (const ref of draft.evidenceRefs) {
     if (ref.kind === "solicitation") sourceAttachmentIds.add(ref.attachmentId);
   }
-  if ([...sourceAttachmentIds].some((id) => !isAttachmentReady(attachments.get(id)))) {
+  if (
+    draft.attachments.some(
+      (item) =>
+        item.required &&
+        (sourceAttachmentIds.has(item.id)
+          ? !sourceAttachmentReady(item)
+          : !submissionEvidenceReady(item)),
+    )
+  ) {
+    findings.push(
+      finding(
+        "BID_REQUIRED_ATTACHMENT_NOT_READY",
+        "A required manifest attachment is not ready for its source or submission role",
+      ),
+    );
+  }
+  if ([...sourceAttachmentIds].some((id) => !sourceAttachmentReady(attachments.get(id)))) {
     findings.push(
       finding(
         "BID_SOURCE_ATTACHMENT_NOT_READY",
@@ -916,7 +1109,7 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
   const proofAttachmentIds = new Set(
     draft.evidenceRefs.filter((item) => item.kind === "proof").map((item) => item.attachmentId),
   );
-  if ([...proofAttachmentIds].some((id) => !isAttachmentReady(attachments.get(id)))) {
+  if ([...proofAttachmentIds].some((id) => !submissionEvidenceReady(attachments.get(id)))) {
     findings.push(
       finding("BID_EVIDENCE_ATTACHMENT_NOT_READY", "A referenced proof attachment is not ready"),
     );
@@ -955,7 +1148,7 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
     }
     for (const refId of item.evidenceRefIds) {
       const ref = evidence.get(refId);
-      if (ref?.kind === "proof" && !isAttachmentReady(attachments.get(ref.attachmentId))) {
+      if (ref?.kind === "proof" && !submissionEvidenceReady(attachments.get(ref.attachmentId))) {
         findings.push(
           finding(
             "BID_EVIDENCE_ATTACHMENT_NOT_READY",
@@ -989,7 +1182,7 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
     if (
       item.status === "attached" &&
       item.attachmentId !== undefined &&
-      !isAttachmentReady(attachments.get(item.attachmentId))
+      !submissionEvidenceReady(attachments.get(item.attachmentId))
     ) {
       findings.push(
         finding("BID_EVIDENCE_ATTACHMENT_NOT_READY", "A qualification attachment is not ready", [
@@ -1012,7 +1205,7 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
     }
     if (
       item.evidenceAttachmentId !== undefined &&
-      !isAttachmentReady(attachments.get(item.evidenceAttachmentId))
+      !submissionEvidenceReady(attachments.get(item.evidenceAttachmentId))
     ) {
       findings.push(
         finding(
@@ -1050,7 +1243,7 @@ export function preflightBidCommon(input: unknown): readonly RiskFindingV2[] {
       }
       if (
         draft.bidGuarantee.attachmentId === undefined ||
-        !isAttachmentReady(attachments.get(draft.bidGuarantee.attachmentId))
+        !submissionEvidenceReady(attachments.get(draft.bidGuarantee.attachmentId))
       ) {
         findings.push(
           finding("BID_GUARANTEE_ATTACHMENT_NOT_READY", "The guarantee attachment is not ready"),
@@ -1174,12 +1367,9 @@ const BidExportInputV1Schema = frozenCompositeSchema(BidExportInputV1RawSchema, 
   },
 });
 
-const SOURCE_PLACEHOLDER_PATTERN =
-  /(?:\bTBD\b|\bTO\s+BE\s+(?:DETERMINED|CONFIRMED|PROVIDED)\b|待定|待补|待确认|未确认|未绑定|待填写)/iu;
-
 function exactSourceVersionIsComplete(source: SolicitationSnapshotV1): boolean {
   const completeText = (value: string | undefined): boolean =>
-    value !== undefined && value.trim().length > 0 && !SOURCE_PLACEHOLDER_PATTERN.test(value);
+    value !== undefined && value.trim().length > 0 && !containsAnyBidPlaceholder(value);
   const evidence = source.versionEvidence;
   const clarificationIds = new Set(source.clarificationIds);
   const evidencedClarifications = new Set(

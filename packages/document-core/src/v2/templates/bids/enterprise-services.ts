@@ -3,13 +3,15 @@ import { z } from "../../../zod.js";
 import type { TemplateDefinitionV2 } from "../../common.js";
 import { type DocumentModelV2, DocumentModelV2Schema } from "../../document-model.js";
 import { calculateQuoteLinesV2, formatMoneyMinorV2, IdentifierV2Schema } from "../../money.js";
-import type { TemplateRegistration } from "../../registry.js";
+import type { TemplateEvaluationContext, TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
   type BidDraftBaseV1,
   BidProjectReferenceV1Schema,
   DeviationEntryV1Schema,
   decideBidExport,
+  evaluateBidDeadline,
+  requiredBidContentFindings,
 } from "../bid-common.js";
 import { type ServiceLineV2, ServiceLineV2Schema } from "../quote-common.js";
 import {
@@ -21,6 +23,8 @@ import {
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
+  publicBidAttachmentManifest,
+  sameBidData,
   show,
   strictBidObject,
 } from "./government-goods.js";
@@ -178,7 +182,7 @@ export const EnterpriseServicesBidDraftV1Schema = createSpecializedBidSchema(
     const canonicalCases = new Map(draft.projectReferences.map((item) => [item.id, item]));
     draft.caseStudies.forEach((item, index) => {
       const canonical = canonicalCases.get(item.id);
-      if (!canonical || canonical.userConfirmedTruth !== item.userConfirmedTruth) {
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Case study must match a canonical project reference",
@@ -191,7 +195,7 @@ export const EnterpriseServicesBidDraftV1Schema = createSpecializedBidSchema(
     );
     draft.contractDeviations.forEach((item, index) => {
       const canonical = canonicalDeviations.get(item.requirementId);
-      if (!canonical || canonical.type !== item.type) {
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Contract deviation must match a canonical business deviation",
@@ -339,6 +343,88 @@ function calculation(draft: EnterpriseServicesBidDraftV1) {
 
 function analyze(draft: EnterpriseServicesBidDraftV1): readonly RiskFindingV2[] {
   const findings = commonBidFindings(draft);
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: [],
+        value: {
+          executiveSummary: draft.executiveSummary,
+          customerUnderstanding: draft.customerUnderstanding,
+          objectives: draft.objectives,
+          scope: draft.scope,
+          methodology: draft.methodology,
+          governance: draft.governance,
+          communicationPlan: draft.communicationPlan,
+          qualityPlan: draft.qualityPlan,
+        },
+      },
+      {
+        path: ["deliverables"],
+        value: draft.deliverables.map((item) => ({
+          name: item.name,
+          acceptanceStandard: item.acceptanceStandard,
+        })),
+      },
+      {
+        path: ["milestones"],
+        value: draft.milestones.map((item) => ({ name: item.name })),
+      },
+      {
+        path: ["team"],
+        value: draft.team.map((item) => ({
+          name: item.name,
+          role: item.role,
+          qualification: item.qualification,
+          experience: item.experience,
+          allocation: item.allocation,
+        })),
+      },
+      {
+        path: ["sla"],
+        value: draft.sla.map((item) => ({
+          metric: item.metric,
+          target: item.target,
+          measurement: item.measurement,
+        })),
+      },
+      { path: ["assumptions"], value: draft.assumptions },
+      { path: ["dependencies"], value: draft.dependencies },
+      { path: ["exclusions"], value: draft.exclusions },
+      {
+        path: ["servicePriceLines"],
+        value: draft.servicePriceLines.map((item) => ({
+          serviceName: item.serviceName,
+          deliverable: item.deliverable,
+          unit: item.unit,
+        })),
+      },
+      {
+        path: ["caseStudies"],
+        value: draft.caseStudies.map((item) => ({
+          projectName: item.projectName,
+          customer: item.customer,
+          period: item.period,
+          scope: item.scope,
+        })),
+      },
+      {
+        path: ["riskRegister"],
+        value: draft.riskRegister.map((item) => ({
+          risk: item.risk,
+          mitigation: item.mitigation,
+          owner: item.owner,
+        })),
+      },
+      {
+        path: ["contractDeviations"],
+        value: draft.contractDeviations.map((item) => ({
+          requirement: item.requirement,
+          response: item.response,
+          deviation: item.deviation,
+        })),
+      },
+    ]),
+  );
   for (const [field, value, code, label] of [
     [
       "executiveSummary",
@@ -426,13 +512,14 @@ function analyze(draft: EnterpriseServicesBidDraftV1): readonly RiskFindingV2[] 
   return freezeBidFindings(findings);
 }
 
-function compile(value: unknown): DocumentModelV2 {
+function compile(value: unknown, context?: TemplateEvaluationContext): DocumentModelV2 {
   const draft = parseDraft(value);
-  const findings = analyze(draft);
+  const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+  const findings = freezeBidFindings([...analyze(draft), ...deadline.findings]);
   const decision = decideBidExport({
     draft: projectBidBaseDraft(draft),
     findings,
-    asOf: draft.updatedAt,
+    ...(deadline.asOf === undefined ? {} : { asOf: deadline.asOf }),
   });
   const exact = calculation(draft);
   const totals = new Map(exact?.lines.map((item) => [item.lineId, item.totalMinor]));
@@ -838,7 +925,7 @@ function compile(value: unknown): DocumentModelV2 {
     sections,
     watermarks: decision.watermarks,
     disclaimers: ["bid-authority"],
-    attachmentManifest: draft.attachments,
+    attachmentManifest: publicBidAttachmentManifest(draft),
   }) as DocumentModelV2;
 }
 
@@ -850,7 +937,9 @@ export const ENTERPRISE_SERVICES_BID_REGISTRATION: TemplateRegistration<
   parseDraft,
   createDraft,
   compile,
-  preflight(value: unknown) {
-    return analyze(parseDraft(value));
+  preflight(value: unknown, context?: TemplateEvaluationContext) {
+    const draft = parseDraft(value);
+    const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+    return freezeBidFindings([...analyze(draft), ...deadline.findings]);
   },
 });

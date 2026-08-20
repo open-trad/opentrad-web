@@ -115,7 +115,7 @@
       "required": true,
       "sourceRef": "招标人提供的项目招标文件",
       "status": "attached",
-      "includedInSubmission": true
+      "includedInSubmission": false
     },
     {
       "id": "boq-main",

@@ -3,12 +3,14 @@ import { z } from "../../../zod.js";
 import type { TemplateDefinitionV2 } from "../../common.js";
 import { type DocumentModelV2, DocumentModelV2Schema } from "../../document-model.js";
 import { calculateQuoteLinesV2, formatMoneyMinorV2, IdentifierV2Schema } from "../../money.js";
-import type { TemplateRegistration } from "../../registry.js";
+import type { TemplateEvaluationContext, TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
   type BidDraftBaseV1,
   BidProjectReferenceV1Schema,
   decideBidExport,
+  evaluateBidDeadline,
+  requiredBidContentFindings,
 } from "../bid-common.js";
 import { type ServiceLineV2, ServiceLineV2Schema } from "../quote-common.js";
 import {
@@ -20,8 +22,10 @@ import {
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
+  publicBidAttachmentManifest,
   REQUIREMENT_MATRIX_COLUMNS,
   requirementMatrixRows,
+  sameBidData,
   show,
   strictBidObject,
 } from "./government-goods.js";
@@ -202,7 +206,7 @@ export const GovernmentServicesBidDraftV1Schema = createSpecializedBidSchema(
     const canonicalReferences = new Map(draft.projectReferences.map((item) => [item.id, item]));
     draft.performanceEvidence.forEach((item, index) => {
       const canonical = canonicalReferences.get(item.id);
-      if (!canonical || canonical.userConfirmedTruth !== item.userConfirmedTruth) {
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Performance evidence must match a canonical project reference",
@@ -341,6 +345,100 @@ function calculation(draft: GovernmentServicesBidDraftV1) {
 
 function analyze(draft: GovernmentServicesBidDraftV1): readonly RiskFindingV2[] {
   const findings = commonBidFindings(draft);
+  const placeholder = /^(?:\s*|待填写|待确认|未提供|未绑定)$/u;
+  for (const [field, value, code, label] of [
+    [
+      "serviceUnderstanding",
+      draft.serviceUnderstanding,
+      "BID_SERVICE_UNDERSTANDING_MISSING",
+      "服务理解",
+    ],
+    ["objectives", draft.objectives, "BID_SERVICE_OBJECTIVES_MISSING", "服务目标"],
+    ["methodology", draft.methodology, "BID_SERVICE_METHODOLOGY_MISSING", "服务方法"],
+    ["projectManager", draft.projectManager, "BID_SERVICE_MANAGER_MISSING", "项目经理"],
+    ["qualityPlan", draft.qualityPlan, "BID_SERVICE_QUALITY_PLAN_MISSING", "质量方案"],
+    ["riskPlan", draft.riskPlan, "BID_SERVICE_RISK_PLAN_MISSING", "风险方案"],
+    ["acceptancePlan", draft.acceptancePlan, "BID_SERVICE_ACCEPTANCE_PLAN_MISSING", "验收方案"],
+  ] as const) {
+    if (placeholder.test(value)) findings.push(bidFinding(code, `${label}尚未提供`, [field]));
+  }
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: [],
+        value: {
+          serviceUnderstanding: draft.serviceUnderstanding,
+          objectives: draft.objectives,
+          methodology: draft.methodology,
+          projectManager: draft.projectManager,
+          qualityPlan: draft.qualityPlan,
+          riskPlan: draft.riskPlan,
+          acceptancePlan: draft.acceptancePlan,
+        },
+      },
+      {
+        path: ["workPackages"],
+        value: draft.workPackages.map((item) => ({
+          name: item.name,
+          activities: item.activities,
+          deliverables: item.deliverables,
+        })),
+      },
+      {
+        path: ["deliverables"],
+        value: draft.deliverables.map((item) => ({
+          name: item.name,
+          acceptanceStandard: item.acceptanceStandard,
+        })),
+      },
+      {
+        path: ["milestones"],
+        value: draft.milestones.map((item) => ({ name: item.name })),
+      },
+      {
+        path: ["sla"],
+        value: draft.sla.map((item) => ({
+          metric: item.metric,
+          target: item.target,
+          measurement: item.measurement,
+        })),
+      },
+      {
+        path: ["staffing"],
+        value: draft.staffing.map((item) => ({
+          name: item.name,
+          role: item.role,
+          qualification: item.qualification,
+          experience: item.experience,
+          allocation: item.allocation,
+        })),
+      },
+      {
+        path: ["servicePriceLines"],
+        value: draft.servicePriceLines.map((item) => ({
+          serviceName: item.serviceName,
+          deliverable: item.deliverable,
+          unit: item.unit,
+        })),
+      },
+      {
+        path: ["performanceEvidence"],
+        value: draft.performanceEvidence.map((item) => ({
+          projectName: item.projectName,
+          customer: item.customer,
+          period: item.period,
+          scope: item.scope,
+        })),
+      },
+      {
+        path: ["policyDeclarations"],
+        value: draft.policyDeclarations.map((item) => ({
+          policyName: item.policyName,
+          statement: item.statement,
+        })),
+      },
+    ]),
+  );
   const requireRows = (value: readonly unknown[], code: string, message: string, path: string) => {
     if (value.length === 0) findings.push(bidFinding(code, message, [path]));
   };
@@ -429,13 +527,14 @@ function analyze(draft: GovernmentServicesBidDraftV1): readonly RiskFindingV2[] 
   return freezeBidFindings(findings);
 }
 
-function compile(value: unknown): DocumentModelV2 {
+function compile(value: unknown, context?: TemplateEvaluationContext): DocumentModelV2 {
   const draft = parseDraft(value);
-  const findings = analyze(draft);
+  const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+  const findings = freezeBidFindings([...analyze(draft), ...deadline.findings]);
   const decision = decideBidExport({
     draft: projectBidBaseDraft(draft),
     findings,
-    asOf: draft.updatedAt,
+    ...(deadline.asOf === undefined ? {} : { asOf: deadline.asOf }),
   });
   const exact = calculation(draft);
   const totals = new Map(exact?.lines.map((item) => [item.lineId, item.totalMinor]));
@@ -884,7 +983,7 @@ function compile(value: unknown): DocumentModelV2 {
     sections,
     watermarks: decision.watermarks,
     disclaimers: ["bid-authority"],
-    attachmentManifest: draft.attachments,
+    attachmentManifest: publicBidAttachmentManifest(draft),
   }) as DocumentModelV2;
 }
 
@@ -896,7 +995,9 @@ export const GOVERNMENT_SERVICES_BID_REGISTRATION: TemplateRegistration<
   parseDraft,
   createDraft,
   compile,
-  preflight(value: unknown) {
-    return analyze(parseDraft(value));
+  preflight(value: unknown, context?: TemplateEvaluationContext) {
+    const draft = parseDraft(value);
+    const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+    return freezeBidFindings([...analyze(draft), ...deadline.findings]);
   },
 });

@@ -10,13 +10,15 @@ import {
   MoneyMinorV2Schema,
   QuantityV2Schema,
 } from "../../money.js";
-import type { TemplateRegistration } from "../../registry.js";
+import type { TemplateEvaluationContext, TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
   type BidDraftBaseV1,
   DeviationEntryV1Schema,
   decideBidExport,
+  evaluateBidDeadline,
   RequirementResponseV1Schema,
+  requiredBidContentFindings,
 } from "../bid-common.js";
 import {
   bidFinding,
@@ -27,8 +29,10 @@ import {
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
+  publicBidAttachmentManifest,
   REQUIREMENT_MATRIX_COLUMNS,
   requirementMatrixRows,
+  sameBidData,
   show,
   strictBidObject,
 } from "./government-goods.js";
@@ -124,9 +128,10 @@ export const EnterpriseGoodsBidDraftV1Schema = createSpecializedBidSchema(
   SPECIALIZED_KEYS,
   EnterpriseGoodsSpecializedSchema,
   (draft, addIssue) => {
-    const requirementIds = new Set(draft.requirements.map((item) => item.id));
+    const requirements = new Map(draft.requirements.map((item) => [item.id, item]));
     draft.requirementMatrix.forEach((item, index) => {
-      if (!requirementIds.has(item.id)) {
+      const canonical = requirements.get(item.id);
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Enterprise requirement matrix must reference canonical requirements",
@@ -139,7 +144,7 @@ export const EnterpriseGoodsBidDraftV1Schema = createSpecializedBidSchema(
     );
     draft.contractAcceptanceDeviations.forEach((item, index) => {
       const canonical = canonicalDeviations.get(item.requirementId);
-      if (!canonical || canonical.type !== item.type) {
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Contract-acceptance deviation must match a canonical business deviation",
@@ -264,6 +269,50 @@ function calculation(draft: EnterpriseGoodsBidDraftV1) {
 
 function analyze(draft: EnterpriseGoodsBidDraftV1): readonly RiskFindingV2[] {
   const findings = commonBidFindings(draft);
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: [],
+        value: {
+          executiveSummary: draft.executiveSummary,
+          commercialOffer: draft.commercialOffer,
+          technicalOffer: draft.technicalOffer,
+          deliveryPlan: draft.deliveryPlan,
+          qualityAssurance: draft.qualityAssurance,
+          inspectionAcceptance: draft.inspectionAcceptance,
+          warranty: draft.warranty,
+          afterSales: draft.afterSales,
+        },
+      },
+      {
+        path: ["goodsOfferLines"],
+        value: draft.goodsOfferLines.map((item) => ({
+          name: item.name,
+          brand: item.brand,
+          model: item.model,
+          manufacturer: item.manufacturer,
+          origin: item.origin,
+          specification: item.specification,
+          unit: item.unit,
+        })),
+      },
+      {
+        path: ["requirementMatrix"],
+        value: draft.requirementMatrix.map((item) => ({
+          requirementText: item.requirementText,
+          responseText: item.responseText,
+        })),
+      },
+      {
+        path: ["contractAcceptanceDeviations"],
+        value: draft.contractAcceptanceDeviations.map((item) => ({
+          requirement: item.requirement,
+          response: item.response,
+          deviation: item.deviation,
+        })),
+      },
+    ]),
+  );
   if (draft.goodsOfferLines.length === 0) {
     findings.push(
       bidFinding("BID_ENTERPRISE_GOODS_LINES_MISSING", "至少需要一项用户提供的货物方案", [
@@ -326,13 +375,14 @@ function analyze(draft: EnterpriseGoodsBidDraftV1): readonly RiskFindingV2[] {
   return freezeBidFindings(findings);
 }
 
-function compile(value: unknown): DocumentModelV2 {
+function compile(value: unknown, context?: TemplateEvaluationContext): DocumentModelV2 {
   const draft = parseDraft(value);
-  const findings = analyze(draft);
+  const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+  const findings = freezeBidFindings([...analyze(draft), ...deadline.findings]);
   const decision = decideBidExport({
     draft: projectBidBaseDraft(draft),
     findings,
-    asOf: draft.updatedAt,
+    ...(deadline.asOf === undefined ? {} : { asOf: deadline.asOf }),
   });
   const exact = calculation(draft);
   const totals = new Map(exact?.lines.map((item) => [item.lineId, item.totalMinor]));
@@ -659,7 +709,7 @@ function compile(value: unknown): DocumentModelV2 {
     sections,
     watermarks: decision.watermarks,
     disclaimers: ["bid-authority"],
-    attachmentManifest: draft.attachments,
+    attachmentManifest: publicBidAttachmentManifest(draft),
   }) as DocumentModelV2;
 }
 
@@ -671,7 +721,9 @@ export const ENTERPRISE_GOODS_BID_REGISTRATION: TemplateRegistration<
   parseDraft,
   createDraft,
   compile,
-  preflight(value: unknown) {
-    return analyze(parseDraft(value));
+  preflight(value: unknown, context?: TemplateEvaluationContext) {
+    const draft = parseDraft(value);
+    const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+    return freezeBidFindings([...analyze(draft), ...deadline.findings]);
   },
 });

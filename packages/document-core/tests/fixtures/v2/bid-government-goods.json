@@ -136,7 +136,7 @@
       "required": true,
       "sourceRef": "采购人提供的项目招标文件",
       "status": "attached",
-      "includedInSubmission": true
+      "includedInSubmission": false
     },
     {
       "id": "proof-license",

@@ -679,7 +679,7 @@ describe("V2 bid common preflight", () => {
     );
   });
 
-  it("requires referenced attachments to be attached and included", () => {
+  it("requires submission evidence to be included without forcing attached sources into submission", () => {
     const attachments = clone(draft().attachments as Record<string, unknown>[]);
     attachments[0] = attachment("source-main", { includedInSubmission: false });
     attachments[2] = attachment("proof-qualification", {
@@ -687,8 +687,32 @@ describe("V2 bid common preflight", () => {
       status: "missing",
     });
     const codes = preflightBidCommon(draft({ attachments })).map((finding) => finding.code);
-    expect(codes).toContain("BID_SOURCE_ATTACHMENT_NOT_READY");
+    expect(codes).not.toContain("BID_SOURCE_ATTACHMENT_NOT_READY");
     expect(codes).toContain("BID_EVIDENCE_ATTACHMENT_NOT_READY");
+  });
+
+  it("accepts attached solicitation sources without forcing them into the submission set", () => {
+    const attachments = clone(draft().attachments as Record<string, unknown>[]);
+    attachments[0] = attachment("source-main", { includedInSubmission: false });
+
+    const codes = preflightBidCommon(draft({ attachments })).map((finding) => finding.code);
+
+    expect(codes).not.toContain("BID_SOURCE_ATTACHMENT_NOT_READY");
+    expect(codes).not.toContain("BID_REQUIRED_ATTACHMENT_NOT_READY");
+  });
+
+  it("still requires non-source required attachments to enter the submission set", () => {
+    const attachments = clone(draft().attachments as Record<string, unknown>[]);
+    attachments.push(
+      attachment("unreferenced-required", {
+        status: "attached",
+        includedInSubmission: false,
+      }),
+    );
+
+    expect(preflightBidCommon(draft({ attachments })).map((finding) => finding.code)).toContain(
+      "BID_REQUIRED_ATTACHMENT_NOT_READY",
+    );
   });
 
   it("blocks every required manifest attachment even when no field references it", () => {

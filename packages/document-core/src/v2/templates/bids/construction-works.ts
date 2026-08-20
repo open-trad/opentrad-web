@@ -3,12 +3,14 @@ import { z } from "../../../zod.js";
 import type { TemplateDefinitionV2 } from "../../common.js";
 import { type DocumentModelV2, DocumentModelV2Schema } from "../../document-model.js";
 import { formatMoneyMinorV2, IdentifierV2Schema, MoneyMinorV2Schema } from "../../money.js";
-import type { TemplateRegistration } from "../../registry.js";
+import type { TemplateEvaluationContext, TemplateRegistration } from "../../registry.js";
 import type { RiskFindingV2 } from "../../risk.js";
 import {
   type BidDraftBaseV1,
   BidProjectReferenceV1Schema,
   decideBidExport,
+  evaluateBidDeadline,
+  requiredBidContentFindings,
 } from "../bid-common.js";
 import {
   bidFinding,
@@ -19,6 +21,8 @@ import {
   createSpecializedBidSchema,
   freezeBidFindings,
   projectBidBaseDraft,
+  publicBidAttachmentManifest,
+  sameBidData,
   show,
   strictBidObject,
 } from "./government-goods.js";
@@ -160,7 +164,7 @@ export const ConstructionWorksBidDraftV1Schema = createSpecializedBidSchema(
     const canonicalReferences = new Map(draft.projectReferences.map((item) => [item.id, item]));
     draft.projectManager.experience.forEach((item, index) => {
       const canonical = canonicalReferences.get(item.id);
-      if (!canonical || canonical.userConfirmedTruth !== item.userConfirmedTruth) {
+      if (!canonical || !sameBidData(canonical, item)) {
         addIssue({
           code: "custom",
           message: "Project-manager experience must match a canonical project reference",
@@ -278,6 +282,80 @@ function createDraft(input: { readonly id: string; readonly now: string | Date }
 
 function analyze(draft: ConstructionWorksBidDraftV1): readonly RiskFindingV2[] {
   const findings = commonBidFindings(draft);
+  for (const [field, value, code, label] of [
+    ["projectScope", draft.projectScope, "BID_CONSTRUCTION_SCOPE_MISSING", "项目范围"],
+    ["qualityTarget", draft.qualityTarget, "BID_CONSTRUCTION_QUALITY_TARGET_MISSING", "质量目标"],
+    [
+      "constructionOrganization",
+      draft.constructionOrganization,
+      "BID_CONSTRUCTION_ORGANIZATION_MISSING",
+      "施工组织",
+    ],
+    ["schedulePlan", draft.schedulePlan, "BID_CONSTRUCTION_SCHEDULE_MISSING", "进度方案"],
+    ["qualityPlan", draft.qualityPlan, "BID_CONSTRUCTION_QUALITY_PLAN_MISSING", "质量方案"],
+    ["safetyPlan", draft.safetyPlan, "BID_CONSTRUCTION_SAFETY_PLAN_MISSING", "安全方案"],
+    [
+      "environmentPlan",
+      draft.environmentPlan,
+      "BID_CONSTRUCTION_ENVIRONMENT_PLAN_MISSING",
+      "环保方案",
+    ],
+    ["emergencyPlan", draft.emergencyPlan, "BID_CONSTRUCTION_EMERGENCY_PLAN_MISSING", "应急方案"],
+  ] as const) {
+    if (PLACEHOLDER.test(value)) findings.push(bidFinding(code, `${label}尚未提供`, [field]));
+  }
+  findings.push(
+    ...requiredBidContentFindings([
+      {
+        path: [],
+        value: {
+          projectScope: draft.projectScope,
+          qualityTarget: draft.qualityTarget,
+          constructionOrganization: draft.constructionOrganization,
+          schedulePlan: draft.schedulePlan,
+          qualityPlan: draft.qualityPlan,
+          safetyPlan: draft.safetyPlan,
+          environmentPlan: draft.environmentPlan,
+          emergencyPlan: draft.emergencyPlan,
+        },
+      },
+      {
+        path: ["projectManager"],
+        value: {
+          name: draft.projectManager.name,
+          qualification: draft.projectManager.qualification,
+          certificateNumber: draft.projectManager.certificateNumber,
+          experience: draft.projectManager.experience.map((item) => ({
+            projectName: item.projectName,
+            customer: item.customer,
+            period: item.period,
+            scope: item.scope,
+          })),
+        },
+      },
+      {
+        path: ["keyTechnicalPersonnel"],
+        value: draft.keyTechnicalPersonnel.map((item) => ({
+          name: item.name,
+          role: item.role,
+          qualification: item.qualification,
+          experience: item.experience,
+        })),
+      },
+      {
+        path: ["laborPlan"],
+        value: draft.laborPlan.map((item) => ({ trade: item.trade, period: item.period })),
+      },
+      {
+        path: ["equipmentList"],
+        value: draft.equipmentList.map((item) => ({
+          name: item.name,
+          model: item.model,
+          availability: item.availability,
+        })),
+      },
+    ]),
+  );
   const boq = draft.attachments.find((item) => item.id === draft.billOfQuantitiesRef);
   if (
     PLACEHOLDER.test(draft.billOfQuantitiesRef) ||
@@ -356,13 +434,14 @@ function analyze(draft: ConstructionWorksBidDraftV1): readonly RiskFindingV2[] {
   return freezeBidFindings(findings);
 }
 
-function compile(value: unknown): DocumentModelV2 {
+function compile(value: unknown, context?: TemplateEvaluationContext): DocumentModelV2 {
   const draft = parseDraft(value);
-  const findings = analyze(draft);
+  const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+  const findings = freezeBidFindings([...analyze(draft), ...deadline.findings]);
   const decision = decideBidExport({
     draft: projectBidBaseDraft(draft),
     findings,
-    asOf: draft.updatedAt,
+    ...(deadline.asOf === undefined ? {} : { asOf: deadline.asOf }),
   });
   const money = (minor: string) => formatMoneyMinorV2(minor, draft.source.currency);
   const paragraph = (id: string, text: string) => ({
@@ -765,7 +844,7 @@ function compile(value: unknown): DocumentModelV2 {
     sections,
     watermarks: decision.watermarks,
     disclaimers: ["bid-authority"],
-    attachmentManifest: draft.attachments,
+    attachmentManifest: publicBidAttachmentManifest(draft),
   }) as DocumentModelV2;
 }
 
@@ -777,7 +856,9 @@ export const CONSTRUCTION_WORKS_BID_REGISTRATION: TemplateRegistration<
   parseDraft,
   createDraft,
   compile,
-  preflight(value: unknown) {
-    return analyze(parseDraft(value));
+  preflight(value: unknown, context?: TemplateEvaluationContext) {
+    const draft = parseDraft(value);
+    const deadline = evaluateBidDeadline(projectBidBaseDraft(draft), context);
+    return freezeBidFindings([...analyze(draft), ...deadline.findings]);
   },
 });
