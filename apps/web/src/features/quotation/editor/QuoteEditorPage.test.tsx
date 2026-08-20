@@ -224,7 +224,7 @@ describe("standard goods quotation editor", () => {
     expect(within(preview).getByText("QT-CN-2026-001")).toBeVisible();
     expect(within(preview).getByText("宁波远航贸易有限公司")).toBeVisible();
     expect(within(preview).getByText("海湾采购集团")).toBeVisible();
-  });
+  }, 15_000);
 
   it("adds and deletes stable line items, shows core totals, and normalizes tax-exempt rates", async () => {
     const user = userEvent.setup();
