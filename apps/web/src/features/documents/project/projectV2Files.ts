@@ -176,9 +176,25 @@ function portableAttachment(attachment: v2.AttachmentRefV1): v2.AttachmentRefV1 
   };
 }
 
+function isAttachmentDescriptor(value: object): boolean {
+  return [
+    "id",
+    "category",
+    "displayName",
+    "mediaType",
+    "required",
+    "status",
+    "includedInSubmission",
+  ].every((key) => {
+    const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
+    return descriptor !== undefined && "value" in descriptor;
+  });
+}
+
 function portableProjectValue(value: unknown): unknown {
   if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(portableProjectValue);
+  const attachmentDescriptor = isAttachmentDescriptor(value);
   const portable = Object.create(null) as Record<string, unknown>;
   for (const key of Reflect.ownKeys(value)) {
     const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
@@ -187,6 +203,7 @@ function portableProjectValue(value: unknown): unknown {
     }
     if (key === "localBlobKey") continue;
     if (
+      attachmentDescriptor &&
       key === "sourceRef" &&
       typeof descriptor.value === "string" &&
       isLocalOnlySourceRef(descriptor.value)
@@ -225,6 +242,7 @@ function validateFilesAgainstEnvelope(
   documentKind: v2.DocumentModelV2["documentKind"],
 ): void {
   const byId = new Map(files.map((file) => [file.id, file]));
+  if (byId.size !== files.length) throw projectError("附件文件标识重复");
   let totalBytes = 0;
   let totalPages = 0;
   for (const descriptor of envelope.attachmentManifest) {
@@ -384,11 +402,15 @@ export async function exportProjectV2Zip(input: {
   const { envelope, model } = validateDocumentEnvelope(input.envelope, input.registry);
   const files = snapshotAttachmentFiles(input.attachments).sort(compareAsciiPaths);
   validateFilesAgainstEnvelope(envelope, files, model.documentKind);
-  const portableEnvelope = v2.ProjectEnvelopeV2Schema.parse({
+  const portableCandidate = v2.ProjectEnvelopeV2Schema.parse({
     ...envelope,
     draft: portableProjectValue(envelope.draft),
     attachmentManifest: envelope.attachmentManifest.map(portableAttachment),
   });
+  const { envelope: portableEnvelope } = validateDocumentEnvelope(
+    portableCandidate,
+    input.registry,
+  );
   const manifest = manifestFor(portableEnvelope, files);
   const entries = [
     { path: "manifest.json", data: encoder.encode(stableJson(manifest)) },
@@ -534,6 +556,7 @@ function parseManifest(input: unknown): ProjectZipManifest {
     const attachmentManifest = ownData(input, "attachmentManifest");
     const files = ownData(input, "files");
     if (!Array.isArray(files) || files.length > 100) throw new Error();
+    const fileIds = new Set<string>();
     const parsedFiles: ManifestFile[] = files.map((file) => {
       if (file === null || typeof file !== "object" || Array.isArray(file)) throw new Error();
       assertExactOwnKeys(
@@ -559,6 +582,8 @@ function parseManifest(input: unknown): ProjectZipManifest {
       ) {
         throw new Error();
       }
+      if (fileIds.has(parsed.id as string)) throw new Error();
+      fileIds.add(parsed.id as string);
       return parsed as ManifestFile;
     });
     const envelope = v2.ProjectEnvelopeV2Schema.parse({

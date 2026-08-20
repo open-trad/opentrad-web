@@ -1,9 +1,10 @@
-import type { v2 } from "@opentrad/document-core";
+import { v2 } from "@opentrad/document-core";
 import "fake-indexeddb/auto";
 import { Blob as NodeBlob } from "node:buffer";
 import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { openDB } from "idb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import bidGovernmentGoodsJson from "../../../../../../packages/document-core/tests/fixtures/v2/bid-government-goods.json?raw";
 import {
   ATTACHMENTS_STORE,
   DOCUMENTS_V2_STORE,
@@ -14,7 +15,30 @@ import {
   createDocumentRepository,
   type DocumentTemplateRegistry,
   documentStorageKey,
+  validateDocumentEnvelope,
 } from "./documentRepository";
+
+function realBidEnvelope(
+  updateDraft: (draft: Record<string, unknown>) => Record<string, unknown> = (draft) => draft,
+): v2.ProjectEnvelopeV2 {
+  const draft = updateDraft(JSON.parse(bidGovernmentGoodsJson) as Record<string, unknown>);
+  const attachments = draft.attachments as v2.AttachmentRefV1[];
+  const key = `${draft.templateId as string}@${draft.templateVersion as string}:${draft.id as string}`;
+  return {
+    formatVersion: "2.0.0",
+    template: {
+      id: "bid.government.goods.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+    },
+    draft: draft as v2.ProjectDraftV2,
+    presentation: { layoutStyleId: "classic-formal.v1", languageView: "zh-CN" },
+    attachmentManifest: attachments.map((entry) => ({
+      ...entry,
+      ...(entry.status === "attached" ? { localBlobKey: `${key}#${entry.id}` } : {}),
+    })),
+  };
+}
 
 function pdfBlob(): Blob {
   return new Blob([new TextEncoder().encode("%PDF-1.7\n%%EOF")], {
@@ -527,5 +551,25 @@ describe("V2 document repository", () => {
     expect(stored.envelope.attachmentManifest[0]).toHaveProperty("sourceRef");
     expect(stored.model.attachmentManifest[0]).not.toHaveProperty("sourceRef");
     repository.close();
+  });
+
+  it("compares a real bid public manifest semantically instead of by object key order", () => {
+    const envelope = realBidEnvelope((draft) => ({
+      ...draft,
+      attachments: (draft.attachments as v2.AttachmentRefV1[]).map((entry) =>
+        entry.id === "proof-license"
+          ? { ...entry, sourceRef: "用户确认的附件证据编号 A-1" }
+          : entry,
+      ),
+    }));
+
+    const validated = validateDocumentEnvelope(envelope, v2.V2_TEMPLATE_REGISTRY);
+
+    expect(
+      validated.model.attachmentManifest.find((entry) => entry.id === "proof-license")?.sourceRef,
+    ).toBe("用户确认的附件证据编号 A-1");
+    expect(validated.model.attachmentManifest.map((entry) => entry.id)).not.toContain(
+      "source-main",
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { Blob as NodeBlob } from "node:buffer";
-import type { v2 } from "@opentrad/document-core";
+import { v2 } from "@opentrad/document-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import bidGovernmentGoodsJson from "../../../../../../packages/document-core/tests/fixtures/v2/bid-government-goods.json?raw";
 import type { DocumentTemplateRegistry } from "../storage/documentRepository";
 import {
   exportProjectV2Zip,
@@ -136,6 +137,45 @@ function attachmentFile(): ProjectV2AttachmentFile {
   };
 }
 
+function realBidProject(): {
+  envelope: v2.ProjectEnvelopeV2;
+  attachments: ProjectV2AttachmentFile[];
+} {
+  const draft = JSON.parse(bidGovernmentGoodsJson) as Record<string, unknown>;
+  const evidenceRefs = draft.evidenceRefs as Array<Record<string, unknown>>;
+  draft.evidenceRefs = evidenceRefs.map((entry, index) =>
+    index === 0
+      ? { ...entry, sourceRef: "https://example.invalid/solicitation.pdf#page=18" }
+      : entry,
+  );
+  const descriptors = draft.attachments as v2.AttachmentRefV1[];
+  const key = `${draft.templateId as string}@${draft.templateVersion as string}:${draft.id as string}`;
+  return {
+    envelope: {
+      formatVersion: "2.0.0",
+      template: {
+        id: "bid.government.goods.v1",
+        version: "1.0.0",
+        basisDate: "2026-08-19",
+      },
+      draft: draft as v2.ProjectDraftV2,
+      presentation: { layoutStyleId: "classic-formal.v1", languageView: "zh-CN" },
+      attachmentManifest: descriptors.map((entry) => ({
+        ...entry,
+        ...(entry.status === "attached" ? { localBlobKey: `${key}#${entry.id}` } : {}),
+      })),
+    },
+    attachments: descriptors
+      .filter((entry) => entry.status === "attached")
+      .map((entry) => ({
+        id: entry.id,
+        mediaType: entry.mediaType,
+        pageCount: entry.pageCount ?? 1,
+        bytes: bytes("%PDF-1.7\n%%EOF"),
+      })),
+  };
+}
+
 function crc32(input: Uint8Array): number {
   let crc = 0xffffffff;
   for (const value of input) {
@@ -145,6 +185,60 @@ function crc32(input: Uint8Array): number {
     }
   }
   return (crc ^ 0xffffffff) >>> 0;
+}
+
+function concat(parts: readonly Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.byteLength;
+  }
+  return result;
+}
+
+function canonicalStoreZip(entries: readonly { path: string; data: Uint8Array }[]): Uint8Array {
+  const localParts: Uint8Array[] = [];
+  const centralParts: Uint8Array[] = [];
+  let localOffset = 0;
+  for (const entry of entries) {
+    const path = bytes(entry.path);
+    const checksum = crc32(entry.data);
+    const local = new Uint8Array(30 + path.byteLength);
+    const localView = new DataView(local.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(4, 20, true);
+    localView.setUint32(14, checksum, true);
+    localView.setUint32(18, entry.data.byteLength, true);
+    localView.setUint32(22, entry.data.byteLength, true);
+    localView.setUint16(26, path.byteLength, true);
+    local.set(path, 30);
+    localParts.push(local, entry.data);
+
+    const central = new Uint8Array(46 + path.byteLength);
+    const centralView = new DataView(central.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(4, 20, true);
+    centralView.setUint16(6, 20, true);
+    centralView.setUint32(16, checksum, true);
+    centralView.setUint32(20, entry.data.byteLength, true);
+    centralView.setUint32(24, entry.data.byteLength, true);
+    centralView.setUint16(28, path.byteLength, true);
+    centralView.setUint32(42, localOffset, true);
+    central.set(path, 46);
+    centralParts.push(central);
+    localOffset += local.byteLength + entry.data.byteLength;
+  }
+  const localBytes = concat(localParts);
+  const centralBytes = concat(centralParts);
+  const eocd = new Uint8Array(22);
+  const eocdView = new DataView(eocd.buffer);
+  eocdView.setUint32(0, 0x06054b50, true);
+  eocdView.setUint16(8, entries.length, true);
+  eocdView.setUint16(10, entries.length, true);
+  eocdView.setUint32(12, centralBytes.byteLength, true);
+  eocdView.setUint32(16, localBytes.byteLength, true);
+  return concat([localBytes, centralBytes, eocd]);
 }
 
 function rewriteStoredEntry(
@@ -490,6 +584,48 @@ describe("V2 .opentrad project ZIP", () => {
     );
   });
 
+  it("rejects mixed-extension files that reuse one attachment id", async () => {
+    const descriptor = portableAttachment({ id: "a", displayName: "a.pdf" });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([descriptor]),
+      attachments: [{ ...attachmentFile(), id: "a" }],
+      registry: registry(),
+    });
+    const archive = new Uint8Array(await blob.arrayBuffer());
+    const report = preflightProjectZip(archive);
+    const data = new Map(
+      report.entries.map((entry) => [
+        entry.path,
+        archive.slice(entry.dataOffset, entry.dataOffset + entry.uncompressedSize),
+      ]),
+    );
+    const manifestBytes = data.get("manifest.json");
+    const draftBytes = data.get("draft.json");
+    const pdfBytes = data.get("attachments/a.pdf");
+    if (!manifestBytes || !draftBytes || !pdfBytes) throw new Error("Missing fixture entry");
+    const manifest = JSON.parse(new TextDecoder().decode(manifestBytes)) as {
+      files: Array<Record<string, unknown>>;
+      [key: string]: unknown;
+    };
+    manifest.files.unshift({
+      id: "a",
+      path: "attachments/a.jpg",
+      mediaType: "image/jpeg",
+      byteLength: 4,
+      pageCount: 1,
+    });
+    const duplicateIdArchive = canonicalStoreZip([
+      { path: "manifest.json", data: bytes(JSON.stringify(manifest)) },
+      { path: "draft.json", data: draftBytes },
+      { path: "attachments/a.jpg", data: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]) },
+      { path: "attachments/a.pdf", data: pdfBytes },
+    ]);
+
+    await expect(importProjectV2Zip(duplicateIdArchive, { registry: registry() })).rejects.toThrow(
+      "项目包 manifest 无效",
+    );
+  });
+
   it("rejects an archive-supplied localBlobKey even when it matches the derived local key", async () => {
     const localBlobKey = "contract.sale.domestic-b2b.v1@1.0.0:contract-1#source-only";
     const sourceRef = `section-${"x".repeat(localBlobKey.length - 5)}`;
@@ -592,5 +728,21 @@ describe("V2 .opentrad project ZIP", () => {
     );
     expect(imported.portableEnvelope.attachmentManifest[1]).not.toHaveProperty("sourceRef");
     expect(imported.model.attachmentManifest.map((entry) => entry.id)).toEqual(["technical-spec"]);
+  });
+
+  it("round-trips a real bid while preserving required solicitation evidence sourceRef", async () => {
+    const project = realBidProject();
+
+    const blob = await exportProjectV2Zip({
+      ...project,
+      registry: v2.V2_TEMPLATE_REGISTRY,
+    });
+    const imported = await importProjectV2Zip(blob, { registry: v2.V2_TEMPLATE_REGISTRY });
+    const evidenceRefs = imported.portableEnvelope.draft.evidenceRefs as Array<
+      Record<string, unknown>
+    >;
+
+    expect(evidenceRefs[0]?.sourceRef).toBe("https://example.invalid/solicitation.pdf#page=18");
+    expect(imported.model.documentKind).toBe("bid");
   });
 });

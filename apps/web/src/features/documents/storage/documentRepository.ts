@@ -158,8 +158,35 @@ function publicAttachment(attachment: v2.AttachmentRefV1): v2.AttachmentRefV1 {
   };
 }
 
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return JSON.stringify(value);
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new DocumentRepositoryError("DOCUMENT_CORRUPT");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (typeof value === "object") {
+    const entries: Array<readonly [string, unknown]> = [];
+    for (const key of Reflect.ownKeys(value)) {
+      if (typeof key !== "string") throw new DocumentRepositoryError("DOCUMENT_CORRUPT");
+      const descriptor = Reflect.getOwnPropertyDescriptor(value, key);
+      if (!descriptor || !("value" in descriptor)) {
+        throw new DocumentRepositoryError("DOCUMENT_CORRUPT");
+      }
+      if (descriptor.value !== undefined) entries.push([key, descriptor.value]);
+    }
+    return `{${entries
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`)
+      .join(",")}}`;
+  }
+  throw new DocumentRepositoryError("DOCUMENT_CORRUPT");
+}
+
 function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return canonicalJson(left) === canonicalJson(right);
 }
 
 export function validateDocumentEnvelope(
