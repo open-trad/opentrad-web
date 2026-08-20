@@ -52,6 +52,32 @@ const GOVERNMENT_SERVICES_SECTIONS = [
   "signatures",
 ] as const;
 
+const CONSTRUCTION_WORKS_SECTIONS = [
+  "internal-cover",
+  "source-baseline",
+  "toc",
+  "bid-letter-and-appendix",
+  "authorization",
+  "qualifications",
+  "guarantee",
+  "priced-boq",
+  "commercial-deviations",
+  "technical-deviations",
+  "construction-organization",
+  "schedule",
+  "site-resources",
+  "project-manager",
+  "key-personnel",
+  "equipment",
+  "quality",
+  "safety-environment",
+  "subcontract",
+  "experience",
+  "attachments",
+  "final-checklist",
+  "signatures",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -102,5 +128,35 @@ describe("bid.government.services.v1", () => {
     expect(JSON.stringify(model)).toContain("赵示例");
     expect(JSON.stringify(model)).toContain("热线接通率");
     expect(JSON.stringify(model)).toContain("CNY 10,000.00");
+  });
+});
+
+describe("bid.construction.works.v1", () => {
+  it("compiles only source-backed BOQ, manager, personnel and equipment facts", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("bid.construction.works.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("bid-construction-works"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+
+    expect(registration.definition).toMatchObject({
+      id: "bid.construction.works.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLayout: "classic-formal.v1",
+      sourceKeys: [
+        "prc-tendering-law",
+        "ndrc-standard-construction",
+        "ndrc-tenderer-responsibility",
+      ],
+    });
+    expect(model.sections.map((section) => section.id)).toEqual(CONSTRUCTION_WORKS_SECTIONS);
+    expect(model.watermarks).toEqual([]);
+    for (const id of ["priced-boq", "commercial-deviations", "technical-deviations", "equipment"]) {
+      expect(model.sections.find((section) => section.id === id)?.page?.orientation).toBe(
+        "landscape",
+      );
+    }
+    expect(JSON.stringify(model)).toContain("boq-main");
+    expect(JSON.stringify(model)).toContain("赵示例");
+    expect(JSON.stringify(model)).toContain("CNY 50,000.00");
   });
 });
