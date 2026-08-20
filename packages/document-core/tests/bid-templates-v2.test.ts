@@ -902,6 +902,23 @@ describe("five complete bid editor manifests", () => {
         draftList(candidate, path).push(clone(item));
         expect(() => registration.parseDraft(candidate), path).not.toThrow();
         const manifest = registration.definition.fieldManifest.find((field) => field.path === path);
+        draftList(candidate, path).pop();
+        expect(() => registration.parseDraft(candidate), `${path}:delete`).not.toThrow();
+        draftList(candidate, path).push(clone(item));
+        draftList(candidate, path).reverse();
+        const reordered = registration.parseDraft(candidate);
+        if (
+          manifest?.control === "repeatable" &&
+          manifest.valueKind === "object-list" &&
+          manifest.item.idPath
+        ) {
+          expect(
+            draftList(reordered, path).some(
+              (entry) => readDraftPath(entry, manifest.item.idPath ?? "") === prepared.inputId,
+            ),
+            `${path}:identity`,
+          ).toBe(true);
+        }
         if (manifest?.valueKind === "string-list") {
           expect(item, path).not.toBe(prepared.inputId);
         }
@@ -970,6 +987,15 @@ describe("five complete bid editor manifests", () => {
           optionValuePath: "id",
           optionLabelPath: "requirementText",
         });
+        expect(itemField(id, deviationPath, "type")).toMatchObject({
+          control: "select",
+          valueKind: "enum",
+          options: [
+            {
+              value: deviationPath === "businessDeviations" ? "business" : "technical",
+            },
+          ],
+        });
       }
     }
     for (const matrix of ["technicalMatrix", "businessMatrix"]) {
@@ -981,6 +1007,11 @@ describe("five complete bid editor manifests", () => {
         "solicitation",
       );
       expectDynamic("bid.government.goods.v1", matrix, "evidenceRefIds", "evidenceRefs", "proof");
+      expect(itemField("bid.government.goods.v1", matrix, "category")).toMatchObject({
+        control: "select",
+        valueKind: "enum",
+        options: [{ value: matrix === "technicalMatrix" ? "technical" : "commercial" }],
+      });
     }
     expect(
       itemField("bid.government.goods.v1", "policyDeclarations", "evidenceAttachmentIds"),
@@ -1042,6 +1073,11 @@ describe("five complete bid editor manifests", () => {
         optionSourcePath: "requirements",
         optionValuePath: "id",
         optionLabelPath: "requirementText",
+      });
+      expect(itemField(templateId, path, "type")).toMatchObject({
+        control: "select",
+        valueKind: "enum",
+        options: [{ value: "business" }],
       });
     }
     expect(

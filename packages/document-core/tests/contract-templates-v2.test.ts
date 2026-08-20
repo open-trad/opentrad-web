@@ -1381,6 +1381,25 @@ describe("five complete contract editor manifests", () => {
         const values = contractDraftPath(candidate, path).value as unknown[];
         values.push(item);
         expect(() => registration.parseDraft(candidate), path).not.toThrow();
+        values.pop();
+        expect(() => registration.parseDraft(candidate), `${path}:delete`).not.toThrow();
+        values.push(item);
+        values.reverse();
+        const reordered = registration.parseDraft(candidate);
+        const field = registration.definition.fieldManifest.find((entry) => entry.path === path);
+        if (
+          field?.control === "repeatable" &&
+          field.valueKind === "object-list" &&
+          field.item.idPath
+        ) {
+          const reorderedValues = contractDraftPath(reordered, path).value as unknown[];
+          expect(
+            reorderedValues.some(
+              (entry) => contractDraftPath(entry, field.item.idPath ?? "").value === itemId,
+            ),
+            `${path}:identity`,
+          ).toBe(true);
+        }
       }
     });
 

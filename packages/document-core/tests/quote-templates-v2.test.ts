@@ -1115,6 +1115,21 @@ describe("versioned quotation field manifests", () => {
         expect(Array.isArray(items)).toBe(true);
         (items as unknown[]).push(item);
         expect(() => registration.parseDraft(candidate)).not.toThrow();
+        (items as unknown[]).pop();
+        expect(() => registration.parseDraft(candidate)).not.toThrow();
+        (items as unknown[]).push(item);
+        (items as unknown[]).reverse();
+        const reordered = registration.parseDraft(candidate);
+        if (
+          field?.control === "repeatable" &&
+          field.valueKind === "object-list" &&
+          field.item.idPath
+        ) {
+          const reorderedItems = draftPath(reordered, path).value as unknown[];
+          expect(
+            reorderedItems.some((entry) => draftPath(entry, field.item.idPath ?? "").value === id),
+          ).toBe(true);
+        }
       }
     });
   }

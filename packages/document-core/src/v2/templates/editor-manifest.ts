@@ -469,7 +469,9 @@ export function itemAttachmentField(input: {
   };
 }
 
-export function bidRequirementItemSpec(): TemplateObjectListItemSpecV1 {
+export function bidRequirementItemSpec(
+  fixedCategory?: "qualification" | "commercial" | "technical" | "service" | "price" | "submission",
+): TemplateObjectListItemSpecV1 {
   return {
     kind: "object",
     idPath: "id",
@@ -496,7 +498,7 @@ export function bidRequirementItemSpec(): TemplateObjectListItemSpecV1 {
           { value: "service", label: "服务" },
           { value: "price", label: "价格" },
           { value: "submission", label: "提交" },
-        ],
+        ].filter((option) => fixedCategory === undefined || option.value === fixedCategory),
       }),
       itemTextField({
         path: "requirementText",
@@ -554,7 +556,9 @@ export function bidRequirementItemSpec(): TemplateObjectListItemSpecV1 {
   };
 }
 
-export function bidDeviationItemSpec(): TemplateObjectListItemSpecV1 {
+export function bidDeviationItemSpec(
+  fixedType: "business" | "technical",
+): TemplateObjectListItemSpecV1 {
   return {
     kind: "object",
     idPath: "requirementId",
@@ -582,10 +586,10 @@ export function bidDeviationItemSpec(): TemplateObjectListItemSpecV1 {
         path: "type",
         label: "偏差类型",
         required: true,
-        options: [
-          { value: "business", label: "商务" },
-          { value: "technical", label: "技术" },
-        ],
+        options:
+          fixedType === "business"
+            ? [{ value: "business", label: "商务" }]
+            : [{ value: "technical", label: "技术" }],
       }),
       itemTextField({ path: "requirement", label: "原要求", required: true, multiline: true }),
       itemTextField({ path: "response", label: "响应", required: true, multiline: true }),
@@ -1528,53 +1532,7 @@ export function bidBaseEditorFields(input: {
         required: false,
         minItems: 0,
         maxItems: 100,
-        item: {
-          kind: "object",
-          idPath: "requirementId",
-          fields: [
-            itemDynamicSelectField({
-              path: "requirementId",
-              label: "要求",
-              required: true,
-              optionSourcePath: "requirements",
-              optionValuePath: "id",
-              optionLabelPath: "requirementText",
-            }),
-            itemDynamicMultiSelectField({
-              path: "sourceRefIds",
-              label: "招标文件来源",
-              required: true,
-              minItems: 1,
-              maxItems: 100,
-              optionSourcePath: "evidenceRefs",
-              optionValuePath: "id",
-              optionLabelPath: "sourceRef",
-              optionFilter: { path: "kind", equals: "solicitation" },
-            }),
-            itemSelectField({
-              path: "type",
-              label: "偏差类型",
-              required: true,
-              options: [
-                { value: "business", label: "商务" },
-                { value: "technical", label: "技术" },
-              ],
-            }),
-            itemTextField({
-              path: "requirement",
-              label: "原要求",
-              required: true,
-              multiline: true,
-            }),
-            itemTextField({ path: "response", label: "响应", required: true, multiline: true }),
-            itemTextField({
-              path: "deviation",
-              label: "偏差说明",
-              required: true,
-              multiline: true,
-            }),
-          ],
-        },
+        item: bidDeviationItemSpec(path === "businessDeviations" ? "business" : "technical"),
       }),
     ),
     repeatableEditorField({

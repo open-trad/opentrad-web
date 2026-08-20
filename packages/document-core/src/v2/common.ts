@@ -202,12 +202,6 @@ export interface TemplateStringListItemSpecV1 {
   readonly valueKind: "string";
 }
 
-type TemplateLegacyFieldManifestEntryV1 = TemplateFieldBaseV1 & {
-  readonly control: TemplateFieldControlV1;
-  readonly valueKind?: undefined;
-  readonly options?: readonly TemplateFieldOptionV1[];
-};
-
 type TemplateRepeatableFieldManifestEntryV1 = TemplateFieldBaseV1 & {
   readonly control: "repeatable";
   readonly required: boolean;
@@ -234,7 +228,6 @@ type TemplateAttachmentFieldManifestEntryV1 = TemplateFieldBaseV1 &
 
 export type TemplateFieldManifestEntryV1 = TemplateFieldBaseV1 &
   (
-    | TemplateLegacyFieldManifestEntryV1
     | TemplateScalarEditorShapeV1
     | TemplateDynamicSelectEditorShapeV1
     | TemplateRepeatableFieldManifestEntryV1
@@ -711,7 +704,7 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
     section: requiredPlainText(100),
     label: requiredPlainText(300),
     control: TemplateFieldControlRawSchema,
-    valueKind: TemplateFieldValueKindRawSchema.optional(),
+    valueKind: TemplateFieldValueKindRawSchema,
     required: z.boolean(),
     options: TemplateFieldOptionsRawSchema.optional(),
     visibleWhen: TemplateFieldVisibleWhenRawSchema.optional(),
@@ -733,20 +726,6 @@ const TemplateFieldManifestEntryV1RawSchema = isolatedObjectSchema(
   },
   (field, addIssue) => {
     const record = field as Record<string, unknown>;
-    if (record.valueKind === undefined) {
-      rejectPresentKeys(
-        record,
-        [...LIST_METADATA_KEYS, ...ATTACHMENT_METADATA_KEYS, ...DYNAMIC_SELECT_METADATA_KEYS],
-        addIssue,
-      );
-      if (Array.isArray(record.options)) {
-        uniqueValues(
-          record.options.map((option) => (option as { value: string }).value),
-          (issue) => addIssue({ ...issue, path: ["options", ...(issue.path ?? [])] }),
-        );
-      }
-      return;
-    }
     if (record.control === "repeatable") {
       if (record.valueKind !== "object-list" && record.valueKind !== "string-list") {
         addIssue({ code: "custom", message: "Repeatable control requires a list valueKind" });

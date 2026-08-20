@@ -31,7 +31,7 @@ export interface TemplateRegistration<Draft = unknown, Model = unknown> {
     draft: Draft,
     context?: TemplateEvaluationContext,
   ) => readonly RiskFindingV2[];
-  readonly createRepeatableItem?: CreateRepeatableItemV1<Draft>;
+  readonly createRepeatableItem: CreateRepeatableItemV1<Draft>;
 }
 
 interface TemplateRegistrationShape {
@@ -43,7 +43,7 @@ interface TemplateRegistrationShape {
     draft: never,
     context?: TemplateEvaluationContext,
   ) => readonly RiskFindingV2[];
-  readonly createRepeatableItem?: CreateRepeatableItemV1<never>;
+  readonly createRepeatableItem: CreateRepeatableItemV1<never>;
 }
 
 type RegistrationDraft<Registration extends TemplateRegistrationShape> = [Registration] extends [
@@ -80,7 +80,7 @@ interface RegistrationCandidate<Registration extends TemplateRegistrationShape> 
   readonly createDraft: Registration["createDraft"];
   readonly compile: Registration["compile"];
   readonly preflight: Registration["preflight"];
-  readonly createRepeatableItem?: CreateRepeatableItemV1<never>;
+  readonly createRepeatableItem: CreateRepeatableItemV1<never>;
 }
 
 function ownDataProperty(object: object, key: PropertyKey): PropertyDescriptor | undefined {
@@ -115,15 +115,8 @@ function validateRegistration<Registration extends TemplateRegistrationShape>(
     if (functionDescriptors.some((descriptor) => typeof descriptor?.value !== "function")) {
       throw new Error("invalid");
     }
-    const repeatableFactoryDescriptor = Reflect.getOwnPropertyDescriptor(
-      value,
-      "createRepeatableItem",
-    );
-    if (
-      repeatableFactoryDescriptor !== undefined &&
-      (!("value" in repeatableFactoryDescriptor) ||
-        typeof repeatableFactoryDescriptor.value !== "function")
-    ) {
+    const repeatableFactoryDescriptor = ownDataProperty(value, "createRepeatableItem");
+    if (typeof repeatableFactoryDescriptor?.value !== "function") {
       throw new Error("invalid");
     }
 
@@ -135,9 +128,7 @@ function validateRegistration<Registration extends TemplateRegistrationShape>(
       createDraft: functionDescriptors[1]?.value as Registration["createDraft"],
       compile: functionDescriptors[2]?.value as Registration["compile"],
       preflight: functionDescriptors[3]?.value as Registration["preflight"],
-      createRepeatableItem: repeatableFactoryDescriptor?.value as
-        | CreateRepeatableItemV1<never>
-        | undefined,
+      createRepeatableItem: repeatableFactoryDescriptor.value as CreateRepeatableItemV1<never>,
     };
   } catch (error) {
     if (error instanceof Error && error.message === "definition") {
@@ -336,7 +327,6 @@ function publishedRepeatableFactory<Registration extends TemplateRegistrationSha
       ) {
         throw new Error("invalid");
       }
-      if (!candidate.createRepeatableItem) throw new Error("invalid");
       const safeInput = factoryInput(input);
       const inputSnapshot = safeSnapshot(safeInput.draft);
       const parsedDraft = safeSnapshot(candidate.parseDraft(inputSnapshot));

@@ -240,7 +240,7 @@ export const ENTERPRISE_GOODS_BID_DEFINITION = {
       required: false,
       minItems: 0,
       maxItems: 100,
-      item: bidDeviationItemSpec(),
+      item: bidDeviationItemSpec("business"),
     }),
   ],
 } as const satisfies TemplateDefinitionV2;

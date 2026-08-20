@@ -644,7 +644,7 @@ export const GOVERNMENT_GOODS_BID_DEFINITION = {
         required: true,
         minItems: 0,
         maxItems: 100,
-        item: bidRequirementItemSpec(),
+        item: bidRequirementItemSpec(path === "technicalMatrix" ? "technical" : "commercial"),
       }),
     ),
     ...(

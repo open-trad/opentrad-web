@@ -43,6 +43,7 @@ function createDefinition() {
         section: "seller",
         label: "报价方名称",
         control: "text" as const,
+        valueKind: "string" as const,
         required: true,
       },
     ],
@@ -59,6 +60,9 @@ function createRegistration(): TemplateRegistration<TestDraft> {
     }),
     compile: () => ({ schemaVersion: "2.0.0" }),
     preflight: () => [],
+    createRepeatableItem: () => {
+      throw new Error("No repeatable fields");
+    },
   };
 }
 
@@ -462,11 +466,18 @@ describe("V2 common schemas", () => {
     ).toThrow();
   });
 
-  it("accepts bounded discriminated editor metadata while legacy metadata stays optional", () => {
-    const legacy = TemplateDefinitionV2Schema.parse(createDefinition());
+  it("accepts bounded discriminated editor metadata and rejects missing value kinds", () => {
     const editor = TemplateDefinitionV2Schema.parse(createEditorDefinition());
+    const field = createDefinition().fieldManifest[0];
+    if (!field) throw new Error("Missing synthetic field");
+    const { valueKind: _valueKind, ...legacyField } = field;
 
-    expect(legacy.fieldManifest[0]).not.toHaveProperty("valueKind");
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...createDefinition(),
+        fieldManifest: [legacyField],
+      }),
+    ).toThrow();
     expect(editor.fieldManifest.find((field) => field.path === "mode")).toMatchObject({
       control: "select",
       valueKind: "enum",
@@ -1077,7 +1088,7 @@ describe("V2 template registry", () => {
     expect(Object.isFrozen(attachment.allowedMediaTypes)).toBe(true);
   });
 
-  it("rejects unknown, non-repeatable and missing repeatable factories before dispatch", () => {
+  it("rejects unknown and non-repeatable paths and requires an own repeatable factory", () => {
     const factory = vi.fn((_path: string, input: { id: string }) => ({
       id: input.id,
       name: "新增项目",
@@ -1097,14 +1108,7 @@ describe("V2 template registry", () => {
     expect(() => published.createRepeatableItem("seller.legalName", input)).toThrow();
     expect(factory).not.toHaveBeenCalled();
 
-    const withoutFactory = createTemplateRegistry([createEditorRegistration(null) as never]).get(
-      "quotation.service.project.v1",
-      "1.0.0",
-    ) as unknown as {
-      createRepeatableItem: (path: string, input: Record<string, unknown>) => unknown;
-    };
-    expect(typeof withoutFactory.createRepeatableItem).toBe("function");
-    expect(() => withoutFactory.createRepeatableItem("items", input)).toThrow();
+    expect(() => createTemplateRegistry([createEditorRegistration(null) as never])).toThrow();
   });
 
   it("rejects invalid factory results through the candidate draft parser", () => {
@@ -1125,7 +1129,7 @@ describe("V2 template registry", () => {
     ).toThrow();
   });
 
-  it("enforces typed manifest maxItems and refuses legacy repeatables as trusted factories", () => {
+  it("enforces typed manifest maxItems and rejects legacy repeatable definitions", () => {
     const factory = vi.fn((_path: string, input: { readonly id: string }) => ({
       id: input.id,
       name: "新增项目",
@@ -1172,17 +1176,7 @@ describe("V2 template registry", () => {
         }),
       },
     };
-    const legacy = createTemplateRegistry([legacyRepeatable as never]).get(
-      "quotation.service.project.v1",
-      "1.0.0",
-    );
-    expect(() =>
-      legacy.createRepeatableItem("items", {
-        id: "item-2",
-        now: "2026-08-20T00:00:00Z",
-        draft,
-      }),
-    ).toThrow();
+    expect(() => createTemplateRegistry([legacyRepeatable as never])).toThrow();
   });
 
   it("requires the requested own id and unique object-list identity", () => {
