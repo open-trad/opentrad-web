@@ -1,3 +1,12 @@
+export {
+  buildDocxPlanV2,
+  DOCX_V2_MIME,
+  type DocxPlanBlockV2,
+  type DocxPlanSectionV2,
+  type DocxPlanV2,
+  DocxV2GenerationError,
+  renderDocxV2,
+} from "./docx/renderDocxV2";
 export { DocumentHtml, type DocumentHtmlProps } from "./html/DocumentHtml";
 export {
   attachmentStatusText,
