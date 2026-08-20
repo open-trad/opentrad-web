@@ -206,14 +206,15 @@ describe("attachment validation", () => {
         records: [make("first", 25 * MiB), make("second", 25 * MiB)],
       }),
     ).resolves.toBeUndefined();
+    const third = descriptor("third", { pageCount: 1 });
     await expect(
       validateAttachmentInventory({
         documentKey,
         documentKind: "quotation",
-        descriptors: [first, second],
-        records: [make("first", 25 * MiB), make("second", 25 * MiB + 1)],
+        descriptors: [first, second, third],
+        records: [make("first", 25 * MiB), make("second", 25 * MiB - 4), make("third", 5)],
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("附件总大小超过 50 MiB");
     expect(MAX_ATTACHMENT_TOTAL_BYTES).toBe(50 * MiB);
 
     await expect(

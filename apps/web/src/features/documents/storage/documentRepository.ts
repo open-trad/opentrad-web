@@ -150,7 +150,7 @@ function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function validateEnvelopeAndCompile(
+export function validateDocumentEnvelope(
   input: unknown,
   registry: DocumentTemplateRegistry,
 ): { envelope: v2.ProjectEnvelopeV2; model: v2.DocumentModelV2 } {
@@ -175,7 +175,8 @@ function validateEnvelopeAndCompile(
       model.documentId !== envelope.draft.id ||
       model.template.id !== envelope.template.id ||
       model.template.version !== envelope.template.version ||
-      model.template.basisDate !== envelope.template.basisDate
+      model.template.basisDate !== envelope.template.basisDate ||
+      model.language !== envelope.presentation.languageView
     ) {
       throw new Error("文档模型身份不一致");
     }
@@ -196,7 +197,7 @@ function validateEnvelopeAndCompile(
 function parseStoredDocument(input: unknown, registry: DocumentTemplateRegistry): StoredDocumentV2 {
   try {
     if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error();
-    const envelopeAndModel = validateEnvelopeAndCompile(ownData(input, "envelope"), registry);
+    const envelopeAndModel = validateDocumentEnvelope(ownData(input, "envelope"), registry);
     const key = documentStorageKey(envelopeAndModel.envelope);
     const storedModel = v2.DocumentModelV2Schema.parse(ownData(input, "model"));
     const revision = ownData(input, "revision");
@@ -317,7 +318,7 @@ export function createDocumentRepository(options: {
   return {
     async commit(input) {
       const savedAt = isoDateTime(input.savedAt);
-      const { envelope, model } = validateEnvelopeAndCompile(input.envelope, options.registry);
+      const { envelope, model } = validateDocumentEnvelope(input.envelope, options.registry);
       const key = documentStorageKey(envelope);
       const descriptors = new Map(envelope.attachmentManifest.map((entry) => [entry.id, entry]));
       const opened = await getDatabase();
@@ -465,17 +466,14 @@ export function createDocumentRepository(options: {
     async delete(key, deleteOptions = {}) {
       const safe = safeKey(key);
       await run(async (opened) => {
-        const existingAttachments = await opened.getAllFromIndex(
-          ATTACHMENTS_STORE,
-          "by-document-key",
-          safe,
-        );
         const transaction = opened.transaction(
           [DOCUMENTS_V2_STORE, ATTACHMENTS_STORE, META_STORE],
           "readwrite",
         );
         try {
           const documents = transaction.objectStore(DOCUMENTS_V2_STORE);
+          const attachments = transaction.objectStore(ATTACHMENTS_STORE);
+          const existingAttachments = await attachments.index("by-document-key").getAll(safe);
           const existingRaw = await documents.get(safe);
           const existing = existingRaw ? parseStoredDocument(existingRaw, options.registry) : null;
           if (
@@ -486,7 +484,7 @@ export function createDocumentRepository(options: {
           }
           await documents.delete(safe);
           for (const attachment of existingAttachments) {
-            await transaction.objectStore(ATTACHMENTS_STORE).delete(attachment.localBlobKey);
+            await attachments.delete(attachment.localBlobKey);
           }
           const meta = transaction.objectStore(META_STORE);
           const pointer = await meta.get(CURRENT_DOCUMENT_V2_KEY);

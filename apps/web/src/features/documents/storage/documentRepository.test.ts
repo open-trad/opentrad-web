@@ -59,7 +59,7 @@ function envelope(manifest: readonly v2.AttachmentRefV1[] = []): v2.ProjectEnvel
 
 function registryFor(
   _manifest: readonly v2.AttachmentRefV1[] = [],
-  overrides: { modelDocumentId?: string } = {},
+  overrides: { modelDocumentId?: string; modelLanguage?: v2.DocumentLanguageV2 } = {},
 ): DocumentTemplateRegistry {
   return {
     get(templateId, templateVersion) {
@@ -88,7 +88,7 @@ function registryFor(
               basisDate: "2026-08-19",
             },
             documentKind: "quotation",
-            language: "zh-CN",
+            language: overrides.modelLanguage ?? "zh-CN",
             title: { zhCN: "服务项目报价单" },
             pageDefaults: {
               size: "A4",
@@ -324,6 +324,43 @@ describe("V2 document repository", () => {
       }),
     ).rejects.toThrow("文档模型身份不一致");
     invalid.close();
+
+    const wrongLanguage = createDocumentRepository({
+      databaseName: "v2-invalid-language",
+      registry: registryFor([], { modelLanguage: "en-US" }),
+    });
+    await expect(
+      wrongLanguage.commit({
+        envelope: envelope(),
+        savedAt: "2026-08-20T08:00:00.000Z",
+        makeCurrent: false,
+        attachmentChanges: [],
+      }),
+    ).rejects.toThrow("文档模型身份不一致");
+    wrongLanguage.close();
+  });
+
+  it("queries and deletes a document's attachments inside one readwrite transaction", async () => {
+    const databaseName = "v2-single-delete-transaction";
+    const repository = createDocumentRepository({ databaseName, registry: registryFor() });
+    const stored = await repository.commit({
+      envelope: envelope(),
+      savedAt: "2026-08-20T08:00:00.000Z",
+      makeCurrent: false,
+      attachmentChanges: [],
+    });
+    const transaction = vi.spyOn(IDBDatabase.prototype, "transaction");
+
+    await repository.delete(stored.key, { expectedRevision: stored.revision });
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+    expect(transaction.mock.calls[0]?.[0]).toEqual([
+      DOCUMENTS_V2_STORE,
+      ATTACHMENTS_STORE,
+      META_STORE,
+    ]);
+    expect(transaction.mock.calls[0]?.[1]).toBe("readwrite");
+    repository.close();
   });
 
   it("derives a version-keyed identity without invoking getters", () => {

@@ -12,6 +12,7 @@
   "dependencies": {
     "@opentrad/document-core": "workspace:*",
     "docx": "9.7.1",
+    "fflate": "0.8.3",
     "idb": "8.0.3",
     "lucide-react": "0.542.0",
     "pdfmake": "0.3.11",
