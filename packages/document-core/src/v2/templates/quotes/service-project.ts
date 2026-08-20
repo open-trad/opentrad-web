@@ -200,6 +200,20 @@ export const SERVICE_PROJECT_QUOTE_DEFINITION = {
       required: true,
     },
     {
+      path: "project.objective",
+      section: "project-overview",
+      label: "项目目标",
+      control: "textarea",
+      required: true,
+    },
+    {
+      path: "project.scope",
+      section: "scope",
+      label: "服务范围",
+      control: "textarea",
+      required: true,
+    },
+    {
       path: "serviceLines",
       section: "service-lines",
       label: "服务报价项",
@@ -212,6 +226,20 @@ export const SERVICE_PROJECT_QUOTE_DEFINITION = {
       label: "项目里程碑",
       control: "repeatable",
       required: true,
+    },
+    {
+      path: "terms.serviceLocation",
+      section: "delivery-acceptance",
+      label: "服务地点",
+      control: "text",
+      required: true,
+    },
+    {
+      path: "terms.acceptance",
+      section: "delivery-acceptance",
+      label: "验收安排",
+      control: "textarea",
+      required: false,
     },
     {
       path: "dataHandling.personalDataInvolved",

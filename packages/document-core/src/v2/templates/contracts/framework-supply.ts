@@ -204,11 +204,49 @@ export const FRAMEWORK_SUPPLY_CONTRACT_DEFINITION = {
   disclaimerProfile: "contract",
   fieldManifest: [
     {
+      path: "term.startDate",
+      section: "term",
+      label: "期限开始日",
+      control: "date",
+      required: true,
+    },
+    {
+      path: "term.endDate",
+      section: "term",
+      label: "期限结束日",
+      control: "date",
+      required: true,
+    },
+    {
       path: "catalogLines",
       section: "catalog-price",
       label: "供应目录",
       control: "repeatable",
       required: true,
+    },
+    {
+      path: "pricing.currency",
+      section: "catalog-price",
+      label: "币种",
+      control: "select",
+      required: false,
+      options: [
+        { value: "CNY", label: "人民币" },
+        { value: "USD", label: "美元" },
+        { value: "EUR", label: "欧元" },
+      ],
+    },
+    {
+      path: "pricing.taxMode",
+      section: "catalog-price",
+      label: "税务模式",
+      control: "select",
+      required: false,
+      options: [
+        { value: "tax-excluded", label: "不含税" },
+        { value: "tax-included", label: "含税" },
+        { value: "tax-exempt", label: "免税" },
+      ],
     },
     {
       path: "forecast.binding",
@@ -222,6 +260,13 @@ export const FRAMEWORK_SUPPLY_CONTRACT_DEFINITION = {
       section: "orders-priority",
       label: "文件优先级",
       control: "textarea",
+      required: true,
+    },
+    {
+      path: "riskAcknowledgements.commercialRiskConfirmed",
+      section: "framework-purpose",
+      label: "商业风险已确认",
+      control: "checkbox",
       required: true,
     },
     {

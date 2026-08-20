@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
-import { DocumentModelV2Schema, RiskFindingV2Schema } from "../src/v2/index.js";
+import {
+  DocumentModelV2Schema,
+  RiskFindingV2Schema,
+  type TemplateFieldManifestEntryV1,
+} from "../src/v2/index.js";
 import { V2_TEMPLATE_REGISTRY } from "../src/v2/templates/index.js";
 
 const DOMESTIC_SECTIONS = [
@@ -119,6 +123,84 @@ function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
   ) as unknown;
+}
+
+function contractDraftPath(input: unknown, path: string): { exists: boolean; value: unknown } {
+  let current = input;
+  for (const segment of path.split(".")) {
+    if (current === null || typeof current !== "object" || !Object.hasOwn(current, segment)) {
+      return { exists: false, value: undefined };
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return { exists: true, value: current };
+}
+
+function setContractDraftPath(input: Record<string, unknown>, path: string, value: unknown): void {
+  const segments = path.split(".");
+  const leaf = segments.pop();
+  if (!leaf) throw new Error("Missing field path leaf");
+  let current = input;
+  for (const segment of segments) {
+    const next = current[segment];
+    if (next === null || typeof next !== "object" || Array.isArray(next)) {
+      throw new Error(`Missing field path parent: ${path}`);
+    }
+    current = next as Record<string, unknown>;
+  }
+  current[leaf] = value;
+}
+
+function editedContractFieldValue(field: TemplateFieldManifestEntryV1, current: unknown): unknown {
+  switch (field.control) {
+    case "text":
+    case "textarea":
+      expect(typeof current).toBe("string");
+      return `${current as string}（已编辑）`;
+    case "date":
+      expect(typeof current).toBe("string");
+      return "2026-09-17";
+    case "checkbox":
+      expect(typeof current).toBe("boolean");
+      return !current;
+    case "repeatable":
+      expect(Array.isArray(current)).toBe(true);
+      return editContractRepeatableField(current as unknown[]);
+    case "select": {
+      expect(typeof current).toBe("string");
+      expect(field.options?.length).toBeGreaterThan(0);
+      expect(field.options?.map((option) => option.value)).toContain(current);
+      return field.options?.find((option) => option.value !== current)?.value ?? current;
+    }
+    case "attachment":
+      throw new Error(`Attachment mutation requires a real second reference: ${field.path}`);
+    case "datetime":
+      expect(typeof current).toBe("string");
+      return "2026-09-17T00:00:00.000Z";
+    case "number":
+    case "percent":
+      expect(typeof current).toBe("number");
+      return (current as number) + 1;
+    case "money":
+      expect(typeof current).toBe("string");
+      return (BigInt(current as string) + 1n).toString();
+  }
+}
+
+function editContractRepeatableField(current: unknown[]): unknown[] {
+  const replacement = structuredClone(current);
+  const first = replacement[0];
+  expect(first).toBeDefined();
+  expect(first).not.toBeNull();
+  expect(typeof first).toBe("object");
+  const record = first as Record<string, unknown>;
+  for (const key of ["name", "title", "label", "description"]) {
+    if (typeof record[key] === "string") {
+      record[key] = `${record[key]}（已编辑）`;
+      return replacement;
+    }
+  }
+  throw new Error("Repeatable field has no safely editable descriptive value");
 }
 
 describe("contract.sale.domestic-b2b.v1", () => {
@@ -315,6 +397,97 @@ describe("contract.supply.framework.v1", () => {
         signers: [{ ...(base.signers as Array<Record<string, unknown>>)[0], partyId: "seller" }],
       }),
     ).toThrow();
+  });
+
+  it("publishes honest unique field paths that remain editable through the exact parser", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("contract.supply.framework.v1", "1.0.0");
+    const fields = registration.definition.fieldManifest;
+    const paths = fields.map((field) => field.path);
+    expect(fields.length).toBeGreaterThan(5);
+    expect(new Set(paths).size).toBe(paths.length);
+    expect(paths).not.toEqual(
+      expect.arrayContaining(["id", "templateId", "templateVersion", "updatedAt"]),
+    );
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "term.startDate",
+        "term.endDate",
+        "catalogLines",
+        "pricing.currency",
+        "pricing.taxMode",
+        "forecast.binding",
+        "ordering.documentPriority",
+        "performance.supplyContinuity",
+        "riskAcknowledgements.commercialRiskConfirmed",
+        "orderTemplateAttachmentId",
+      ]),
+    );
+    const expectedSelectOptions: Readonly<Record<string, readonly string[]>> = {
+      "pricing.currency": ["CNY", "USD", "EUR"],
+      "pricing.taxMode": ["tax-excluded", "tax-included", "tax-exempt"],
+    };
+    expect(
+      fields
+        .filter((field) => field.control === "select")
+        .map((field) => field.path)
+        .sort(),
+    ).toEqual(Object.keys(expectedSelectOptions).sort());
+
+    const base = registration.parseDraft(fixture("contract-framework-supply"));
+    const sections = new Set(
+      DocumentModelV2Schema.parse(registration.compile(base)).sections.map((section) => section.id),
+    );
+    for (const field of fields) {
+      expect(sections.has(field.section)).toBe(true);
+      const current = contractDraftPath(base, field.path);
+      expect(current.exists, field.path).toBe(true);
+      if (field.required) {
+        expect(current.value).not.toBeUndefined();
+        if (typeof current.value === "string")
+          expect(current.value.trim().length).toBeGreaterThan(0);
+        if (Array.isArray(current.value)) expect(current.value.length).toBeGreaterThan(0);
+      }
+      if (field.control !== "select") expect(field.options).toBeUndefined();
+      if (field.control === "select") {
+        expect(field.options?.map((option) => option.value)).toEqual(
+          expectedSelectOptions[field.path],
+        );
+        for (const option of field.options ?? []) {
+          const optionDraft = structuredClone(base) as Record<string, unknown>;
+          setContractDraftPath(optionDraft, field.path, option.value);
+          const optionParsed = registration.parseDraft(optionDraft);
+          expect(contractDraftPath(optionParsed, field.path)).toEqual({
+            exists: true,
+            value: option.value,
+          });
+        }
+      }
+      if (field.visibleWhen) {
+        const condition = contractDraftPath(base, field.visibleWhen.path);
+        expect(condition.exists).toBe(true);
+        expect(typeof condition.value).toBe(typeof field.visibleWhen.equals);
+      }
+      const edited = structuredClone(base) as Record<string, unknown>;
+      let replacement: unknown;
+      if (field.control === "attachment") {
+        expect(typeof current.value).toBe("string");
+        const attachments = edited.attachments as Array<Record<string, unknown>>;
+        const source = attachments.find((attachment) => attachment.id === current.value);
+        expect(source).toBeDefined();
+        replacement = `${current.value as string}-alternate`;
+        attachments.push({
+          ...source,
+          id: replacement,
+          displayName: "采购订单备用模板.pdf",
+        });
+      } else {
+        replacement = editedContractFieldValue(field, current.value);
+      }
+      expect(replacement).not.toEqual(current.value);
+      setContractDraftPath(edited, field.path, replacement);
+      const parsed = registration.parseDraft(edited);
+      expect(contractDraftPath(parsed, field.path)).toEqual({ exists: true, value: replacement });
+    }
   });
 });
 

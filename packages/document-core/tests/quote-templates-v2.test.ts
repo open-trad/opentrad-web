@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { STANDARD_GOODS_QUOTE_TEMPLATE } from "../src/index.js";
-import { DocumentModelV2Schema, RiskFindingV2Schema } from "../src/v2/index.js";
+import {
+  DocumentModelV2Schema,
+  RiskFindingV2Schema,
+  type TemplateFieldManifestEntryV1,
+} from "../src/v2/index.js";
 import { V2_TEMPLATE_REGISTRY } from "../src/v2/templates/index.js";
 
 const SERVICE_SECTIONS = [
@@ -77,6 +81,166 @@ function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
   ) as unknown;
+}
+
+const RESERVED_FIELD_PATHS = new Set(["id", "templateId", "templateVersion", "updatedAt"]);
+
+function draftPath(input: unknown, path: string): { exists: boolean; value: unknown } {
+  let current = input;
+  for (const segment of path.split(".")) {
+    if (current === null || typeof current !== "object" || !Object.hasOwn(current, segment)) {
+      return { exists: false, value: undefined };
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return { exists: true, value: current };
+}
+
+function setDraftPath(input: Record<string, unknown>, path: string, value: unknown): void {
+  const segments = path.split(".");
+  const leaf = segments.pop();
+  if (!leaf) throw new Error("Missing field path leaf");
+  let current = input;
+  for (const segment of segments) {
+    const next = current[segment];
+    if (next === null || typeof next !== "object" || Array.isArray(next)) {
+      throw new Error(`Missing field path parent: ${path}`);
+    }
+    current = next as Record<string, unknown>;
+  }
+  current[leaf] = value;
+}
+
+function editedFieldValue(field: TemplateFieldManifestEntryV1, current: unknown): unknown {
+  switch (field.control) {
+    case "text":
+    case "textarea":
+      expect(typeof current).toBe("string");
+      return `${current as string}（已编辑）`;
+    case "date":
+      expect(typeof current).toBe("string");
+      return "2026-09-17";
+    case "datetime":
+      expect(typeof current).toBe("string");
+      return "2026-09-17T00:00:00.000Z";
+    case "checkbox":
+      expect(typeof current).toBe("boolean");
+      return !current;
+    case "repeatable":
+      expect(Array.isArray(current)).toBe(true);
+      return editRepeatableField(current as unknown[]);
+    case "select": {
+      expect(typeof current).toBe("string");
+      expect(field.options?.length).toBeGreaterThan(0);
+      expect(field.options?.map((option) => option.value)).toContain(current);
+      return field.options?.find((option) => option.value !== current)?.value ?? current;
+    }
+    case "attachment":
+      throw new Error(`Attachment mutation requires a real second reference: ${field.path}`);
+    case "number":
+    case "percent":
+      expect(typeof current).toBe("number");
+      return (current as number) + 1;
+    case "money":
+      expect(typeof current).toBe("string");
+      return (BigInt(current as string) + 1n).toString();
+  }
+}
+
+function editRepeatableField(current: unknown[]): unknown[] {
+  const replacement = structuredClone(current);
+  const first = replacement[0];
+  expect(first).toBeDefined();
+  expect(first).not.toBeNull();
+  expect(typeof first).toBe("object");
+  const record = first as Record<string, unknown>;
+  for (const key of ["serviceName", "title", "name", "label", "description", "deliverable"]) {
+    if (typeof record[key] === "string") {
+      record[key] = `${record[key]}（已编辑）`;
+      return replacement;
+    }
+    const localized = record[key];
+    if (
+      localized !== null &&
+      typeof localized === "object" &&
+      typeof (localized as Record<string, unknown>).zhCN === "string"
+    ) {
+      const localizedRecord = localized as Record<string, unknown>;
+      localizedRecord.zhCN = `${localizedRecord.zhCN}（已编辑）`;
+      return replacement;
+    }
+  }
+  if (typeof record.zhCN === "string") {
+    record.zhCN = `${record.zhCN}（已编辑）`;
+    return replacement;
+  }
+  throw new Error("Repeatable field has no safely editable descriptive value");
+}
+
+function verifyFieldManifest(input: {
+  id:
+    | "quotation.service.project.v1"
+    | "quotation.oem.custom.v1"
+    | "quotation.export.bilingual.v1"
+    | "quotation.proforma.invoice.v1";
+  fixtureName: string;
+  expectedPaths: readonly string[];
+  expectedSelectOptions: Readonly<Record<string, readonly string[]>>;
+}): void {
+  const registration = V2_TEMPLATE_REGISTRY.get(input.id, "1.0.0");
+  const fields = registration.definition.fieldManifest;
+  const paths = fields.map((field) => field.path);
+  expect(fields.length).toBeGreaterThan(5);
+  expect(new Set(paths).size).toBe(paths.length);
+  expect(paths.some((path) => RESERVED_FIELD_PATHS.has(path))).toBe(false);
+  expect(paths).toEqual(expect.arrayContaining([...input.expectedPaths]));
+  expect(
+    fields
+      .filter((field) => field.control === "select")
+      .map((field) => field.path)
+      .sort(),
+  ).toEqual(Object.keys(input.expectedSelectOptions).sort());
+
+  const base = registration.parseDraft(fixture(input.fixtureName));
+  const sections = new Set(
+    DocumentModelV2Schema.parse(registration.compile(base)).sections.map((section) => section.id),
+  );
+  for (const field of fields) {
+    expect(sections.has(field.section)).toBe(true);
+    const current = draftPath(base, field.path);
+    expect(current.exists, `${input.id}:${field.path}`).toBe(true);
+    if (field.required) {
+      expect(current.value).not.toBeUndefined();
+      if (typeof current.value === "string") expect(current.value.trim().length).toBeGreaterThan(0);
+      if (Array.isArray(current.value)) expect(current.value.length).toBeGreaterThan(0);
+    }
+    if (field.control !== "select") expect(field.options).toBeUndefined();
+    if (field.control === "select") {
+      expect(field.options?.map((option) => option.value)).toEqual(
+        input.expectedSelectOptions[field.path],
+      );
+      for (const option of field.options ?? []) {
+        const optionDraft = structuredClone(base) as Record<string, unknown>;
+        setDraftPath(optionDraft, field.path, option.value);
+        const optionParsed = registration.parseDraft(optionDraft);
+        expect(draftPath(optionParsed, field.path)).toEqual({
+          exists: true,
+          value: option.value,
+        });
+      }
+    }
+    if (field.visibleWhen) {
+      const condition = draftPath(base, field.visibleWhen.path);
+      expect(condition.exists).toBe(true);
+      expect(typeof condition.value).toBe(typeof field.visibleWhen.equals);
+    }
+    const edited = structuredClone(base) as Record<string, unknown>;
+    const replacement = editedFieldValue(field, current.value);
+    expect(replacement).not.toEqual(current.value);
+    setDraftPath(edited, field.path, replacement);
+    const parsed = registration.parseDraft(edited);
+    expect(draftPath(parsed, field.path)).toEqual({ exists: true, value: replacement });
+  }
 }
 
 describe("quotation.service.project.v1", () => {
@@ -327,6 +491,41 @@ describe("quotation.oem.custom.v1", () => {
     expect(model.watermarks.map((watermark) => watermark.id)).toEqual(["review-required"]);
   });
 
+  it("keeps tooling ownership editable when an NRE-only charge still blocks without it", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
+    const ownershipField = registration.definition.fieldManifest.find(
+      (field) => field.path === "terms.toolingOwnership",
+    );
+    expect(ownershipField).toBeDefined();
+    expect(ownershipField).not.toHaveProperty("visibleWhen");
+
+    const base = registration.parseDraft(fixture("quotation-oem-custom")) as Record<
+      string,
+      unknown
+    >;
+    const chargeLines = base.chargeLines as Array<Record<string, unknown>>;
+    const terms = base.terms as Record<string, unknown>;
+    const nreOnly = {
+      ...base,
+      chargeLines: [
+        chargeLines[0],
+        {
+          ...chargeLines[1],
+          id: "nre-design",
+          chargeType: "nre",
+          name: "工程设计 NRE",
+        },
+      ],
+      terms: { ...terms, toolingRequired: false, toolingOwnership: "" },
+    };
+    expect(
+      registration
+        .preflight(nreOnly)
+        .filter((finding) => finding.impact === "blockSubmission")
+        .map((finding) => finding.code),
+    ).toEqual(["OEM_TOOLING_OWNERSHIP_MISSING"]);
+  });
+
   it("creates a local CNY draft without inventing ownership or material terms", () => {
     const registration = V2_TEMPLATE_REGISTRY.get("quotation.oem.custom.v1", "1.0.0");
     const draft = registration.createDraft({ id: "oem-created", now: "2026-08-19T12:00:00Z" });
@@ -379,6 +578,66 @@ describe("quotation.export.bilingual.v1", () => {
     expect(model.disclaimers).toEqual(["international-choice-warning"]);
     expect(JSON.stringify(model)).toContain("USD 250.00");
     expect(JSON.stringify(model)).toContain("Incoterms 2020");
+  });
+
+  it("projects partial-shipment and transshipment choices into the semantic model", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.export.bilingual.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-export-bilingual")) as Record<
+      string,
+      unknown
+    >;
+    const trade = base.trade as Record<string, unknown>;
+    const transportSection = (partialShipment: boolean, transshipment: boolean) => {
+      const model = DocumentModelV2Schema.parse(
+        registration.compile({
+          ...base,
+          trade: { ...trade, partialShipment, transshipment },
+        }),
+      );
+      return model.sections.find((section) => section.id === "transport-shipment");
+    };
+
+    const prohibited = transportSection(false, false);
+    const allowed = transportSection(true, true);
+    expect(prohibited).toMatchObject({
+      blocks: [
+        {
+          id: "export-transport-grid",
+          entries: expect.arrayContaining([
+            {
+              id: "partial-shipment",
+              label: { zhCN: "分批装运", enUS: "Partial Shipment" },
+              value: { zhCN: "不允许", enUS: "Not allowed" },
+            },
+            {
+              id: "transshipment",
+              label: { zhCN: "转运", enUS: "Transshipment" },
+              value: { zhCN: "不允许", enUS: "Not allowed" },
+            },
+          ]),
+        },
+      ],
+    });
+    expect(allowed).toMatchObject({
+      blocks: [
+        {
+          id: "export-transport-grid",
+          entries: expect.arrayContaining([
+            {
+              id: "partial-shipment",
+              label: { zhCN: "分批装运", enUS: "Partial Shipment" },
+              value: { zhCN: "允许", enUS: "Allowed" },
+            },
+            {
+              id: "transshipment",
+              label: { zhCN: "转运", enUS: "Transshipment" },
+              value: { zhCN: "允许", enUS: "Allowed" },
+            },
+          ]),
+        },
+      ],
+    });
+    expect(allowed).not.toEqual(prohibited);
   });
 
   it("requires authored English for parties, items and every commercial term", () => {
@@ -573,4 +832,110 @@ describe("quotation.proforma.invoice.v1", () => {
       ]),
     );
   });
+});
+
+describe("versioned quotation field manifests", () => {
+  const cases = [
+    {
+      id: "quotation.service.project.v1",
+      fixtureName: "quotation-service-project",
+      expectedPaths: [
+        "project.projectName",
+        "project.objective",
+        "project.scope",
+        "serviceLines",
+        "milestones",
+        "terms.serviceLocation",
+        "terms.acceptance",
+        "dataHandling.personalDataInvolved",
+      ],
+      expectedSelectOptions: {},
+    },
+    {
+      id: "quotation.oem.custom.v1",
+      fixtureName: "quotation-oem-custom",
+      expectedPaths: [
+        "project.projectName",
+        "project.productName",
+        "project.drawingVersion",
+        "project.moq",
+        "chargeLines",
+        "terms.toolingRequired",
+        "terms.toolingOwnership",
+        "project.buyerSuppliedMaterials",
+        "terms.materialReceiptAndReturn",
+      ],
+      expectedSelectOptions: {},
+    },
+    {
+      id: "quotation.export.bilingual.v1",
+      fixtureName: "quotation-export-bilingual",
+      expectedPaths: [
+        "goodsLines",
+        "trade.incotermsRule",
+        "trade.namedPlace.zhCN",
+        "trade.namedPlace.enUS",
+        "trade.transportMode",
+        "trade.partialShipment",
+        "trade.transshipment",
+        "trade.documentList",
+        "trade.languagePriority",
+      ],
+      expectedSelectOptions: {
+        "trade.incotermsRule": [
+          "EXW",
+          "FCA",
+          "CPT",
+          "CIP",
+          "DAP",
+          "DPU",
+          "DDP",
+          "FAS",
+          "FOB",
+          "CFR",
+          "CIF",
+        ],
+        "trade.transportMode": ["air", "road", "rail", "sea", "multimodal"],
+        "trade.languagePriority": ["zh-CN", "en-US"],
+      },
+    },
+    {
+      id: "quotation.proforma.invoice.v1",
+      fixtureName: "quotation-proforma-invoice",
+      expectedPaths: [
+        "meta.validUntil",
+        "buyerReference",
+        "goodsLines",
+        "shipment.transportMode",
+        "shipment.incotermsRule",
+        "shipment.namedPlace",
+        "shipment.estimatedShippingDate",
+        "shipment.paymentTerms",
+        "shipment.insuranceArrangement",
+        "charges.otherCharges",
+      ],
+      expectedSelectOptions: {
+        "shipment.transportMode": ["air", "road", "rail", "sea", "multimodal"],
+        "shipment.incotermsRule": [
+          "EXW",
+          "FCA",
+          "CPT",
+          "CIP",
+          "DAP",
+          "DPU",
+          "DDP",
+          "FAS",
+          "FOB",
+          "CFR",
+          "CIF",
+        ],
+      },
+    },
+  ] as const;
+
+  for (const fieldCase of cases) {
+    it(`${fieldCase.id} publishes honest editable draft paths`, () => {
+      verifyFieldManifest(fieldCase);
+    });
+  }
 });
