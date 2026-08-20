@@ -69,6 +69,55 @@ describe("manifest-driven schema form", () => {
     expect(screen.queryByRole("button", { name: "定位第一个错误" })).not.toBeInTheDocument();
   });
 
+  it("rebases pending raw input onto the latest parent attachment draft", () => {
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("contract.oem.processing.v1", "1.0.0");
+    const draft = registration.createDraft({
+      id: "pending-attachment",
+      now: "2026-08-20T00:00:00Z",
+    });
+    const onDraftChange = vi.fn();
+    const view = render(
+      <SchemaForm registration={registration} draft={draft} onDraftChange={onDraftChange} />,
+    );
+    const product = screen.getByRole("group", { name: "委托产品 第 1 项" });
+    const price = within(product).getByRole("textbox", { name: /单价.*必填/u });
+    fireEvent.change(price, { target: { value: "not-money" } });
+    expect(onDraftChange).not.toHaveBeenCalled();
+
+    const withAttachment = registration.parseDraft(
+      setDraftField(
+        setDraftField(draft, "attachments", [
+          {
+            id: "drawing-latest",
+            category: "technical",
+            displayName: "最新图纸.pdf",
+            mediaType: "application/pdf",
+            pageCount: 2,
+            required: true,
+            status: "attached",
+            includedInSubmission: true,
+          },
+        ]),
+        "technical.drawingAttachmentIds",
+        ["drawing-latest"],
+      ),
+    );
+    view.rerender(
+      <SchemaForm
+        registration={registration}
+        draft={withAttachment}
+        onDraftChange={onDraftChange}
+      />,
+    );
+    expect(price).toHaveValue("not-money");
+
+    fireEvent.change(price, { target: { value: "25" } });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    const committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "technical.drawingAttachmentIds")).toEqual(["drawing-latest"]);
+    expect(getDraftField(committed, "attachments.0.displayName")).toBe("最新图纸.pdf");
+  });
+
   it("keeps invalid repeatable raw values with stable identities through reorder and delete", async () => {
     const user = userEvent.setup();
     const registration = v2.V2_TEMPLATE_REGISTRY.get("quotation.service.project.v1", "1.0.0");
@@ -344,6 +393,88 @@ describe("manifest-driven schema form", () => {
       allowedMethods: [],
       sourceRefIds: [],
     });
+  });
+
+  it("restores the valid guarantee baseline when staged changes are discarded", async () => {
+    const user = userEvent.setup();
+    const templateId = "bid.government.goods.v1";
+    const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
+    let draft = registration.createDraft({ id: "guarantee-baseline", now: "2026-08-20T00:00:00Z" });
+    draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(
+          setDraftField(draft, "attachments", [
+            {
+              id: "solicitation-main",
+              category: "other",
+              displayName: "招标文件.pdf",
+              mediaType: "application/pdf",
+              pageCount: 8,
+              required: true,
+              status: "attached",
+              includedInSubmission: false,
+            },
+          ]),
+          "evidenceRefs",
+          [
+            {
+              id: "solicitation-source",
+              kind: "solicitation",
+              attachmentId: "solicitation-main",
+              page: 1,
+              sourceRef: "保证要求章节",
+            },
+          ],
+        ),
+        "source.guaranteeRequirement",
+        {
+          required: true,
+          allowedMethods: ["原银行保函"],
+          amountMinor: "50000",
+          sourceRefIds: ["solicitation-source"],
+        },
+      ),
+    );
+    const onDraftChange = vi.fn();
+    render(<Harness templateId={templateId} initialDraft={draft} onDraftChange={onDraftChange} />);
+
+    await user.click(
+      within(screen.getByRole("region", { name: "保证方式" })).getByRole("button", {
+        name: "删除",
+      }),
+    );
+    expect(onDraftChange).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "放弃暂存保证要求" }));
+
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    expect(getDraftField(onDraftChange.mock.calls[0]?.[0], "source.guaranteeRequirement")).toEqual({
+      required: true,
+      allowedMethods: ["原银行保函"],
+      amountMinor: "50000",
+      sourceRefIds: ["solicitation-source"],
+    });
+  });
+
+  it("resets staged guarantee state when the parent draft identity changes", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("bid.government.goods.v1", "1.0.0");
+    const first = registration.createDraft({ id: "guarantee-first", now: "2026-08-20T00:00:00Z" });
+    const second = registration.createDraft({
+      id: "guarantee-second",
+      now: "2026-08-20T00:00:00Z",
+    });
+    const view = render(
+      <SchemaForm registration={registration} draft={first} onDraftChange={vi.fn()} />,
+    );
+    await user.click(screen.getByRole("checkbox", { name: /要求投标保证/u }));
+    expect(screen.getByRole("button", { name: "放弃暂存保证要求" })).toBeVisible();
+
+    view.rerender(
+      <SchemaForm registration={registration} draft={second} onDraftChange={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("checkbox", { name: /要求投标保证/u })).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: "放弃暂存保证要求" })).not.toBeInTheDocument();
   });
 
   it("exposes a safe add state for all 116 manifest repeatables from createDraft", () => {
@@ -709,6 +840,118 @@ describe("manifest-driven schema form", () => {
 
     await user.click(screen.getByRole("checkbox", { name: /是否涉及个人信息.*必填/u }));
     expect(screen.getByRole("textbox", { name: "个人信息处理条款" })).toBeVisible();
+  });
+
+  it("converges contract effective-mode fields in both directions without hidden stale leaves", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("contract.sale.domestic-b2b.v1", "1.0.0");
+    const draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(
+          registration.createDraft({ id: "effective-switch", now: "2026-08-20T00:00:00Z" }),
+          "meta.effectiveMode",
+          "condition",
+        ),
+        "meta.effectiveCondition",
+        "验收完成后生效",
+      ),
+    );
+    const onDraftChange = vi.fn();
+    render(
+      <Harness
+        templateId={registration.definition.id}
+        initialDraft={draft}
+        onDraftChange={onDraftChange}
+      />,
+    );
+
+    await user.selectOptions(screen.getByRole("combobox", { name: /生效方式.*必填/u }), "date");
+    expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("生效日期"), {
+      target: { value: "2026-09-01" },
+    });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    let committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "meta.effectiveMode")).toBe("date");
+    expect(getDraftField(committed, "meta.effectiveDate")).toBe("2026-09-01");
+    expect(getDraftField(committed, "meta.effectiveCondition")).toBeUndefined();
+
+    onDraftChange.mockClear();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /生效方式.*必填/u }),
+      "condition",
+    );
+    expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "生效条件" }), {
+      target: { value: "双方盖章并完成备案" },
+    });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "meta.effectiveCondition")).toBe("双方盖章并完成备案");
+    expect(getDraftField(committed, "meta.effectiveDate")).toBeUndefined();
+  });
+
+  it("converges court and arbitration fields in both directions", async () => {
+    const user = userEvent.setup();
+    const templateId = "contract.sale.domestic-b2b.v1";
+    const onDraftChange = vi.fn();
+    render(<Harness templateId={templateId} onDraftChange={onDraftChange} />);
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /争议解决方式.*必填/u }),
+      "arbitration",
+    );
+    expect(onDraftChange).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox", { name: "仲裁委员会" }), {
+      target: { value: "深圳国际仲裁院" },
+    });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    let committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "generalTerms.arbitrationCommission")).toBe("深圳国际仲裁院");
+    expect(getDraftField(committed, "generalTerms.court")).toBeUndefined();
+
+    onDraftChange.mockClear();
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /争议解决方式.*必填/u }),
+      "court",
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: "管辖法院" }), {
+      target: { value: "深圳市南山区人民法院" },
+    });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "generalTerms.court")).toBe("深圳市南山区人民法院");
+    expect(getDraftField(committed, "generalTerms.arbitrationCommission")).toBeUndefined();
+  });
+
+  it("preserves a hidden optional value when the schema permits it", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("quotation.service.project.v1", "1.0.0");
+    const draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(
+          registration.createDraft({ id: "hidden-preserved", now: "2026-08-20T00:00:00Z" }),
+          "dataHandling.personalDataInvolved",
+          true,
+        ),
+        "dataHandling.processingTerms",
+        "仅用于履约联络并在项目结束后删除",
+      ),
+    );
+    const onDraftChange = vi.fn();
+    render(
+      <Harness
+        templateId={registration.definition.id}
+        initialDraft={draft}
+        onDraftChange={onDraftChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: /是否涉及个人信息.*必填/u }));
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    expect(getDraftField(onDraftChange.mock.calls[0]?.[0], "dataHandling.processingTerms")).toBe(
+      "仅用于履约联络并在项目结束后删除",
+    );
   });
 
   it("uses registration factories for growable object rows and supports reorder and remove", async () => {

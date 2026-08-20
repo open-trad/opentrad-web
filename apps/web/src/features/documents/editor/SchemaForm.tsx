@@ -5,7 +5,7 @@ import type {
 } from "@opentrad/document-core";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
-import { getDraftField, setDraftField, updateDraftFromRaw } from "./fieldPaths";
+import { deleteDraftField, getDraftField, setDraftField, updateDraftFromRaw } from "./fieldPaths";
 
 type RepeatableItemField = v2.TemplateRepeatableItemFieldV1;
 type EditorField = TemplateFieldManifestEntryV1 | RepeatableItemField;
@@ -899,10 +899,14 @@ export function SchemaForm({
   const [localIssues, setLocalIssues] = useState<readonly FormIssue[]>([]);
   const [rawValues, setRawValues] = useState<Readonly<Record<string, unknown>>>({});
   const pendingRawRef = useRef(new Map<string, PendingRawEntry>());
-  const pendingDraftRef = useRef<unknown | undefined>(undefined);
-  const [pendingDraft, setPendingDraft] = useState<unknown | undefined>(undefined);
+  const pendingPatchesRef = useRef(new Map<string, unknown>());
+  const [pendingPatches, setPendingPatches] = useState<ReadonlyMap<string, unknown>>(new Map());
+  const guaranteeBaselineRef = useRef<unknown | undefined>(undefined);
+  const documentIdentity = `${registration.definition.id}@${registration.definition.version}:${String(
+    getDraftField(draft, "id") ?? "",
+  )}`;
+  const documentIdentityRef = useRef(documentIdentity);
   const allIssues = [...issues, ...localIssues];
-  const displayDraft = pendingDraft ?? draft;
   const sections = useMemo(() => {
     const output = new Map<string, TemplateFieldManifestEntryV1[]>();
     for (const field of registration.definition.fieldManifest) {
@@ -918,14 +922,63 @@ export function SchemaForm({
     setRawValues(Object.fromEntries([...entries].map(([key, entry]) => [key, entry.raw])));
   };
 
+  const syncPendingPatches = (patches: Map<string, unknown>): void => {
+    pendingPatchesRef.current = patches;
+    setPendingPatches(patches);
+  };
+
+  const layerPendingState = (
+    base: unknown,
+    entries: ReadonlyMap<string, PendingRawEntry>,
+    patches: ReadonlyMap<string, unknown>,
+  ): { readonly candidate: unknown; readonly rawIssues: readonly FormIssue[] } => {
+    let candidate = base;
+    for (const [path, value] of patches) candidate = setDraftField(candidate, path, value);
+    const rawIssues: FormIssue[] = [];
+    for (const entry of entries.values()) {
+      try {
+        candidate = updateDraftFromRaw(
+          candidate,
+          { ...entry.field, path: entry.path } as TemplateFieldManifestEntryV1,
+          entry.raw,
+        );
+      } catch (error) {
+        rawIssues.push({
+          path: entry.path,
+          message: error instanceof Error ? error.message : "字段值无效",
+        });
+      }
+    }
+    return { candidate, rawIssues };
+  };
+
+  const displayDraft = layerPendingState(draft, pendingRawRef.current, pendingPatches).candidate;
+
   const reportLocalIssues = (nextIssues: readonly FormIssue[]): void => {
     setLocalIssues(nextIssues);
     onValidationChange?.(nextIssues);
   };
 
+  useEffect(() => {
+    if (documentIdentityRef.current === documentIdentity) return;
+    documentIdentityRef.current = documentIdentity;
+    pendingRawRef.current = new Map();
+    pendingPatchesRef.current = new Map();
+    guaranteeBaselineRef.current = undefined;
+    setRawValues({});
+    setPendingPatches(new Map());
+    setLocalIssues([]);
+  }, [documentIdentity]);
+
+  const rememberGuaranteeBaseline = (): void => {
+    if (guaranteeBaselineRef.current === undefined) {
+      guaranteeBaselineRef.current = getDraftField(draft, GUARANTEE_ROOT_PATH);
+    }
+  };
+
   const evaluateCandidate = (
-    candidate: unknown,
     inputEntries: Map<string, PendingRawEntry> = new Map(pendingRawRef.current),
+    structuralPatch?: { readonly path: string; readonly value: unknown },
     rawPaths?: RawPathMap,
     repeatablePath?: string,
   ): void => {
@@ -939,60 +992,85 @@ export function SchemaForm({
       }
     }
     syncPendingRaw(entries);
-
-    let layered = candidate;
-    const rawIssues: FormIssue[] = [];
-    for (const entry of entries.values()) {
-      try {
-        layered = updateDraftFromRaw(
-          layered,
-          { ...entry.field, path: entry.path } as TemplateFieldManifestEntryV1,
-          entry.raw,
-        );
-      } catch (error) {
-        rawIssues.push({
-          path: entry.path,
-          message: error instanceof Error ? error.message : "字段值无效",
-        });
-      }
-    }
+    const patches = new Map(pendingPatchesRef.current);
+    if (structuralPatch) patches.set(structuralPatch.path, structuralPatch.value);
+    syncPendingPatches(patches);
+    const { candidate: layered, rawIssues } = layerPendingState(draft, entries, patches);
     if (rawIssues.length > 0) {
-      pendingDraftRef.current = layered;
-      setPendingDraft(layered);
       reportLocalIssues(rawIssues);
       return;
     }
 
-    try {
-      const parsed = registration.parseDraft(layered);
-      pendingDraftRef.current = undefined;
-      setPendingDraft(undefined);
+    const acceptParsed = (parsed: unknown): void => {
+      guaranteeBaselineRef.current = undefined;
       syncPendingRaw(new Map());
+      syncPendingPatches(new Map());
       reportLocalIssues([]);
       onDraftChange(parsed);
+    };
+
+    const withoutInvisibleOptionalLeaves = (candidate: unknown): unknown => {
+      let normalized = candidate;
+      for (const field of registration.definition.fieldManifest) {
+        if (field.visibleWhen && !field.required && !isVisible(field, candidate)) {
+          if (getDraftField(normalized, field.path) !== undefined) {
+            normalized = deleteDraftField(normalized, field.path);
+          }
+        }
+        if (field.control !== "repeatable" || field.item.kind !== "object") continue;
+        const items = getDraftField(candidate, field.path);
+        if (!Array.isArray(items)) continue;
+        items.forEach((item, index) => {
+          for (const itemField of field.item.kind === "object" ? field.item.fields : []) {
+            if (
+              itemField.visibleWhen &&
+              !itemField.required &&
+              !isVisible(itemField, candidate, item)
+            ) {
+              const path = `${field.path}.${index}.${itemField.path}`;
+              if (getDraftField(normalized, path) !== undefined) {
+                normalized = deleteDraftField(normalized, path);
+              }
+            }
+          }
+        });
+      }
+      return normalized;
+    };
+
+    try {
+      acceptParsed(registration.parseDraft(layered));
     } catch (error) {
-      const nextIssues = errorIssues(error);
-      pendingDraftRef.current = layered;
-      setPendingDraft(layered);
-      reportLocalIssues(nextIssues);
+      const normalized = withoutInvisibleOptionalLeaves(layered);
+      if (normalized !== layered) {
+        try {
+          acceptParsed(registration.parseDraft(normalized));
+          return;
+        } catch (normalizedError) {
+          reportLocalIssues(errorIssues(normalizedError));
+          return;
+        }
+      }
+      reportLocalIssues(errorIssues(error));
     }
   };
 
-  const clearStagedGuarantee = (): void => {
+  const resolveGuaranteeStage = (nextGuarantee: unknown): void => {
     const entries = new Map(pendingRawRef.current);
     for (const [key, entry] of entries) {
       if (isGuaranteePath(entry.path)) entries.delete(key);
     }
-    const source = pendingDraftRef.current ?? draft;
-    evaluateCandidate(
-      setDraftField(source, GUARANTEE_ROOT_PATH, {
-        required: false,
-        allowedMethods: [],
-        sourceRefIds: [],
-      }),
-      entries,
-    );
+    evaluateCandidate(entries, { path: GUARANTEE_ROOT_PATH, value: nextGuarantee });
   };
+
+  const clearStagedGuarantee = (): void => {
+    const baseline = guaranteeBaselineRef.current;
+    guaranteeBaselineRef.current = undefined;
+    resolveGuaranteeStage(baseline ?? getDraftField(draft, GUARANTEE_ROOT_PATH));
+  };
+
+  const disableGuarantee = (): void =>
+    resolveGuaranteeStage({ required: false, allowedMethods: [], sourceRefIds: [] });
 
   const updateRaw = (
     field: EditorField,
@@ -1002,19 +1080,19 @@ export function SchemaForm({
     repeatablePath?: string,
   ): void => {
     if (path === `${GUARANTEE_ROOT_PATH}.required` && raw === false) {
-      clearStagedGuarantee();
+      disableGuarantee();
       return;
     }
+    if (isGuaranteePath(path)) rememberGuaranteeBaseline();
     const entries = new Map(pendingRawRef.current);
     entries.set(rawKey, { field, path, raw, ...(repeatablePath ? { repeatablePath } : {}) });
-    const source = pendingDraftRef.current ?? draft;
-    evaluateCandidate(source, entries);
+    evaluateCandidate(entries);
   };
 
   const guaranteeStaged =
-    pendingDraft !== undefined &&
-    JSON.stringify(getDraftField(displayDraft, GUARANTEE_ROOT_PATH)) !==
-      JSON.stringify(getDraftField(draft, GUARANTEE_ROOT_PATH));
+    guaranteeBaselineRef.current !== undefined &&
+    ([...pendingRawRef.current.values()].some((entry) => isGuaranteePath(entry.path)) ||
+      [...pendingPatches.keys()].some((path) => isGuaranteePath(path)));
 
   const firstIssue = allIssues[0];
   return (
@@ -1064,14 +1142,18 @@ export function SchemaForm({
                     onRawValue={(itemField, path, raw, rawKey, repeatablePath) =>
                       updateRaw(itemField, path, raw, rawKey, repeatablePath)
                     }
-                    onCandidate={(candidate, rawPaths, repeatablePath) =>
+                    onCandidate={(candidate, rawPaths, repeatablePath) => {
+                      if (isGuaranteePath(field.path)) rememberGuaranteeBaseline();
                       evaluateCandidate(
-                        candidate,
                         new Map(pendingRawRef.current),
+                        {
+                          path: repeatablePath ?? field.path,
+                          value: getDraftField(candidate, repeatablePath ?? field.path),
+                        },
                         rawPaths,
                         repeatablePath,
-                      )
-                    }
+                      );
+                    }}
                     onAttachmentFiles={onAttachmentFiles}
                   />
                 );

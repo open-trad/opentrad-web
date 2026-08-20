@@ -477,6 +477,96 @@ describe("generic V2 document workspace", () => {
     ]);
   });
 
+  it.each(["updateDraft", "acceptParsedDraft"] as const)(
+    "%s parse failure invalidates an older inflight save generation",
+    async (method) => {
+      vi.useFakeTimers();
+      const existing = stored(envelope(), 1);
+      const repository = fakeRepository(existing);
+      const inflight = deferred<StoredDocumentV2>();
+      vi.mocked(repository.commit).mockImplementationOnce(async () => inflight.promise);
+      const { result } = renderHook(() =>
+        useDocumentWorkspace({
+          registration: registration(),
+          repository,
+          createId: () => "unused",
+          now: () => NOW,
+        }),
+      );
+      await act(async () => Promise.resolve());
+
+      act(() => {
+        result.current.updateDraft(
+          setDraftField(result.current.envelope?.draft, "project.projectName", "保存中的有效编辑"),
+        );
+      });
+      await act(async () => vi.advanceTimersByTimeAsync(400));
+      const inflightEnvelope = vi.mocked(repository.commit).mock.calls[0]?.[0]
+        .envelope as v2.ProjectEnvelopeV2;
+      act(() => {
+        result.current[method](setDraftField(result.current.envelope?.draft, "id", 42));
+      });
+      expect(result.current.autosaveStatus).toBe("invalid");
+
+      inflight.resolve(stored(inflightEnvelope, 2));
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(result.current.autosaveStatus).toBe("invalid");
+      expect(result.current.validationIssues.length).toBeGreaterThan(0);
+    },
+  );
+
+  it("keeps form invalidity latched across presentation and attachment revisions until a valid form edit", async () => {
+    vi.useFakeTimers();
+    const repository = fakeRepository(stored(envelope(), 1));
+    const { result } = renderHook(() =>
+      useDocumentWorkspace({
+        registration: registration(),
+        repository,
+        createId: () => "unused",
+        now: () => NOW,
+        autosaveDelayMs: 60_000,
+      }),
+    );
+    await act(async () => Promise.resolve());
+    const issue = { path: "serviceLines.0.unitPriceMinor", message: "金额无效" };
+    act(() => result.current.reportValidationIssues([issue]));
+
+    act(() => {
+      result.current.updatePresentation({
+        ...result.current.envelope?.presentation,
+        layoutStyleId: "classic-formal.v1",
+        languageView: "zh-CN",
+      });
+    });
+    expect(result.current.envelope?.presentation.layoutStyleId).toBe("classic-formal.v1");
+    expect(result.current.autosaveStatus).toBe("invalid");
+    expect(result.current.validationIssues).toEqual([issue]);
+
+    const current = result.current.envelope as v2.ProjectEnvelopeV2;
+    act(() => {
+      result.current.applyAttachmentTransaction({
+        envelope: current,
+        parsedDraft: current.draft,
+        attachmentChanges: [{ type: "remove", attachmentId: "unused-attachment" }],
+      });
+    });
+    expect(result.current.autosaveStatus).toBe("invalid");
+    expect(result.current.validationIssues).toEqual([issue]);
+
+    act(() => {
+      result.current.acceptParsedDraft(
+        registration().parseDraft(
+          setDraftField(result.current.envelope?.draft, "project.projectName", "恢复有效"),
+        ),
+      );
+    });
+    expect(result.current.autosaveStatus).toBe("idle");
+    expect(result.current.validationIssues).toEqual([]);
+  });
+
   it("retains a newer pending edit when an older non-conflict save fails", async () => {
     vi.useFakeTimers();
     const existing = stored(envelope(), 1);

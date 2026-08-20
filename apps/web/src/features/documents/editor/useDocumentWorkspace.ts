@@ -152,6 +152,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const drainingRef = useRef<Promise<void> | null>(null);
   const conflictRef = useRef(false);
+  const invalidRef = useRef(false);
   const initializationRef = useRef<Promise<StoredDocumentV2> | null>(null);
   const generationRef = useRef(0);
 
@@ -170,7 +171,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     while (pendingRef.current?.ready && !conflictRef.current) {
       const job = pendingRef.current;
       pendingRef.current = null;
-      setStatusIfMounted("saving");
+      if (!invalidRef.current) setStatusIfMounted("saving");
       try {
         const stored = await repository.commit({
           envelope: job.envelope,
@@ -187,13 +188,13 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
         if (job.generation === generationRef.current) envelopeRef.current = stored.envelope;
         if (job.generation === generationRef.current && !pendingRef.current) {
           attachmentChangesRef.current = [];
-          setStatusIfMounted("saved");
+          if (!invalidRef.current) setStatusIfMounted("saved");
         }
       } catch (error) {
         if (error instanceof DocumentRepositoryError && error.code === "DOCUMENT_CONFLICT") {
           conflictRef.current = true;
           setStatusIfMounted("conflict");
-        } else if (job.generation === generationRef.current) {
+        } else if (job.generation === generationRef.current && !invalidRef.current) {
           setStatusIfMounted("error");
         }
       }
@@ -253,6 +254,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     envelopeRef.current = validated;
     attachmentChangesRef.current = [];
     conflictRef.current = false;
+    invalidRef.current = false;
     setEnvelope(validated);
     setRawDraft(validated.draft);
     setRevision(stored.revision);
@@ -263,6 +265,18 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     setAutosaveStatus("idle");
     setLoadError(null);
   }, []);
+
+  const markInvalid = useCallback(
+    (issues: readonly DocumentValidationIssue[]) => {
+      generationRef.current += 1;
+      clearTimer();
+      pendingRef.current = null;
+      invalidRef.current = true;
+      setValidationIssueList(issues);
+      if (!conflictRef.current) setAutosaveStatus("invalid");
+    },
+    [clearTimer],
+  );
 
   const initialize = useCallback(async (): Promise<StoredDocumentV2> => {
     const current = await repository.getCurrent();
@@ -319,7 +333,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
   }, [flush, hydrate, initialize, repository]);
 
   const acceptValidEnvelope = useCallback(
-    (candidate: v2.ProjectEnvelopeV2, parsedDraft?: unknown) => {
+    (candidate: v2.ProjectEnvelopeV2, parsedDraft?: unknown, clearFormInvalidity = true) => {
       const nextSnapshot = snapshot(
         registrationRef.current,
         candidate,
@@ -328,10 +342,13 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
       );
       envelopeRef.current = candidate;
       setEnvelope(candidate);
-      setRawDraft(candidate.draft);
+      if (clearFormInvalidity) setRawDraft(candidate.draft);
       setRevisionSnapshot(nextSnapshot);
-      setValidationIssueList([]);
-      if (!conflictRef.current) setAutosaveStatus("idle");
+      if (clearFormInvalidity) {
+        invalidRef.current = false;
+        setValidationIssueList([]);
+        if (!conflictRef.current) setAutosaveStatus("idle");
+      }
       schedule(candidate);
     },
     [schedule],
@@ -348,12 +365,11 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
         acceptValidEnvelope(nextEnvelope, parsedDraft);
         return true;
       } catch (error) {
-        setValidationIssueList(validationIssues(error));
-        if (!conflictRef.current) setAutosaveStatus("invalid");
+        markInvalid(validationIssues(error));
         return false;
       }
     },
-    [acceptValidEnvelope],
+    [acceptValidEnvelope, markInvalid],
   );
 
   const acceptParsedDraft = useCallback(
@@ -366,12 +382,11 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
         acceptValidEnvelope(nextEnvelope, parsedDraft);
         return true;
       } catch (error) {
-        setValidationIssueList(validationIssues(error));
-        if (!conflictRef.current) setAutosaveStatus("invalid");
+        markInvalid(validationIssues(error));
         return false;
       }
     },
-    [acceptValidEnvelope],
+    [acceptValidEnvelope, markInvalid],
   );
 
   const updatePresentation = useCallback(
@@ -379,7 +394,11 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
       const current = envelopeRef.current;
       if (!current) return false;
       try {
-        acceptValidEnvelope(v2.ProjectEnvelopeV2Schema.parse({ ...current, presentation }));
+        acceptValidEnvelope(
+          v2.ProjectEnvelopeV2Schema.parse({ ...current, presentation }),
+          undefined,
+          false,
+        );
         return true;
       } catch (error) {
         setValidationIssueList(validationIssues(error));
@@ -391,15 +410,10 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
 
   const reportValidationIssues = useCallback(
     (issues: readonly DocumentValidationIssue[]) => {
-      setValidationIssueList(issues);
-      if (issues.length > 0 && !conflictRef.current) {
-        generationRef.current += 1;
-        clearTimer();
-        pendingRef.current = null;
-        setAutosaveStatus("invalid");
-      }
+      if (issues.length > 0) markInvalid(issues);
+      else if (!invalidRef.current) setValidationIssueList([]);
     },
-    [clearTimer],
+    [markInvalid],
   );
 
   const applyAttachmentTransaction = useCallback(
@@ -415,7 +429,7 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
         const retained = current.filter((record) => !changedIds.has(record.attachmentId));
         return transaction.preparedRecord ? [...retained, transaction.preparedRecord] : retained;
       });
-      acceptValidEnvelope(transaction.envelope, transaction.parsedDraft);
+      acceptValidEnvelope(transaction.envelope, transaction.parsedDraft, false);
     },
     [acceptValidEnvelope],
   );
