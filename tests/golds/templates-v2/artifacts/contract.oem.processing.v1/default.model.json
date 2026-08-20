@@ -1,0 +1,565 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "oem-processing-gold",
+  "template": {
+    "id": "contract.oem.processing.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "contract",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "OEM加工合同"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 20,
+      "bottom": 18,
+      "left": 20
+    }
+  },
+  "sections": [
+    {
+      "id": "cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "oem-cover",
+          "title": {
+            "zhCN": "OEM加工合同"
+          },
+          "subtitle": {
+            "zhCN": "OEM-2026-001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "meta-text",
+          "text": {
+            "zhCN": "合同编号：OEM-2026-001；签署日期：2026-08-19"
+          }
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "oem-parties",
+          "parties": [
+            {
+              "id": "principal",
+              "role": {
+                "zhCN": "委托方"
+              },
+              "name": {
+                "zhCN": "深圳示例品牌有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：深圳市示例路1号"
+                },
+                {
+                  "zhCN": "联系人：陈经理"
+                }
+              ]
+            },
+            {
+              "id": "processor",
+              "role": {
+                "zhCN": "加工方"
+              },
+              "name": {
+                "zhCN": "东莞示例加工有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：东莞市示例路2号"
+                },
+                {
+                  "zhCN": "联系人：林经理"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commissioned-products",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "products-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "项目"
+              },
+              "width": "40%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "金额"
+              },
+              "width": "20%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "product-1",
+              "cells": {
+                "name": {
+                  "zhCN": "智能传感器 / S1"
+                },
+                "quantity": {
+                  "zhCN": "100 件"
+                },
+                "unitPrice": {
+                  "zhCN": "不作为产品销售价"
+                },
+                "amount": {
+                  "zhCN": "不适用"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "technical-documents",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "technical-documents-text",
+          "text": {
+            "zhCN": "技术包版本：TECH-S1-R3"
+          }
+        },
+        {
+          "type": "attachmentIndex",
+          "id": "drawing-index",
+          "attachmentIds": [
+            "drawing-r3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sample-approval",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "sample-approval-text",
+          "text": {
+            "zhCN": "双方签署封样确认单后方可量产"
+          }
+        }
+      ]
+    },
+    {
+      "id": "materials",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "materials-text",
+          "text": {
+            "zhCN": "模式：mixed；物料：委托方提供核心芯片；加工方采购结构件；良率：成品良率不低于98%；废料：报废物料分类登记，未经书面同意不得处置；返还：余料与报废品按月清点并退还委托方"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "tooling-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "模具"
+              },
+              "width": "22%",
+              "align": "left"
+            },
+            {
+              "id": "owner",
+              "label": {
+                "zhCN": "权属"
+              },
+              "width": "18%",
+              "align": "center"
+            },
+            {
+              "id": "custody",
+              "label": {
+                "zhCN": "保管"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "maintenance",
+              "label": {
+                "zhCN": "维护"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "return",
+              "label": {
+                "zhCN": "返还/处置"
+              },
+              "width": "20%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "tool-1",
+              "cells": {
+                "name": {
+                  "zhCN": "注塑模具"
+                },
+                "owner": {
+                  "zhCN": "principal"
+                },
+                "custody": {
+                  "zhCN": "由加工方在合同期内保管"
+                },
+                "maintenance": {
+                  "zhCN": "加工方负责日常保养"
+                },
+                "return": {
+                  "zhCN": "终止后十日内返还委托方"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "production-schedule",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "production-schedule-text",
+          "text": {
+            "zhCN": "封样后30日完成首批生产"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fees-payment",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "fee-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "项目"
+              },
+              "width": "40%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "金额"
+              },
+              "width": "20%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "fee-1",
+              "cells": {
+                "name": {
+                  "zhCN": "组装加工费"
+                },
+                "quantity": {
+                  "zhCN": "100 件"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 5.00"
+                },
+                "amount": {
+                  "zhCN": "CNY 500.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "production-tax-mode-text",
+          "text": {
+            "zhCN": "币种：CNY；计税口径：tax-included"
+          }
+        },
+        {
+          "type": "totals",
+          "id": "fee-total",
+          "entries": [
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "加工费合计"
+              },
+              "value": {
+                "zhCN": "CNY 500.00"
+              }
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "id": "oem-payment",
+          "ordered": true,
+          "items": [
+            {
+              "zhCN": "订单确认：30.00%，5日内"
+            },
+            {
+              "zhCN": "验收合格：70.00%，15日内"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality-inspection",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-inspection-text",
+          "text": {
+            "zhCN": "质量标准：技术包TECH-S1-R3及封样；检验：出厂全检并由委托方抽检；追溯：批次、物料与工序记录保存三年"
+          }
+        }
+      ]
+    },
+    {
+      "id": "nonconformance-recall",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "nonconformance-recall-text",
+          "text": {
+            "zhCN": "不合格品：隔离、分析并按委托方书面指示返工或报废；召回：质量原因召回时双方按责任承担费用"
+          }
+        }
+      ]
+    },
+    {
+      "id": "engineering-change",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "engineering-change-text",
+          "text": {
+            "zhCN": "任何技术变更须提交书面变更单并确认价格与交期影响"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ip-license",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "ip-license-text",
+          "text": {
+            "zhCN": "背景知识产权：各方原有知识产权归原权利人；新增知识产权：基于委托方技术资料形成的定制成果归委托方；许可：加工方仅可为履行本合同使用"
+          }
+        }
+      ]
+    },
+    {
+      "id": "confidentiality-subcontracting",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "confidentiality-subcontracting-text",
+          "text": {
+            "zhCN": "保密：技术资料仅限授权人员访问；分包：未经委托方事先书面同意不得分包"
+          }
+        }
+      ]
+    },
+    {
+      "id": "termination-compensation",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "termination-compensation-text",
+          "text": {
+            "zhCN": "按合格在制品、不可退料件及已完成工序据实结算"
+          }
+        }
+      ]
+    },
+    {
+      "id": "general-terms",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "oem-general",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "变更须书面确认"
+            },
+            {
+              "zhCN": "及时通知并提供证明"
+            },
+            {
+              "zhCN": "违约方赔偿实际损失"
+            },
+            {
+              "zhCN": "重大违约可解除"
+            },
+            {
+              "zhCN": "中华人民共和国法律"
+            },
+            {
+              "zhCN": "以合同所列地址送达"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "oem-attachment-index",
+          "attachmentIds": [
+            "drawing-r3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "oem-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "委托方"
+              },
+              "name": "深圳示例品牌有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "加工方"
+              },
+              "name": "东莞示例加工有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "contract-generation-note"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "drawing-r3",
+      "category": "technical",
+      "displayName": "S1图纸R3.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

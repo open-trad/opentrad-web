@@ -1,0 +1,553 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "international-sale-gold",
+  "template": {
+    "id": "contract.sale.international-bilingual.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "contract",
+  "language": "zh-en",
+  "title": {
+    "zhCN": "国际货物销售合同",
+    "enUS": "INTERNATIONAL SALE OF GOODS CONTRACT"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 14,
+      "right": 12,
+      "bottom": 14,
+      "left": 12
+    }
+  },
+  "sections": [
+    {
+      "id": "bilingual-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "international-cover",
+          "title": {
+            "zhCN": "国际货物销售合同",
+            "enUS": "INTERNATIONAL SALE OF GOODS CONTRACT"
+          },
+          "subtitle": {
+            "zhCN": "ISC-2026-001",
+            "enUS": "ISC-2026-001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "international-meta",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "合同编号",
+                "enUS": "Contract No."
+              },
+              "value": {
+                "zhCN": "ISC-2026-001",
+                "enUS": "ISC-2026-001"
+              }
+            },
+            {
+              "id": "date",
+              "label": {
+                "zhCN": "签署日期",
+                "enUS": "Signing Date"
+              },
+              "value": {
+                "zhCN": "2026-08-19",
+                "enUS": "2026-08-19"
+              }
+            },
+            {
+              "id": "place",
+              "label": {
+                "zhCN": "签署地点",
+                "enUS": "Signing Place"
+              },
+              "value": {
+                "zhCN": "Shanghai",
+                "enUS": "Shanghai"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bilingual-parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "international-parties",
+          "parties": [
+            {
+              "id": "seller",
+              "role": {
+                "zhCN": "卖方",
+                "enUS": "Seller"
+              },
+              "name": {
+                "zhCN": "上海示例出口有限公司",
+                "enUS": "Shanghai Example Export Co., Ltd."
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：上海市示例路1号",
+                  "enUS": "Registered address: 上海市示例路1号"
+                },
+                {
+                  "zhCN": "联系人：Ms. Zhang",
+                  "enUS": "Contact: Ms. Zhang"
+                },
+                {
+                  "zhCN": "邮箱：seller@example.com",
+                  "enUS": "Email: seller@example.com"
+                }
+              ]
+            },
+            {
+              "id": "buyer",
+              "role": {
+                "zhCN": "买方",
+                "enUS": "Buyer"
+              },
+              "name": {
+                "zhCN": "示例进口有限公司",
+                "enUS": "Example Imports Limited"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：88 Example Road, Singapore",
+                  "enUS": "Registered address: 88 Example Road, Singapore"
+                },
+                {
+                  "zhCN": "联系人：Mr. Lee",
+                  "enUS": "Contact: Mr. Lee"
+                },
+                {
+                  "zhCN": "邮箱：buyer@example.com",
+                  "enUS": "Email: buyer@example.com"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "definitions",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "definitions-text",
+          "text": {
+            "zhCN": "“货物”指本合同货品表所列产品；“Incoterms 2020”指国际商会发布的2020版规则。",
+            "enUS": "\"Goods\" means the products in the goods table; \"Incoterms 2020\" means the 2020 rules published by the ICC."
+          }
+        }
+      ]
+    },
+    {
+      "id": "goods",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "international-goods",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "货物",
+                "enUS": "Goods"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "spec",
+              "label": {
+                "zhCN": "规格",
+                "enUS": "Specification"
+              },
+              "width": "22%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量",
+                "enUS": "Quantity"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价",
+                "enUS": "Unit Price"
+              },
+              "width": "17%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "金额",
+                "enUS": "Amount"
+              },
+              "width": "18%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "goods-1",
+              "cells": {
+                "name": {
+                  "zhCN": "工业泵",
+                  "enUS": "Industrial Pump"
+                },
+                "spec": {
+                  "zhCN": "P-100",
+                  "enUS": "P-100"
+                },
+                "quantity": {
+                  "zhCN": "5 套",
+                  "enUS": "5 set"
+                },
+                "unitPrice": {
+                  "zhCN": "USD 100.00",
+                  "enUS": "USD 100.00"
+                },
+                "amount": {
+                  "zhCN": "USD 500.00",
+                  "enUS": "USD 500.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "price",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "international-tax-mode-text",
+          "text": {
+            "zhCN": "币种：USD；计税口径：tax-exempt",
+            "enUS": "Currency: USD; tax mode: tax-exempt"
+          }
+        },
+        {
+          "type": "totals",
+          "id": "international-total",
+          "entries": [
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "合同总价",
+                "enUS": "Contract Total"
+              },
+              "value": {
+                "zhCN": "USD 500.00",
+                "enUS": "USD 500.00"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "id": "price-adjustment-text",
+          "text": {
+            "zhCN": "固定价格，不作调整",
+            "enUS": "The price is fixed and not subject to adjustment."
+          }
+        }
+      ]
+    },
+    {
+      "id": "incoterms-delivery-risk",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "incoterms-delivery-risk-text",
+          "text": {
+            "zhCN": "贸易术语：CIP Incoterms 2020；指定地点：新加坡樟宜航空货运中心；风险按约定的CIP规则转移",
+            "enUS": "Trade term: CIP Incoterms 2020; named place: Changi Airfreight Centre, Singapore; Risk passes in accordance with the agreed CIP rule."
+          }
+        }
+      ]
+    },
+    {
+      "id": "shipment",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "shipment-text",
+          "text": {
+            "zhCN": "装运期：2026年9月1日至15日；运输方式：multimodal；分批：不允许；转运：允许",
+            "enUS": "Shipment window: 1-15 September 2026; mode: multimodal; partial shipment: not allowed; transshipment: allowed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "clearance-insurance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "clearance-insurance-text",
+          "text": {
+            "zhCN": "出口清关：卖方；进口清关：买方；保险：卖方按CIP约定投保并提供保险凭证",
+            "enUS": "Export clearance: Seller; import clearance: Buyer; insurance: The Seller shall procure insurance required by CIP and provide evidence of cover."
+          }
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "shipping-documents",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "商业发票",
+              "enUS": "Commercial invoice"
+            },
+            {
+              "zhCN": "装箱单",
+              "enUS": "Packing list"
+            },
+            {
+              "zhCN": "航空运单",
+              "enUS": "Air waybill"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inspection-claims",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "inspection-claims-text",
+          "text": {
+            "zhCN": "买方在到货后十日内检验数量和外观；质量索赔应在发现后五日内书面提出并附证据",
+            "enUS": "The Buyer shall inspect quantity and apparent condition within ten days after arrival.; Quality claims shall be made in writing with evidence within five days after discovery."
+          }
+        }
+      ]
+    },
+    {
+      "id": "title",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "title-text",
+          "text": {
+            "zhCN": "全部价款到账时所有权转移",
+            "enUS": "Title passes upon receipt of the full price."
+          }
+        }
+      ]
+    },
+    {
+      "id": "payment-bank",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "payment-bank-text",
+          "text": {
+            "zhCN": "方式：letter-of-credit；装运前开立不可撤销信用证；信用证应允许分批议付并于装运后21日有效；开证行费用由买方承担，卖方银行费用由卖方承担",
+            "enUS": "Method: letter-of-credit; An irrevocable letter of credit shall be issued before shipment.; The credit shall permit partial drawings and remain valid for 21 days after shipment.; Issuing-bank charges are for the Buyer; the Seller bears its bank charges."
+          }
+        }
+      ]
+    },
+    {
+      "id": "packaging-marks",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "packaging-marks-text",
+          "text": {
+            "zhCN": "适合国际空运的防潮包装；按买方书面唛头指示",
+            "enUS": "Moisture-resistant packaging suitable for international air transport.; Shipping marks shall follow the Buyer's written instructions."
+          }
+        }
+      ]
+    },
+    {
+      "id": "warranty-ip",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "warranty-ip-text",
+          "text": {
+            "zhCN": "到货后十二个月；各方保留其原有知识产权",
+            "enUS": "Twelve months after arrival.; Each party retains its background intellectual property."
+          }
+        }
+      ]
+    },
+    {
+      "id": "compliance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "compliance-text",
+          "text": {
+            "zhCN": "双方自行核验并遵守适用于自身交易行为的制裁与出口管制要求",
+            "enUS": "Each party shall verify and comply with sanctions and export-control requirements applicable to its conduct."
+          }
+        }
+      ]
+    },
+    {
+      "id": "force-majeure-hardship",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "force-majeure-hardship-text",
+          "text": {
+            "zhCN": "受影响方及时通知并采取合理减损措施",
+            "enUS": "The affected party shall give prompt notice and take reasonable mitigation measures."
+          }
+        }
+      ]
+    },
+    {
+      "id": "breach-remedies",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "breach-remedies-text",
+          "text": {
+            "zhCN": "违约方赔偿可证明的直接损失",
+            "enUS": "The breaching party shall compensate proven direct losses."
+          }
+        }
+      ]
+    },
+    {
+      "id": "cisg-governing-law",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "cisg-governing-law-text",
+          "text": {
+            "zhCN": "CISG选择：apply；适用法：除CISG调整事项外适用新加坡法律",
+            "enUS": "CISG choice: apply; governing law: Singapore law applies to matters not governed by the CISG."
+          }
+        }
+      ]
+    },
+    {
+      "id": "dispute",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "dispute-text",
+          "text": {
+            "zhCN": "方式：arbitration；机构/地点：新加坡国际仲裁中心，仲裁地新加坡",
+            "enUS": "Method: arbitration; forum/seat: Singapore International Arbitration Centre, seat Singapore."
+          }
+        }
+      ]
+    },
+    {
+      "id": "language-priority",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "language-priority-text",
+          "text": {
+            "zhCN": "中英文不一致时，以英文为准。",
+            "enUS": "If the Chinese and English texts conflict, the English text prevails."
+          }
+        }
+      ]
+    },
+    {
+      "id": "notices",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "notices-text",
+          "text": {
+            "zhCN": "通知发送至合同所列电子邮箱并以送达回执为准",
+            "enUS": "Notices shall be sent to the stated email addresses and evidenced by delivery receipt."
+          }
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "international-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "卖方",
+                "enUS": "Seller"
+              },
+              "name": "上海示例出口有限公司",
+              "dateLabel": {
+                "zhCN": "日期",
+                "enUS": "Date"
+              },
+              "sealLabel": {
+                "zhCN": "盖章",
+                "enUS": "Seal"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "买方",
+                "enUS": "Buyer"
+              },
+              "name": "示例进口有限公司",
+              "dateLabel": {
+                "zhCN": "日期",
+                "enUS": "Date"
+              },
+              "sealLabel": {
+                "zhCN": "盖章",
+                "enUS": "Seal"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "international-choice-warning"
+  ],
+  "attachmentManifest": []
+}

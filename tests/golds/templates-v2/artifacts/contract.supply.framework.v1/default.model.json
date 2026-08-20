@@ -1,0 +1,442 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "framework-supply-gold",
+  "template": {
+    "id": "contract.supply.framework.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "contract",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "框架供应合同"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 20,
+      "bottom": 18,
+      "left": 20
+    }
+  },
+  "sections": [
+    {
+      "id": "cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "framework-cover",
+          "title": {
+            "zhCN": "框架供应合同"
+          },
+          "subtitle": {
+            "zhCN": "GY-2026-001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "framework-meta",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "合同编号"
+              },
+              "value": {
+                "zhCN": "GY-2026-001"
+              }
+            },
+            {
+              "id": "start",
+              "label": {
+                "zhCN": "开始日期"
+              },
+              "value": {
+                "zhCN": "2026-09-01"
+              }
+            },
+            {
+              "id": "end",
+              "label": {
+                "zhCN": "结束日期"
+              },
+              "value": {
+                "zhCN": "2027-08-31"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "framework-parties",
+          "parties": [
+            {
+              "id": "supplier",
+              "role": {
+                "zhCN": "供应商"
+              },
+              "name": {
+                "zhCN": "宁波示例供应有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：宁波市示例路8号"
+                },
+                {
+                  "zhCN": "联系人：周经理"
+                }
+              ]
+            },
+            {
+              "id": "purchaser",
+              "role": {
+                "zhCN": "采购方"
+              },
+              "name": {
+                "zhCN": "杭州示例采购有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：杭州市示例路9号"
+                },
+                {
+                  "zhCN": "联系人：吴经理"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "framework-purpose",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "framework-purpose-text",
+          "text": {
+            "zhCN": "本合同约定持续供应的一般规则；具体交易以依约成立的采购订单为准。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "term",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "term-text",
+          "text": {
+            "zhCN": "2026-09-01至2027-08-31"
+          }
+        }
+      ]
+    },
+    {
+      "id": "catalog-price",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "catalog-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "目录商品"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "参考数量"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "目录单价"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "参考金额"
+              },
+              "width": "25%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "catalog-1",
+              "cells": {
+                "name": {
+                  "zhCN": "标准连接器"
+                },
+                "quantity": {
+                  "zhCN": "10 件"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 50.00"
+                },
+                "amount": {
+                  "zhCN": "CNY 500.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "pricing-method",
+          "text": {
+            "zhCN": "价格机制：目录单价作为订单议价基础；调整触发：主要原材料价格累计变动超过5%；提前30日通知。"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "pricing-tax-mode",
+          "text": {
+            "zhCN": "币种：CNY；计税口径：tax-included"
+          }
+        },
+        {
+          "type": "totals",
+          "id": "catalog-total",
+          "entries": [
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "目录参考合计"
+              },
+              "value": {
+                "zhCN": "CNY 500.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forecast",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "forecast-text",
+          "text": {
+            "zhCN": "每月滚动提供未来三个月预测。预测和目录不当然构成采购义务。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "minimum-or-exclusivity",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "minimum-or-exclusivity-text",
+          "text": {
+            "zhCN": "最低采购：年度最低采购1000件；独家：约定产品范围内独家供应"
+          }
+        }
+      ]
+    },
+    {
+      "id": "orders-priority",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "orders-priority-text",
+          "text": {
+            "zhCN": "订单成立：采购订单经供应商书面确认后成立；审批：双方授权联系人通过订单系统确认；文件优先级：已确认订单优先于目录；本合同优先于订单通用条款"
+          }
+        }
+      ]
+    },
+    {
+      "id": "capacity-inventory",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "capacity-inventory-text",
+          "text": {
+            "zhCN": "MOQ：每批100件；交期：订单确认后20日；产能：供应商保留每月2000件产能；库存：安全库存不少于300件"
+          }
+        }
+      ]
+    },
+    {
+      "id": "delivery-acceptance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "delivery-acceptance-text",
+          "text": {
+            "zhCN": "交付：按订单指定地点交付；验收：到货后五个工作日检验"
+          }
+        }
+      ]
+    },
+    {
+      "id": "reconciliation-payment",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "reconciliation-payment-text",
+          "text": {
+            "zhCN": "对账：自然月对账；发票：对账确认后开具增值税专用发票；结算：收到合格发票后30日付款"
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality-warranty",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-warranty-text",
+          "text": {
+            "zhCN": "质量：符合订单技术规格；质保：验收后十二个月"
+          }
+        }
+      ]
+    },
+    {
+      "id": "continuity",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "continuity-text",
+          "text": {
+            "zhCN": "供应中断风险出现时提前书面通知并提交恢复计划"
+          }
+        }
+      ]
+    },
+    {
+      "id": "change-termination-transition",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "change-termination-transition-text",
+          "text": {
+            "zhCN": "变更：变更须书面确认；终止：重大违约可解除，终止后完成订单交接；过渡：终止后提供三个月合理过渡协助"
+          }
+        }
+      ]
+    },
+    {
+      "id": "general-terms",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "framework-general-list",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "双方对商业秘密保密"
+            },
+            {
+              "zhCN": "及时通知并提供证明"
+            },
+            {
+              "zhCN": "违约方承担实际损失"
+            },
+            {
+              "zhCN": "中华人民共和国法律"
+            },
+            {
+              "zhCN": "按合同登记地址送达"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "order-template",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "order-template-index",
+          "attachmentIds": [
+            "order-template"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "framework-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "供应商"
+              },
+              "name": "宁波示例供应有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "采购方"
+              },
+              "name": "杭州示例采购有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "contract-generation-note"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "order-template",
+      "category": "commercial",
+      "displayName": "采购订单模板.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 2,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import {
   type DocumentModel,
   type StandardGoodsQuoteDraft,
 } from "@opentrad/document-core";
+import { unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { prepareQuotationArtifacts } from "../../project/projectFiles";
 import { buildDocxRenderPlan, DOCX_MIME, renderDocxBlob } from "./renderDocx";
@@ -111,6 +112,24 @@ describe("DOCX DocumentModel renderer", () => {
     expect(blob.size).toBeGreaterThan(2_000);
     expect(Array.from(bytes.slice(0, 2))).toEqual([0x50, 0x4b]);
     expect(JSON.stringify(model)).toBe(before);
+  });
+
+  it("marks page-number fields for update when the document opens", async () => {
+    const blob = await renderDocxBlob(prepareQuotationArtifacts(fullDraft()).model);
+    const entries = unzipSync(await readBlobBytes(blob));
+    const settings = new TextDecoder().decode(entries["word/settings.xml"]);
+
+    expect(settings).toMatch(/<w:updateFields\b/u);
+  });
+
+  it("renders the normalized terms heading and clause numbers", async () => {
+    const blob = await renderDocxBlob(prepareQuotationArtifacts(fullDraft()).model);
+    const entries = unzipSync(await readBlobBytes(blob));
+    const document = new TextDecoder().decode(entries["word/document.xml"]);
+
+    expect(document).toContain("条款与备注");
+    expect(document).toContain("1 交货条款");
+    expect(document).toContain("5 备注");
   });
 
   it("rejects an invalid model before loading the DOCX engine", async () => {

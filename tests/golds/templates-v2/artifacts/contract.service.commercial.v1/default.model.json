@@ -1,0 +1,480 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "commercial-service-gold",
+  "template": {
+    "id": "contract.service.commercial.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "contract",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "商务服务合同"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 16,
+      "right": 18,
+      "bottom": 16,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "service-cover",
+          "title": {
+            "zhCN": "商务服务合同"
+          },
+          "subtitle": {
+            "zhCN": "FW-2026-001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "meta-text",
+          "text": {
+            "zhCN": "合同编号：FW-2026-001；签署日期：2026-08-19"
+          }
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "service-parties",
+          "parties": [
+            {
+              "id": "client",
+              "role": {
+                "zhCN": "客户"
+              },
+              "name": {
+                "zhCN": "北京示例客户有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：北京市示例路1号"
+                },
+                {
+                  "zhCN": "联系人：王经理"
+                }
+              ]
+            },
+            {
+              "id": "provider",
+              "role": {
+                "zhCN": "服务方"
+              },
+              "name": {
+                "zhCN": "上海示例服务有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "注册地址：上海市示例路2号"
+                },
+                {
+                  "zhCN": "联系人：赵经理"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "service-matter",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "service-matter-text",
+          "text": {
+            "zhCN": "类型：specific；事项：供应链流程诊断；范围：访谈、流程梳理与改进方案"
+          }
+        }
+      ]
+    },
+    {
+      "id": "work-requirements",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "work-requirements-text",
+          "text": {
+            "zhCN": "按周汇报并保留工作底稿"
+          }
+        }
+      ]
+    },
+    {
+      "id": "term-location",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "term-location-text",
+          "text": {
+            "zhCN": "2026-09-01至2026-11-30；地点：客户上海办公室及远程"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deliverables-reporting",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "deliverables-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "due",
+              "label": {
+                "zhCN": "到期日"
+              },
+              "width": "20%",
+              "align": "center"
+            },
+            {
+              "id": "standard",
+              "label": {
+                "zhCN": "验收标准"
+              },
+              "width": "45%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "deliverable-1",
+              "cells": {
+                "name": {
+                  "zhCN": "流程诊断报告"
+                },
+                "due": {
+                  "zhCN": "2026-10-15"
+                },
+                "standard": {
+                  "zhCN": "覆盖约定范围并列明证据与建议"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "reporting-method-text",
+          "text": {
+            "zhCN": "汇报方式：每周书面周报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "client-dependencies",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "client-dependencies-text",
+          "text": {
+            "zhCN": "按计划提供资料并安排访谈"
+          }
+        }
+      ]
+    },
+    {
+      "id": "subcontract-parallel-engagement",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "subcontract-parallel-engagement-text",
+          "text": {
+            "zhCN": "转委托：written-consent；平行委托：allowed"
+          }
+        }
+      ]
+    },
+    {
+      "id": "fees-expenses-payment",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "service-fees-table",
+          "columns": [
+            {
+              "id": "service",
+              "label": {
+                "zhCN": "服务"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deliverable",
+              "label": {
+                "zhCN": "交付内容"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "金额"
+              },
+              "width": "15%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "service-1",
+              "cells": {
+                "service": {
+                  "zhCN": "流程诊断服务"
+                },
+                "deliverable": {
+                  "zhCN": "流程诊断报告"
+                },
+                "quantity": {
+                  "zhCN": "10 人日"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 100.00"
+                },
+                "amount": {
+                  "zhCN": "CNY 1,000.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "service-tax-mode-text",
+          "text": {
+            "zhCN": "币种：CNY；计税口径：tax-included"
+          }
+        },
+        {
+          "type": "totals",
+          "id": "service-total",
+          "entries": [
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "服务费合计"
+              },
+              "value": {
+                "zhCN": "CNY 1,000.00"
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "id": "necessary-expenses-text",
+          "text": {
+            "zhCN": "必要费用：经客户事先书面同意的差旅费用据实报销"
+          }
+        },
+        {
+          "type": "list",
+          "id": "service-payment",
+          "ordered": true,
+          "items": [
+            {
+              "zhCN": "合同生效：40.00%，5日内"
+            },
+            {
+              "zhCN": "成果验收：60.00%，10日内"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acceptance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "acceptance-text",
+          "text": {
+            "zhCN": "标准：以交付物验收标准为准；期限：提交后十个工作日；逾期处理：逾期未反馈不当然视为验收，双方另行书面确认"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ip-data-confidentiality",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "ip-data-confidentiality-text",
+          "text": {
+            "zhCN": "知识产权：client；数据：仅在客户授权环境处理业务数据；个人信息：处理目的：完成访谈分析；处理范围：授权联系人信息；保存期限：项目结束后30日；访问控制：仅项目组；删除安排：期限届满删除；事件通知：发现事件后24小时内通知客户。；保密：未经披露方书面同意不得向第三方披露"
+          }
+        }
+      ]
+    },
+    {
+      "id": "agency-third-party",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "agency-third-party-text",
+          "text": {
+            "zhCN": "关系：authorized-agency；第三方权限：权限范围：仅代为预约访谈；授权期限：2026-09-01至2026-11-30"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rights-obligations",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "rights-obligations-text",
+          "text": {
+            "zhCN": "客户应按约提供资料与协助；服务方应按约完成服务并报告影响履约的事项。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "breach",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "breach-text",
+          "text": {
+            "zhCN": "违约方赔偿实际损失"
+          }
+        }
+      ]
+    },
+    {
+      "id": "termination-at-will",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "termination-at-will-text",
+          "text": {
+            "zhCN": "处理：任一方提前十五日书面通知可解除并完成资料交接；补偿：客户结清已完成服务、已承诺不可取消成本及合理撤场费用"
+          }
+        }
+      ]
+    },
+    {
+      "id": "general-terms",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "service-general",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "范围变更须书面确认"
+            },
+            {
+              "zhCN": "及时通知并提供证明"
+            },
+            {
+              "zhCN": "按约解除并完成结算"
+            },
+            {
+              "zhCN": "中华人民共和国法律"
+            },
+            {
+              "zhCN": "以合同所列地址送达"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "service-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "客户"
+              },
+              "name": "北京示例客户有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "服务方"
+              },
+              "name": "上海示例服务有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "contract-generation-note"
+  ],
+  "attachmentManifest": []
+}

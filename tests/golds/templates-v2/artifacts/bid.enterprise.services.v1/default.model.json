@@ -1,0 +1,864 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "bid-enterprise-services-gold",
+  "template": {
+    "id": "bid.enterprise.services.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "bid",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "企业服务采购建议书"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 16,
+      "right": 18,
+      "bottom": 16,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "draft-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "enterprise-services-cover",
+          "title": {
+            "zhCN": "企业服务采购建议书"
+          },
+          "subtitle": {
+            "zhCN": "工业数据平台运维服务项目 · 服务包A"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-baseline",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "enterprise-services-source",
+          "entries": [
+            {
+              "id": "project-number",
+              "label": {
+                "zhCN": "项目编号"
+              },
+              "value": {
+                "zhCN": "EP-SVC-2026-0819"
+              }
+            },
+            {
+              "id": "source-version",
+              "label": {
+                "zhCN": "采购文件版本"
+              },
+              "value": {
+                "zhCN": "企业服务采购文件正式版"
+              }
+            },
+            {
+              "id": "source-file",
+              "label": {
+                "zhCN": "项目采购文件"
+              },
+              "value": {
+                "zhCN": "source-main"
+              }
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "enterprise-services-law-context",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "《招标投标法》仅作为上下文来源；是否适用招标法律规则取决于项目和采购主体。本项目要求仅来自已绑定的企业采购文件及澄清。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "blocks": [
+        {
+          "type": "toc",
+          "id": "enterprise-services-toc",
+          "maxDepth": 2
+        }
+      ]
+    },
+    {
+      "id": "proposal-letter",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "enterprise-services-proposal-letter",
+          "title": {
+            "zhCN": "服务建议书函"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "我方就工业数据平台运维服务项目提交服务建议书，范围、价格和条件以本文件各节及偏差表为准。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "executive-summary",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "executive-summary-text",
+          "text": {
+            "zhCN": "以可量化SLA、明确治理和风险闭环提供工业数据平台运维服务。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "customer-understanding",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "customer-understanding-text",
+          "text": {
+            "zhCN": "客户理解：客户需要连续、可追溯且可审计的平台运维能力。\n目标：保障平台稳定运行并按月交付服务报告。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "scope-text",
+          "text": {
+            "zhCN": "监控、事件响应、问题管理、变更协同和月度报告。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "methodology",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "methodology-text",
+          "text": {
+            "zhCN": "采用事件、问题、变更和持续改进闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deliverables",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-deliverables",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "due",
+              "label": {
+                "zhCN": "日期"
+              },
+              "width": "20%",
+              "align": "center"
+            },
+            {
+              "id": "acceptance",
+              "label": {
+                "zhCN": "验收标准"
+              },
+              "width": "45%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "deliverable-1",
+              "cells": {
+                "name": {
+                  "zhCN": "月度运维报告"
+                },
+                "due": {
+                  "zhCN": "2026-10-31"
+                },
+                "acceptance": {
+                  "zhCN": "指标完整且数据可追溯"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "schedule",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-milestones",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "里程碑"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "date",
+              "label": {
+                "zhCN": "日期"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "dependency",
+              "label": {
+                "zhCN": "依赖"
+              },
+              "width": "40%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "milestone-1",
+              "cells": {
+                "name": {
+                  "zhCN": "服务启动"
+                },
+                "date": {
+                  "zhCN": "2026-10-01"
+                },
+                "dependency": {
+                  "zhCN": "采购人提供账号和系统资料"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "team-governance",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-team",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "姓名"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "role",
+              "label": {
+                "zhCN": "角色"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "qualification",
+              "label": {
+                "zhCN": "资格"
+              },
+              "width": "27%",
+              "align": "left"
+            },
+            {
+              "id": "experience",
+              "label": {
+                "zhCN": "经历"
+              },
+              "width": "27%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "确认"
+              },
+              "width": "10%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "staff-1",
+              "cells": {
+                "name": {
+                  "zhCN": "赵示例"
+                },
+                "role": {
+                  "zhCN": "服务经理"
+                },
+                "qualification": {
+                  "zhCN": "用户提供的服务管理资质信息"
+                },
+                "experience": {
+                  "zhCN": "用户提供的平台运维经历"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "enterprise-service-governance",
+          "text": {
+            "zhCN": "治理：设立月度服务委员会，明确决策与升级路径。\n沟通：周报、月报和重大事件即时通报。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sla-quality",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-sla",
+          "columns": [
+            {
+              "id": "metric",
+              "label": {
+                "zhCN": "指标"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "target",
+              "label": {
+                "zhCN": "目标"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "measurement",
+              "label": {
+                "zhCN": "测量"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "remedy",
+              "label": {
+                "zhCN": "处置"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "sla-1",
+              "cells": {
+                "metric": {
+                  "zhCN": "月度可用性"
+                },
+                "target": {
+                  "zhCN": "不低于99.9%"
+                },
+                "measurement": {
+                  "zhCN": "监控平台月度统计"
+                },
+                "remedy": {
+                  "zhCN": "按采购文件约定处理"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "enterprise-service-quality",
+          "text": {
+            "zhCN": "每月复盘指标、问题和纠正措施。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "security-privacy",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "security-privacy-text",
+          "text": {
+            "zhCN": "按采购文件执行访问控制、日志留存与最小必要的数据处理。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "assumptions-dependencies-exclusions",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "enterprise-service-assumptions",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "假设：采购人按计划提供必要账号"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "id": "enterprise-service-dependencies",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "依赖：采购人确认变更窗口"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "id": "enterprise-service-exclusions",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "排除项：未列入采购文件的系统改造"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commercial-offer",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-price",
+          "columns": [
+            {
+              "id": "service",
+              "label": {
+                "zhCN": "服务"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "deliverable",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "重算金额"
+              },
+              "width": "15%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "service-1",
+              "cells": {
+                "service": {
+                  "zhCN": "工业数据平台运维服务"
+                },
+                "deliverable": {
+                  "zhCN": "月度运维报告"
+                },
+                "quantity": {
+                  "zhCN": "1 项"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 9,000.00"
+                },
+                "total": {
+                  "zhCN": "CNY 9,000.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "totals",
+          "id": "enterprise-service-price-total",
+          "entries": [
+            {
+              "id": "declared",
+              "label": {
+                "zhCN": "报价声明"
+              },
+              "value": {
+                "zhCN": "CNY 9,000.00"
+              }
+            },
+            {
+              "id": "calculated",
+              "label": {
+                "zhCN": "服务明细重算"
+              },
+              "value": {
+                "zhCN": "CNY 9,000.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cases",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-cases",
+          "columns": [
+            {
+              "id": "project",
+              "label": {
+                "zhCN": "案例"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "customer",
+              "label": {
+                "zhCN": "客户"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "scope",
+              "label": {
+                "zhCN": "范围"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "15%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "case-1",
+              "cells": {
+                "project": {
+                  "zhCN": "用户提供的数据平台运维案例"
+                },
+                "customer": {
+                  "zhCN": "示例客户有限公司"
+                },
+                "scope": {
+                  "zhCN": "平台监控、事件响应与月度服务报告"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "risks",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-risks",
+          "columns": [
+            {
+              "id": "risk",
+              "label": {
+                "zhCN": "风险"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "probability",
+              "label": {
+                "zhCN": "概率"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "impact",
+              "label": {
+                "zhCN": "影响"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "mitigation",
+              "label": {
+                "zhCN": "缓解措施"
+              },
+              "width": "33%",
+              "align": "left"
+            },
+            {
+              "id": "owner",
+              "label": {
+                "zhCN": "责任人"
+              },
+              "width": "15%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "risk-1",
+              "cells": {
+                "risk": {
+                  "zhCN": "关键账号未按计划开通"
+                },
+                "probability": {
+                  "zhCN": "medium"
+                },
+                "impact": {
+                  "zhCN": "high"
+                },
+                "mitigation": {
+                  "zhCN": "提前核对账号清单并设置升级路径"
+                },
+                "owner": {
+                  "zhCN": "服务经理"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "deviations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-service-deviations",
+          "columns": [
+            {
+              "id": "type",
+              "label": {
+                "zhCN": "类型"
+              },
+              "width": "15%",
+              "align": "center"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "enterprise-services-attachments",
+          "attachmentIds": [
+            "proof-license",
+            "proof-case"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checklist",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "enterprise-services-checklist",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "服务建议书电子签章：已确认"
+            },
+            {
+              "zhCN": "合同偏差：无"
+            },
+            {
+              "zhCN": "导出状态：submission-ready。submission-ready 不等于已签名、已上传或已由采购人认定合规。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "enterprise-services-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "供应商授权代表"
+              },
+              "name": "张示例",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "供应商盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "bid-authority"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-case",
+      "category": "commercial",
+      "displayName": "案例证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 5,
+      "required": false,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

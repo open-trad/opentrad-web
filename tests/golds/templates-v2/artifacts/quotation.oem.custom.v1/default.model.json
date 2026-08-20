@@ -1,0 +1,629 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "oem-custom-fixture",
+  "template": {
+    "id": "quotation.oem.custom.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "quotation",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "OEM 定制报价单"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 16,
+      "bottom": 18,
+      "left": 16
+    }
+  },
+  "sections": [
+    {
+      "id": "title",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "oem-title-cover",
+          "title": {
+            "zhCN": "OEM 定制报价单"
+          },
+          "subtitle": {
+            "zhCN": "智能控制器定制"
+          }
+        }
+      ]
+    },
+    {
+      "id": "quote-meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-meta-grid",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "报价编号"
+              },
+              "value": {
+                "zhCN": "OEM-20260819-001"
+              }
+            },
+            {
+              "id": "issue",
+              "label": {
+                "zhCN": "报价日期"
+              },
+              "value": {
+                "zhCN": "2026-08-19"
+              }
+            },
+            {
+              "id": "valid",
+              "label": {
+                "zhCN": "有效期至"
+              },
+              "value": {
+                "zhCN": "2026-09-18"
+              }
+            },
+            {
+              "id": "currency",
+              "label": {
+                "zhCN": "币种"
+              },
+              "value": {
+                "zhCN": "CNY"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "oem-parties-block",
+          "parties": [
+            {
+              "id": "seller",
+              "role": {
+                "zhCN": "报价方",
+                "enUS": "Seller"
+              },
+              "name": {
+                "zhCN": "开源制造有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "联系人：张三"
+                }
+              ]
+            },
+            {
+              "id": "buyer",
+              "role": {
+                "zhCN": "客户",
+                "enUS": "Buyer"
+              },
+              "name": {
+                "zhCN": "示例品牌有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "联系人：李四"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oem-basis",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-basis-grid",
+          "entries": [
+            {
+              "id": "project",
+              "label": {
+                "zhCN": "项目名称"
+              },
+              "value": {
+                "zhCN": "智能控制器定制"
+              }
+            },
+            {
+              "id": "product",
+              "label": {
+                "zhCN": "产品名称"
+              },
+              "value": {
+                "zhCN": "智能控制器"
+              }
+            },
+            {
+              "id": "model",
+              "label": {
+                "zhCN": "客户型号"
+              },
+              "value": {
+                "zhCN": "BUYER-X1"
+              }
+            },
+            {
+              "id": "forecast",
+              "label": {
+                "zhCN": "年度预测"
+              },
+              "value": {
+                "zhCN": "预计 12000 件，不构成采购承诺"
+              }
+            },
+            {
+              "id": "moq",
+              "label": {
+                "zhCN": "最小起订量"
+              },
+              "value": {
+                "zhCN": "1000 件"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "technical-basis",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-technical-grid",
+          "entries": [
+            {
+              "id": "drawing",
+              "label": {
+                "zhCN": "图纸版本"
+              },
+              "value": {
+                "zhCN": "DWG-R3"
+              }
+            },
+            {
+              "id": "sample",
+              "label": {
+                "zhCN": "样品依据"
+              },
+              "value": {
+                "zhCN": "经双方确认的金样"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "charge-lines",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "oem-charge-table",
+          "columns": [
+            {
+              "id": "type",
+              "label": {
+                "zhCN": "费用类型"
+              },
+              "width": "16%",
+              "align": "left"
+            },
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "名称"
+              },
+              "width": "24%",
+              "align": "left"
+            },
+            {
+              "id": "spec",
+              "label": {
+                "zhCN": "规格"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "12%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "含税合计"
+              },
+              "width": "14%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "unit-product",
+              "cells": {
+                "type": {
+                  "zhCN": "unit-product"
+                },
+                "name": {
+                  "zhCN": "量产产品"
+                },
+                "spec": {
+                  "zhCN": "按 DWG-R3"
+                },
+                "quantity": {
+                  "zhCN": "10 件"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 50.00"
+                },
+                "total": {
+                  "zhCN": "CNY 565.00"
+                }
+              }
+            },
+            {
+              "id": "tooling",
+              "cells": {
+                "type": {
+                  "zhCN": "tooling"
+                },
+                "name": {
+                  "zhCN": "专用测试治具"
+                },
+                "spec": {
+                  "zhCN": "未提供"
+                },
+                "quantity": {
+                  "zhCN": "1 套"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 1,000.00"
+                },
+                "total": {
+                  "zhCN": "CNY 1,130.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "totals",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "oem-totals",
+          "entries": [
+            {
+              "id": "subtotal",
+              "label": {
+                "zhCN": "未税小计"
+              },
+              "value": {
+                "zhCN": "CNY 1,500.00"
+              }
+            },
+            {
+              "id": "tax",
+              "label": {
+                "zhCN": "税额"
+              },
+              "value": {
+                "zhCN": "CNY 195.00"
+              }
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "报价总额"
+              },
+              "value": {
+                "zhCN": "CNY 1,695.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sample-and-leadtime",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-sample-grid",
+          "entries": [
+            {
+              "id": "approval",
+              "label": {
+                "zhCN": "样品确认"
+              },
+              "value": {
+                "zhCN": "买方书面签样后进入量产"
+              }
+            },
+            {
+              "id": "prototype",
+              "label": {
+                "zhCN": "试制周期"
+              },
+              "value": {
+                "zhCN": "收到资料与款项后 15 个工作日"
+              }
+            },
+            {
+              "id": "production",
+              "label": {
+                "zhCN": "量产周期"
+              },
+              "value": {
+                "zhCN": "签样后 30 个工作日"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tooling",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-tooling-grid",
+          "entries": [
+            {
+              "id": "required",
+              "label": {
+                "zhCN": "需要模具/工装"
+              },
+              "value": {
+                "zhCN": "是"
+              }
+            },
+            {
+              "id": "ownership",
+              "label": {
+                "zhCN": "模具/NRE 归属"
+              },
+              "value": {
+                "zhCN": "买方付清模具费后享有专用治具所有权"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "materials",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-material-grid",
+          "entries": [
+            {
+              "id": "supplied",
+              "label": {
+                "zhCN": "买方来料"
+              },
+              "value": {
+                "zhCN": "是"
+              }
+            },
+            {
+              "id": "receipt-return",
+              "label": {
+                "zhCN": "收料与退料"
+              },
+              "value": {
+                "zhCN": "买方来料按交接单验收，余料和不良料按月清点退回"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality-acceptance",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-quality-grid",
+          "entries": [
+            {
+              "id": "standard",
+              "label": {
+                "zhCN": "质量标准"
+              },
+              "value": {
+                "zhCN": "按双方确认图纸与检验规范"
+              }
+            },
+            {
+              "id": "acceptance",
+              "label": {
+                "zhCN": "验收"
+              },
+              "value": {
+                "zhCN": "到货后十个工作日内完成检验并书面提出异议"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "change-ip-confidentiality",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-rights-grid",
+          "entries": [
+            {
+              "id": "change",
+              "label": {
+                "zhCN": "工程变更"
+              },
+              "value": {
+                "zhCN": "任何工程变更须双方书面确认价格、库存与交期影响"
+              }
+            },
+            {
+              "id": "ip",
+              "label": {
+                "zhCN": "知识产权"
+              },
+              "value": {
+                "zhCN": "背景知识产权归原权利人，新产生成果按书面协议约定"
+              }
+            },
+            {
+              "id": "confidentiality",
+              "label": {
+                "zhCN": "保密"
+              },
+              "value": {
+                "zhCN": "双方对图纸、样品与商务信息保密"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delivery-payment-warranty",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "oem-commercial-grid",
+          "entries": [
+            {
+              "id": "packaging",
+              "label": {
+                "zhCN": "包装"
+              },
+              "value": {
+                "zhCN": "防静电独立包装，外箱标注批次"
+              }
+            },
+            {
+              "id": "delivery",
+              "label": {
+                "zhCN": "交付"
+              },
+              "value": {
+                "zhCN": "买方指定仓库"
+              }
+            },
+            {
+              "id": "payment",
+              "label": {
+                "zhCN": "付款"
+              },
+              "value": {
+                "zhCN": "下单付 30%，发货前付清余款"
+              }
+            },
+            {
+              "id": "warranty",
+              "label": {
+                "zhCN": "质保"
+              },
+              "value": {
+                "zhCN": "验收合格后十二个月"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quote-notice",
+      "blocks": [
+        {
+          "type": "notice",
+          "id": "oem-notice",
+          "tone": "info",
+          "paragraphs": [
+            {
+              "zhCN": "量产数量以正式订单为准"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signature",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "oem-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "报价方"
+              },
+              "name": "开源制造有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "客户确认"
+              },
+              "name": "示例品牌有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "quotation-non-advice"
+  ],
+  "attachmentManifest": []
+}

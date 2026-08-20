@@ -12,6 +12,9 @@
     "indentStyle": "space",
     "lineWidth": 100
   },
+  "files": {
+    "includes": ["**", "!tests/golds/templates-v2/artifacts"]
+  },
   "linter": {
     "enabled": true,
     "rules": {

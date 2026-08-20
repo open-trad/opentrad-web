@@ -1,0 +1,590 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "export-bilingual-fixture",
+  "template": {
+    "id": "quotation.export.bilingual.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "quotation",
+  "language": "zh-en",
+  "title": {
+    "zhCN": "双语出口报价单",
+    "enUS": "Bilingual Export Quotation"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 14,
+      "right": 12,
+      "bottom": 14,
+      "left": 12
+    }
+  },
+  "sections": [
+    {
+      "id": "bilingual-title",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "export-title-cover",
+          "title": {
+            "zhCN": "双语出口报价单",
+            "enUS": "Bilingual Export Quotation"
+          },
+          "subtitle": {
+            "zhCN": "出口报价",
+            "enUS": "EXPORT QUOTATION"
+          }
+        }
+      ]
+    },
+    {
+      "id": "quote-meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-meta-grid",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "报价编号",
+                "enUS": "Quotation No."
+              },
+              "value": {
+                "zhCN": "EXP-20260819-001",
+                "enUS": "EXP-20260819-001"
+              }
+            },
+            {
+              "id": "issue",
+              "label": {
+                "zhCN": "报价日期",
+                "enUS": "Issue Date"
+              },
+              "value": {
+                "zhCN": "2026-08-19",
+                "enUS": "2026-08-19"
+              }
+            },
+            {
+              "id": "valid",
+              "label": {
+                "zhCN": "有效期至",
+                "enUS": "Valid Until"
+              },
+              "value": {
+                "zhCN": "2026-09-18",
+                "enUS": "2026-09-18"
+              }
+            },
+            {
+              "id": "currency",
+              "label": {
+                "zhCN": "币种",
+                "enUS": "Currency"
+              },
+              "value": {
+                "zhCN": "美元",
+                "enUS": "USD"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bilingual-parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "export-parties",
+          "parties": [
+            {
+              "id": "seller",
+              "role": {
+                "zhCN": "卖方",
+                "enUS": "Seller"
+              },
+              "name": {
+                "zhCN": "开源出口有限公司",
+                "enUS": "OpenTrad Export Co., Ltd."
+              },
+              "details": [
+                {
+                  "zhCN": "中国上海市示例路1号",
+                  "enUS": "1 Example Road, Shanghai, China"
+                },
+                {
+                  "zhCN": "张三",
+                  "enUS": "Sam Zhang"
+                }
+              ]
+            },
+            {
+              "id": "buyer",
+              "role": {
+                "zhCN": "买方",
+                "enUS": "Buyer"
+              },
+              "name": {
+                "zhCN": "示例进口有限公司",
+                "enUS": "Example Import Ltd."
+              },
+              "details": [
+                {
+                  "zhCN": "美国加州示例街2号",
+                  "enUS": "2 Example Street, California, USA"
+                },
+                {
+                  "zhCN": "李四",
+                  "enUS": "Alex Lee"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goods-table",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "export-goods-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "货品",
+                "enUS": "Goods"
+              },
+              "width": "27%",
+              "align": "left"
+            },
+            {
+              "id": "spec",
+              "label": {
+                "zhCN": "规格",
+                "enUS": "Specification"
+              },
+              "width": "23%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量",
+                "enUS": "Quantity"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价",
+                "enUS": "Unit Price"
+              },
+              "width": "17%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "金额",
+                "enUS": "Amount"
+              },
+              "width": "18%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "goods-1",
+              "cells": {
+                "name": {
+                  "zhCN": "精密连接器",
+                  "enUS": "Precision Connector"
+                },
+                "spec": {
+                  "zhCN": "型号 PC-01",
+                  "enUS": "Model PC-01"
+                },
+                "quantity": {
+                  "zhCN": "2.5 件",
+                  "enUS": "2.5 pcs"
+                },
+                "unitPrice": {
+                  "zhCN": "USD 100.00",
+                  "enUS": "USD 100.00"
+                },
+                "total": {
+                  "zhCN": "USD 250.00",
+                  "enUS": "USD 250.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "totals",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "export-totals",
+          "entries": [
+            {
+              "id": "subtotal",
+              "label": {
+                "zhCN": "小计",
+                "enUS": "Subtotal"
+              },
+              "value": {
+                "zhCN": "USD 250.00",
+                "enUS": "USD 250.00"
+              }
+            },
+            {
+              "id": "tax",
+              "label": {
+                "zhCN": "税额",
+                "enUS": "Tax"
+              },
+              "value": {
+                "zhCN": "USD 0.00",
+                "enUS": "USD 0.00"
+              }
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "总额",
+                "enUS": "Total"
+              },
+              "value": {
+                "zhCN": "USD 250.00",
+                "enUS": "USD 250.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trade-term",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-trade-grid",
+          "entries": [
+            {
+              "id": "rule",
+              "label": {
+                "zhCN": "贸易术语",
+                "enUS": "Trade Term"
+              },
+              "value": {
+                "zhCN": "CIF",
+                "enUS": "CIF"
+              }
+            },
+            {
+              "id": "place",
+              "label": {
+                "zhCN": "指定地点",
+                "enUS": "Named Place"
+              },
+              "value": {
+                "zhCN": "美国洛杉矶港",
+                "enUS": "Port of Los Angeles, USA"
+              }
+            },
+            {
+              "id": "edition",
+              "label": {
+                "zhCN": "版本",
+                "enUS": "Edition"
+              },
+              "value": {
+                "zhCN": "Incoterms 2020",
+                "enUS": "Incoterms 2020"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "transport-shipment",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-transport-grid",
+          "entries": [
+            {
+              "id": "mode",
+              "label": {
+                "zhCN": "运输方式",
+                "enUS": "Transport Mode"
+              },
+              "value": {
+                "zhCN": "sea",
+                "enUS": "sea"
+              }
+            },
+            {
+              "id": "origin",
+              "label": {
+                "zhCN": "原产国",
+                "enUS": "Origin Country"
+              },
+              "value": {
+                "zhCN": "中国",
+                "enUS": "China"
+              }
+            },
+            {
+              "id": "destination",
+              "label": {
+                "zhCN": "目的国",
+                "enUS": "Destination Country"
+              },
+              "value": {
+                "zhCN": "美国",
+                "enUS": "United States"
+              }
+            },
+            {
+              "id": "window",
+              "label": {
+                "zhCN": "装运期",
+                "enUS": "Shipment Window"
+              },
+              "value": {
+                "zhCN": "收到预付款后30日内",
+                "enUS": "Within 30 days after receipt of advance payment"
+              }
+            },
+            {
+              "id": "partial-shipment",
+              "label": {
+                "zhCN": "分批装运",
+                "enUS": "Partial Shipment"
+              },
+              "value": {
+                "zhCN": "不允许",
+                "enUS": "Not allowed"
+              }
+            },
+            {
+              "id": "transshipment",
+              "label": {
+                "zhCN": "转运",
+                "enUS": "Transshipment"
+              },
+              "value": {
+                "zhCN": "允许",
+                "enUS": "Allowed"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "packaging-inspection",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-packaging-grid",
+          "entries": [
+            {
+              "id": "packaging",
+              "label": {
+                "zhCN": "出口包装",
+                "enUS": "Export Packaging"
+              },
+              "value": {
+                "zhCN": "适合海运的出口纸箱",
+                "enUS": "Seaworthy export cartons"
+              }
+            },
+            {
+              "id": "inspection",
+              "label": {
+                "zhCN": "检验",
+                "enUS": "Inspection"
+              },
+              "value": {
+                "zhCN": "装运前按约定规格检验",
+                "enUS": "Pre-shipment inspection against agreed specifications"
+              }
+            },
+            {
+              "id": "insurance",
+              "label": {
+                "zhCN": "保险",
+                "enUS": "Insurance"
+              },
+              "value": {
+                "zhCN": "卖方按发票金额110%投保海运险",
+                "enUS": "Seller to insure at 110% of invoice value"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "payment-bank-charges",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-payment-grid",
+          "entries": [
+            {
+              "id": "payment",
+              "label": {
+                "zhCN": "付款方式",
+                "enUS": "Payment Method"
+              },
+              "value": {
+                "zhCN": "电汇，30%预付，余款发货前付清",
+                "enUS": "T/T, 30% advance and balance before shipment"
+              }
+            },
+            {
+              "id": "charges",
+              "label": {
+                "zhCN": "银行费用",
+                "enUS": "Bank Charges"
+              },
+              "value": {
+                "zhCN": "境外银行费用由买方承担",
+                "enUS": "Overseas bank charges for buyer's account"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "document-list",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "export-documents",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "商业发票",
+              "enUS": "Commercial invoice"
+            },
+            {
+              "zhCN": "装箱单",
+              "enUS": "Packing list"
+            },
+            {
+              "zhCN": "提单",
+              "enUS": "Bill of lading"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "language-priority",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "export-language-grid",
+          "entries": [
+            {
+              "id": "priority",
+              "label": {
+                "zhCN": "语言优先",
+                "enUS": "Language Priority"
+              },
+              "value": {
+                "zhCN": "en-US",
+                "enUS": "en-US"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "incoterms-notice",
+      "blocks": [
+        {
+          "type": "notice",
+          "id": "export-incoterms-notice",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "Incoterms 2020 仅分配交付、风险、费用与相关义务；付款、所有权、违约救济、适用法律和争议解决不在规则范围内。",
+              "enUS": "Incoterms 2020 allocates delivery, risk, costs and related obligations only; it does not govern payment, title, remedies, governing law or dispute resolution."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signature",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "export-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "卖方",
+                "enUS": "Seller"
+              },
+              "name": "OpenTrad Export Co., Ltd.",
+              "dateLabel": {
+                "zhCN": "日期",
+                "enUS": "Date"
+              },
+              "sealLabel": {
+                "zhCN": "盖章",
+                "enUS": "Seal"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "买方确认",
+                "enUS": "Buyer Acknowledgement"
+              },
+              "name": "Example Import Ltd.",
+              "dateLabel": {
+                "zhCN": "日期",
+                "enUS": "Date"
+              },
+              "sealLabel": {
+                "zhCN": "盖章",
+                "enUS": "Seal"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "international-choice-warning"
+  ],
+  "attachmentManifest": []
+}

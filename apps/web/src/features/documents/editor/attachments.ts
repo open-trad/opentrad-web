@@ -116,9 +116,7 @@ function removeAttachmentReference(
     ) as v2.ProjectDraftV2;
   }
   if (current !== attachmentId) fail("附件字段未引用该附件");
-  return (
-    field.required ? setDraftField(draft, path, "") : deleteDraftField(draft, path)
-  ) as v2.ProjectDraftV2;
+  return deleteDraftField(draft, path) as v2.ProjectDraftV2;
 }
 
 function parsedEnvelope(

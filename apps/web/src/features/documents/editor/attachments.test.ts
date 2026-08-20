@@ -168,6 +168,42 @@ describe("editor attachment transactions", () => {
     expect(added.envelope.attachmentManifest).toHaveLength(1);
   });
 
+  it("removes a required scalar bid-source attachment back to its valid unbound state", async () => {
+    const templateId = "bid.government.goods.v1";
+    const current = registration(templateId);
+    const field = attachmentField(
+      templateId,
+      "source.versionEvidence.mainSolicitationAttachmentId",
+    );
+    const added = await prepareAttachmentAddition({
+      registration: current,
+      envelope: envelopeFor(templateId),
+      field,
+      path: field.path,
+      attachmentId: "source-main",
+      displayName: "项目招标文件.png",
+      blob: pngBlob(),
+      pageCount: 1,
+      documentKind: "bid",
+      savedAt: NOW,
+      existingRecords: [],
+    });
+
+    const removed = prepareAttachmentRemoval({
+      registration: current,
+      envelope: added.envelope,
+      field,
+      path: field.path,
+      attachmentId: "source-main",
+    });
+
+    expect(
+      getDraftField(removed.envelope.draft, "source.versionEvidence.mainSolicitationAttachmentId"),
+    ).toBeUndefined();
+    expect(getDraftField(removed.envelope.draft, "attachments")).toEqual([]);
+    expect(removed.envelope.attachmentManifest).toEqual([]);
+  });
+
   it("rejects unsupported media, unconfirmed PDF pages, item overflow, and unsafe ids before a commit", async () => {
     const templateId = "contract.supply.framework.v1";
     const base = {

@@ -362,9 +362,24 @@ async function renderDocxPlan(plan: DocxRenderPlan): Promise<Blob> {
         break;
       }
       case "terms":
-        for (const entry of block.entries) {
+        children.push(
+          paragraph("条款与备注", {
+            bold: true,
+            color: "2F6D5D",
+            size: 24,
+            keepNext: true,
+            before: 80,
+            after: 60,
+          }),
+        );
+        for (const [index, entry] of block.entries.entries()) {
           children.push(
-            paragraph(entry.label, { bold: true, color: "2F6D5D", keepNext: true, after: 40 }),
+            paragraph(`${index + 1} ${entry.label}`, {
+              bold: true,
+              color: "2F6D5D",
+              keepNext: true,
+              after: 40,
+            }),
             paragraph(entry.value, { after: 100 }),
           );
         }
@@ -423,6 +438,7 @@ async function renderDocxPlan(plan: DocxRenderPlan): Promise<Blob> {
     creator: "OpenTrad",
     title: "标准货物报价单",
     description: "由 OpenTrad 在浏览器本地生成的报价单",
+    features: { updateFields: true },
     styles: {
       default: {
         document: {

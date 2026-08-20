@@ -114,10 +114,13 @@ function nodeContent(node: DocumentNode): Content {
     case "terms":
       return {
         margin: [0, 0, 0, 8],
-        stack: node.entries.flatMap((entry) => [
-          { text: entry.label, bold: true, color: GREEN, margin: [0, 4, 0, 2] },
-          { text: entry.value, color: INK, margin: [0, 0, 0, 3] },
-        ]),
+        stack: [
+          { text: "条款与备注", style: "sectionHeading" },
+          ...node.entries.flatMap<Content>((entry, index) => [
+            { text: `${index + 1} ${entry.label}`, bold: true, color: GREEN, margin: [0, 4, 0, 2] },
+            { text: entry.value, color: INK, margin: [0, 0, 0, 3] },
+          ]),
+        ],
       };
     case "notice":
       return {
