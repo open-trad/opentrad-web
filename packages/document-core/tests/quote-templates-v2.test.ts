@@ -41,6 +41,22 @@ const OEM_SECTIONS = [
   "signature",
 ] as const;
 
+const EXPORT_SECTIONS = [
+  "bilingual-title",
+  "quote-meta",
+  "bilingual-parties",
+  "goods-table",
+  "totals",
+  "trade-term",
+  "transport-shipment",
+  "packaging-inspection",
+  "payment-bank-charges",
+  "document-list",
+  "language-priority",
+  "incoterms-notice",
+  "signature",
+] as const;
+
 function fixture(name: string): unknown {
   return JSON.parse(
     readFileSync(fileURLToPath(new URL(`./fixtures/v2/${name}.json`, import.meta.url)), "utf8"),
@@ -303,5 +319,125 @@ describe("quotation.oem.custom.v1", () => {
     expect(registration.preflight(draft).some((finding) => finding.impact === "watermark")).toBe(
       true,
     );
+  });
+});
+
+describe("quotation.export.bilingual.v1", () => {
+  it("locks zh-en, USD and international layout and compiles thirteen stable sections", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.export.bilingual.v1", "1.0.0");
+    const draft = registration.parseDraft(fixture("quotation-export-bilingual"));
+    const model = DocumentModelV2Schema.parse(registration.compile(draft));
+    expect(registration.definition).toMatchObject({
+      id: "quotation.export.bilingual.v1",
+      version: "1.0.0",
+      basisDate: "2026-08-19",
+      defaultLanguage: "zh-en",
+      defaultLayout: "international-compact.v1",
+      supportedOutputs: ["docx", "pdf", "json", "opentrad"],
+    });
+    expect(model.language).toBe("zh-en");
+    expect(model.sections.map((section) => section.id)).toEqual(EXPORT_SECTIONS);
+    expect(model.sections.some((section) => section.id === "disclaimer")).toBe(false);
+    expect(model.disclaimers).toEqual(["international-choice-warning"]);
+    expect(JSON.stringify(model)).toContain("USD 250.00");
+    expect(JSON.stringify(model)).toContain("Incoterms 2020");
+  });
+
+  it("requires authored English for parties, items and every commercial term", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.export.bilingual.v1", "1.0.0");
+    const base = fixture("quotation-export-bilingual") as Record<string, unknown>;
+    const seller = base.seller as Record<string, unknown>;
+    const legalName = seller.legalName as Record<string, unknown>;
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        seller: { ...seller, legalName: { zhCN: legalName.zhCN } },
+      }),
+    ).toThrow();
+    const trade = base.trade as Record<string, unknown>;
+    const payment = trade.paymentMethod as Record<string, unknown>;
+    expect(() =>
+      registration.parseDraft({
+        ...base,
+        trade: { ...trade, paymentMethod: { zhCN: payment.zhCN } },
+      }),
+    ).toThrow();
+    expect(() => registration.compile({ ...base, unexpected: true })).toThrow();
+  });
+
+  it("emits exact insurance, sea-mode, port, HS and language-priority findings", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.export.bilingual.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-export-bilingual")) as Record<
+      string,
+      unknown
+    >;
+    const trade = base.trade as Record<string, unknown>;
+    const risky = {
+      ...base,
+      trade: {
+        ...trade,
+        transportMode: "air",
+        portOfLoading: undefined,
+        portOfDischarge: undefined,
+        insuranceArrangement: undefined,
+        languagePriority: undefined,
+      },
+    };
+    const findings = registration.preflight(risky);
+    expect(findings.map((finding) => [finding.code, finding.impact])).toEqual([
+      ["INCOTERMS_CIF_CIP_INSURANCE_MISSING", "blockSubmission"],
+      ["INCOTERMS_SEA_MODE_REQUIRED", "blockSubmission"],
+      ["INCOTERMS_PORT_MISSING", "blockSubmission"],
+      ["HS_CODE_USER_SUPPLIED_UNVERIFIED", "advisory"],
+      ["LANGUAGE_PRIORITY_MISSING", "blockSubmission"],
+    ]);
+    expect(findings.every(Object.isFrozen)).toBe(true);
+    const model = DocumentModelV2Schema.parse(registration.compile(risky));
+    expect(model.watermarks.map((watermark) => watermark.id)).toEqual(["review-required"]);
+  });
+
+  it("advises EXW/DDP without choosing either rule and never derives customs or tax", () => {
+    const registration = V2_TEMPLATE_REGISTRY.get("quotation.export.bilingual.v1", "1.0.0");
+    const base = registration.parseDraft(fixture("quotation-export-bilingual")) as Record<
+      string,
+      unknown
+    >;
+    const trade = base.trade as Record<string, unknown>;
+    expect(
+      registration
+        .preflight({ ...base, trade: { ...trade, incotermsRule: "EXW" } })
+        .map((finding) => finding.code),
+    ).toContain("INCOTERMS_EXW_CLEARANCE_ADVISORY");
+    expect(
+      registration
+        .preflight({ ...base, trade: { ...trade, incotermsRule: "DDP" } })
+        .map((finding) => finding.code),
+    ).toContain("INCOTERMS_DDP_IMPORT_ADVISORY");
+
+    const created = registration.createDraft({
+      id: "export-created",
+      now: "2026-08-19T00:00:00Z",
+    });
+    const parsed = registration.parseDraft(created) as {
+      meta: Record<string, unknown>;
+      trade: Record<string, unknown>;
+    };
+    expect(parsed.meta).toMatchObject({
+      currency: "USD",
+      language: "zh-en",
+      layoutStyleId: "international-compact.v1",
+    });
+    expect(parsed.trade.incotermsRule).toBeUndefined();
+    expect(parsed.trade.namedPlace).toBeUndefined();
+    expect(parsed.trade.languagePriority).toBeUndefined();
+    expect(
+      registration.preflight(created).map((finding) => [finding.code, finding.impact]),
+    ).toEqual(
+      expect.arrayContaining([
+        ["INCOTERMS_SELECTION_MISSING", "blockSubmission"],
+        ["LANGUAGE_PRIORITY_MISSING", "blockSubmission"],
+      ]),
+    );
+    expect(JSON.stringify(created)).not.toMatch(/derivedTax|verifiedHs|translated/);
   });
 });

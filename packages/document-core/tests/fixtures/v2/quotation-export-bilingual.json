@@ -1,0 +1,98 @@
+{
+  "id": "export-bilingual-fixture",
+  "templateId": "quotation.export.bilingual.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "number": "EXP-20260819-001",
+    "title": "双语出口报价单",
+    "englishTitle": "Bilingual Export Quotation",
+    "issueDate": "2026-08-19",
+    "validUntil": "2026-09-18",
+    "currency": "USD",
+    "taxMode": "tax-exempt",
+    "quoteNature": "binding-offer",
+    "language": "zh-en",
+    "layoutStyleId": "international-compact.v1"
+  },
+  "seller": {
+    "legalName": { "zhCN": "开源出口有限公司", "enUS": "OpenTrad Export Co., Ltd." },
+    "entityType": "company",
+    "registeredAddress": {
+      "zhCN": "中国上海市示例路1号",
+      "enUS": "1 Example Road, Shanghai, China"
+    },
+    "contactName": { "zhCN": "张三", "enUS": "Sam Zhang" },
+    "email": "sales@example.invalid"
+  },
+  "buyer": {
+    "legalName": { "zhCN": "示例进口有限公司", "enUS": "Example Import Ltd." },
+    "entityType": "company",
+    "registeredAddress": {
+      "zhCN": "美国加州示例街2号",
+      "enUS": "2 Example Street, California, USA"
+    },
+    "contactName": { "zhCN": "李四", "enUS": "Alex Lee" },
+    "email": "buyer@example.invalid"
+  },
+  "buyerReference": { "zhCN": "买方询价 RFQ-88", "enUS": "Buyer RFQ-88" },
+  "goodsLines": [
+    {
+      "id": "goods-1",
+      "name": { "zhCN": "精密连接器", "enUS": "Precision Connector" },
+      "specification": { "zhCN": "型号 PC-01", "enUS": "Model PC-01" },
+      "unit": { "zhCN": "件", "enUS": "pcs" },
+      "quantity": "2.5",
+      "unitPriceMinor": "10000",
+      "discountBps": 0,
+      "taxRateBps": 0,
+      "countryOfOrigin": { "zhCN": "中国", "enUS": "China" },
+      "hsCodeUserSupplied": "8536.69",
+      "netWeightKg": "1.250",
+      "grossWeightKg": "1.500"
+    }
+  ],
+  "trade": {
+    "incotermsRule": "CIF",
+    "namedPlace": { "zhCN": "美国洛杉矶港", "enUS": "Port of Los Angeles, USA" },
+    "incotermsEdition": "2020",
+    "transportMode": "sea",
+    "originCountry": { "zhCN": "中国", "enUS": "China" },
+    "destinationCountry": { "zhCN": "美国", "enUS": "United States" },
+    "portOfLoading": { "zhCN": "上海港", "enUS": "Port of Shanghai" },
+    "portOfDischarge": { "zhCN": "洛杉矶港", "enUS": "Port of Los Angeles" },
+    "shipmentWindow": {
+      "zhCN": "收到预付款后30日内",
+      "enUS": "Within 30 days after receipt of advance payment"
+    },
+    "partialShipment": false,
+    "transshipment": true,
+    "exportPackaging": { "zhCN": "适合海运的出口纸箱", "enUS": "Seaworthy export cartons" },
+    "paymentMethod": {
+      "zhCN": "电汇，30%预付，余款发货前付清",
+      "enUS": "T/T, 30% advance and balance before shipment"
+    },
+    "bankCharges": {
+      "zhCN": "境外银行费用由买方承担",
+      "enUS": "Overseas bank charges for buyer's account"
+    },
+    "insuranceArrangement": {
+      "zhCN": "卖方按发票金额110%投保海运险",
+      "enUS": "Seller to insure at 110% of invoice value"
+    },
+    "inspection": {
+      "zhCN": "装运前按约定规格检验",
+      "enUS": "Pre-shipment inspection against agreed specifications"
+    },
+    "documentList": [
+      { "zhCN": "商业发票", "enUS": "Commercial invoice" },
+      { "zhCN": "装箱单", "enUS": "Packing list" },
+      { "zhCN": "提单", "enUS": "Bill of lading" }
+    ],
+    "languagePriority": "en-US",
+    "notes": {
+      "zhCN": "税费与清关以主管机构要求为准",
+      "enUS": "Taxes and clearance remain subject to authority requirements"
+    }
+  },
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}
