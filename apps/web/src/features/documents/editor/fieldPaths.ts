@@ -394,7 +394,7 @@ export function updateDraftFromRaw<T>(
   field: TemplateFieldManifestEntryV1,
   raw: unknown,
 ): T {
-  if (field.control === "select" && !field.required && raw === "") {
+  if (!field.required && raw === "") {
     return deleteDraftField(source, field.path);
   }
   const currentValue = getDraftField(source, field.path);

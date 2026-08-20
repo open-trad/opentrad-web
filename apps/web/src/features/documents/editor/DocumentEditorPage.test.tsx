@@ -297,7 +297,10 @@ describe("generic V2 document editor page", () => {
     });
     await user.upload(input, invalid);
     expect(await screen.findByRole("alert")).toHaveTextContent(/项目 ZIP 无效|项目包/u);
-    expect(input).toHaveFocus();
+    await waitFor(() => {
+      expect(input).toBeEnabled();
+      expect(input).toHaveFocus();
+    });
     expect(repository.commit).toHaveBeenCalledTimes(1);
 
     const oversized = new File([new Uint8Array([1])], "超大项目.zip", {
@@ -306,12 +309,16 @@ describe("generic V2 document editor page", () => {
     Object.defineProperty(oversized, "size", { value: 53 * 1024 * 1024 });
     await user.upload(input, oversized);
     expect(await screen.findByRole("alert")).toHaveTextContent("项目包超过 52 MiB");
-    expect(input).toHaveFocus();
+    await waitFor(() => {
+      expect(input).toBeEnabled();
+      expect(input).toHaveFocus();
+    });
 
     const mismatch = await zipFile(projectEnvelope("contract.oem.processing.v1", "other-template"));
     await user.upload(input, mismatch);
     expect(await screen.findByRole("alert")).toHaveTextContent(/模板或版本与当前编辑器不一致/u);
     expect(screen.queryByRole("dialog", { name: "确认导入本地项目" })).not.toBeInTheDocument();
+    await waitFor(() => expect(input).toBeEnabled());
     expect(repository.commit).toHaveBeenCalledTimes(1);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -381,6 +388,30 @@ describe("generic V2 document editor page", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("traps keyboard focus in the ZIP confirmation and Escape returns to the importer", async () => {
+    const user = userEvent.setup();
+    renderEditor("quotation.service.project.v1");
+    const input = await screen.findByLabelText("导入本地项目 ZIP");
+    await user.upload(
+      input,
+      await zipFile(projectEnvelope("quotation.service.project.v1", "focus-trap-import")),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "确认导入本地项目" });
+    const cancel = within(dialog).getByRole("button", { name: "取消导入" });
+    const confirm = within(dialog).getByRole("button", { name: "确认并导入" });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(confirm).toHaveFocus();
+
+    await user.tab();
+    expect(cancel).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(confirm).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "确认导入本地项目" })).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
+  });
+
   it("uses native keyboard-operable fill/preview tabs below 600 px and moves focus", async () => {
     vi.stubGlobal(
       "matchMedia",
@@ -414,6 +445,10 @@ describe("generic V2 document editor page", () => {
     expect(previewTab).toHaveAttribute("tabindex", "-1");
 
     fillTab.focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(previewTab).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(fillTab).toHaveFocus();
     await user.keyboard("{ArrowRight}");
     expect(previewTab).toHaveFocus();
     expect(previewTab).toHaveAttribute("aria-selected", "true");

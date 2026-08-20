@@ -77,10 +77,12 @@ function fakeRepository(current: StoredDocumentV2 | null = null): DocumentReposi
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((complete) => {
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((complete, fail) => {
     resolve = complete;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function IntegratedSchemaWorkspace({
@@ -430,6 +432,138 @@ describe("generic V2 document workspace", () => {
     });
     expect(getDraftField(result.current.envelope?.draft, "project.projectName")).toBe("编辑 B");
     expect(result.current.revision).toBe(5);
+  });
+
+  it("keeps an invalid generation stale when an older inflight save completes", async () => {
+    vi.useFakeTimers();
+    const existing = stored(envelope(), 1);
+    const repository = fakeRepository(existing);
+    const inflight = deferred<StoredDocumentV2>();
+    vi.mocked(repository.commit).mockImplementationOnce(async () => inflight.promise);
+    const { result } = renderHook(() =>
+      useDocumentWorkspace({
+        registration: registration(),
+        repository,
+        createId: () => "unused",
+        now: () => NOW,
+      }),
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "保存中的有效编辑"),
+      );
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    const inflightEnvelope = vi.mocked(repository.commit).mock.calls[0]?.[0]
+      .envelope as v2.ProjectEnvelopeV2;
+    act(() => {
+      result.current.reportValidationIssues([
+        { path: "serviceLines.0.unitPriceMinor", message: "金额无效" },
+      ]);
+    });
+    expect(result.current.autosaveStatus).toBe("invalid");
+
+    inflight.resolve(stored(inflightEnvelope, 2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.autosaveStatus).toBe("invalid");
+    expect(result.current.validationIssues).toEqual([
+      { path: "serviceLines.0.unitPriceMinor", message: "金额无效" },
+    ]);
+  });
+
+  it("retains a newer pending edit when an older non-conflict save fails", async () => {
+    vi.useFakeTimers();
+    const existing = stored(envelope(), 1);
+    const repository = fakeRepository(existing);
+    const first = deferred<StoredDocumentV2>();
+    vi.mocked(repository.commit)
+      .mockImplementationOnce(async () => first.promise)
+      .mockImplementationOnce(async (input) => stored(input.envelope as v2.ProjectEnvelopeV2, 2));
+    const { result } = renderHook(() =>
+      useDocumentWorkspace({
+        registration: registration(),
+        repository,
+        createId: () => "unused",
+        now: () => NOW,
+      }),
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "编辑 A"),
+      );
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "编辑 B"),
+      );
+    });
+    first.reject(new Error("本机写入失败"));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => result.current.flush());
+
+    expect(repository.commit).toHaveBeenCalledTimes(2);
+    const secondEnvelope = vi.mocked(repository.commit).mock.calls[1]?.[0]
+      .envelope as v2.ProjectEnvelopeV2;
+    expect(getDraftField(secondEnvelope.draft, "project.projectName")).toBe("编辑 B");
+    expect(result.current.autosaveStatus).toBe("saved");
+  });
+
+  it("retains a newer attachment job when an older non-conflict save fails", async () => {
+    vi.useFakeTimers();
+    const existing = stored(envelope(), 1);
+    const repository = fakeRepository(existing);
+    const first = deferred<StoredDocumentV2>();
+    vi.mocked(repository.commit)
+      .mockImplementationOnce(async () => first.promise)
+      .mockImplementationOnce(async (input) => stored(input.envelope as v2.ProjectEnvelopeV2, 2));
+    const { result } = renderHook(() =>
+      useDocumentWorkspace({
+        registration: registration(),
+        repository,
+        createId: () => "unused",
+        now: () => NOW,
+      }),
+    );
+    await act(async () => Promise.resolve());
+
+    act(() => {
+      result.current.updateDraft(
+        setDraftField(result.current.envelope?.draft, "project.projectName", "编辑 A"),
+      );
+    });
+    await act(async () => vi.advanceTimersByTimeAsync(400));
+    const currentEnvelope = result.current.envelope as v2.ProjectEnvelopeV2;
+    act(() => {
+      result.current.applyAttachmentTransaction({
+        envelope: currentEnvelope,
+        parsedDraft: currentEnvelope.draft,
+        attachmentChanges: [{ type: "remove", attachmentId: "attachment-b" }],
+      });
+    });
+    first.reject(new Error("本机写入失败"));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => result.current.flush());
+
+    expect(repository.commit).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(repository.commit).mock.calls[1]?.[0].attachmentChanges).toContainEqual({
+      type: "remove",
+      attachmentId: "attachment-b",
+    });
   });
 
   it("stops retrying on a revision conflict and exposes an explicit reload action", async () => {

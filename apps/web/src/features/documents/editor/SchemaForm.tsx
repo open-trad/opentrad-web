@@ -5,7 +5,7 @@ import type {
 } from "@opentrad/document-core";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
-import { getDraftField, parseRawFieldValue, setDraftField, updateDraftFromRaw } from "./fieldPaths";
+import { getDraftField, setDraftField, updateDraftFromRaw } from "./fieldPaths";
 
 type RepeatableItemField = v2.TemplateRepeatableItemFieldV1;
 type EditorField = TemplateFieldManifestEntryV1 | RepeatableItemField;
@@ -22,6 +22,15 @@ export interface FormIssue {
   readonly path: string;
   readonly message: string;
 }
+
+interface PendingRawEntry {
+  readonly field: EditorField;
+  readonly raw: unknown;
+  readonly repeatablePath?: string;
+  path: string;
+}
+
+type RawPathMap = Readonly<Record<string, string>>;
 
 export interface SchemaFormProps {
   readonly registration: Registration;
@@ -545,8 +554,18 @@ interface RepeatableControlProps {
   readonly draft: unknown;
   readonly issues: readonly FormIssue[];
   readonly rawValues: Readonly<Record<string, unknown>>;
-  readonly onRawValue: (field: RepeatableItemField, path: string, value: unknown) => void;
-  readonly onCandidate: (candidate: unknown) => void;
+  readonly onRawValue: (
+    field: RepeatableItemField,
+    path: string,
+    value: unknown,
+    rawKey: string,
+    repeatablePath: string,
+  ) => void;
+  readonly onCandidate: (
+    candidate: unknown,
+    rawPaths?: RawPathMap,
+    repeatablePath?: string,
+  ) => void;
   readonly onAttachmentFiles?: SchemaFormProps["onAttachmentFiles"];
 }
 
@@ -591,16 +610,37 @@ function RepeatableControl({
       ? `请选择${field.label}来源后再添加。`
       : undefined);
 
-  const itemKey = (item: unknown, index: number): string => {
+  const itemKey = (item: unknown, index: number, keys: readonly string[] = sessionKeys): string => {
     if (field.item.kind === "object" && field.item.idPath) {
       const identity = getDraftField(item, field.item.idPath);
       if (typeof identity === "string") return identity;
     }
-    return sessionKeys[index] ?? `${prefix}-${index}`;
+    return keys[index] ?? `${prefix}-${index}`;
   };
 
-  const commitItems = (nextItems: readonly unknown[]) =>
-    onCandidate(setDraftField(draft, field.path, nextItems));
+  const rawKeyFor = (rowKey: string, itemPath: string) => `${field.path}::${rowKey}::${itemPath}`;
+
+  const rawPathsFor = (nextItems: readonly unknown[], nextKeys: readonly string[]): RawPathMap => {
+    if (field.item.kind !== "object") return {};
+    return Object.fromEntries(
+      nextItems.flatMap((item, index) => {
+        const rowKey = itemKey(item, index, nextKeys);
+        return field.item.kind === "object"
+          ? field.item.fields.map((itemField) => [
+              rawKeyFor(rowKey, itemField.path),
+              `${field.path}.${index}.${itemField.path}`,
+            ])
+          : [];
+      }),
+    );
+  };
+
+  const commitItems = (nextItems: readonly unknown[], nextKeys: readonly string[] = sessionKeys) =>
+    onCandidate(
+      setDraftField(draft, field.path, nextItems),
+      rawPathsFor(nextItems, nextKeys),
+      field.path,
+    );
 
   useEffect(() => {
     const action = pendingActionFocus.current;
@@ -676,6 +716,7 @@ function RepeatableControl({
               field.item.fields.map((itemField) => {
                 if (!isVisible(itemField, draft, item)) return null;
                 const path = `${rowPath}.${itemField.path}`;
+                const rawKey = rawKeyFor(rowKey, itemField.path);
                 return (
                   <FieldControl
                     key={itemField.path}
@@ -684,8 +725,8 @@ function RepeatableControl({
                     value={getDraftField(draft, path)}
                     rootDraft={draft}
                     issue={issues.find((entry) => entry.path === path)}
-                    rawOverride={rawValues[path]}
-                    onRawChange={(raw) => onRawValue(itemField, path, raw)}
+                    rawOverride={rawValues[rawKey]}
+                    onRawChange={(raw) => onRawValue(itemField, path, raw, rawKey, field.path)}
                     onAttachmentFiles={onAttachmentFiles}
                   />
                 );
@@ -705,15 +746,13 @@ function RepeatableControl({
                   pendingActionFocus.current = `${rowKey}-down`;
                   const next = [...items];
                   [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                  setSessionKeys((current) => {
-                    const keys = [...current];
-                    const previousKey = keys[index - 1] ?? stableId(prefix, index - 1);
-                    const currentKey = keys[index] ?? stableId(prefix, index);
-                    keys[index - 1] = currentKey;
-                    keys[index] = previousKey;
-                    return keys;
-                  });
-                  commitItems(next);
+                  const keys = [...sessionKeys];
+                  const previousKey = keys[index - 1] ?? stableId(prefix, index - 1);
+                  const currentKey = keys[index] ?? stableId(prefix, index);
+                  keys[index - 1] = currentKey;
+                  keys[index] = previousKey;
+                  setSessionKeys(keys);
+                  commitItems(next, keys);
                 }}
               >
                 <ArrowUp size={14} aria-hidden="true" /> 上移
@@ -731,15 +770,13 @@ function RepeatableControl({
                   pendingActionFocus.current = `${rowKey}-up`;
                   const next = [...items];
                   [next[index], next[index + 1]] = [next[index + 1], next[index]];
-                  setSessionKeys((current) => {
-                    const keys = [...current];
-                    const currentKey = keys[index] ?? stableId(prefix, index);
-                    const nextKey = keys[index + 1] ?? stableId(prefix, index + 1);
-                    keys[index] = nextKey;
-                    keys[index + 1] = currentKey;
-                    return keys;
-                  });
-                  commitItems(next);
+                  const keys = [...sessionKeys];
+                  const currentKey = keys[index] ?? stableId(prefix, index);
+                  const nextRowKey = keys[index + 1] ?? stableId(prefix, index + 1);
+                  keys[index] = nextRowKey;
+                  keys[index + 1] = currentKey;
+                  setSessionKeys(keys);
+                  commitItems(next, keys);
                 }}
               >
                 <ArrowDown size={14} aria-hidden="true" /> 下移
@@ -749,10 +786,10 @@ function RepeatableControl({
                   type="button"
                   aria-label="删除"
                   onClick={() => {
-                    commitItems(items.filter((_, itemIndex) => itemIndex !== index));
-                    setSessionKeys((current) =>
-                      current.filter((_, itemIndex) => itemIndex !== index),
-                    );
+                    const next = items.filter((_, itemIndex) => itemIndex !== index);
+                    const keys = sessionKeys.filter((_, itemIndex) => itemIndex !== index);
+                    setSessionKeys(keys);
+                    commitItems(next, keys);
                   }}
                 >
                   <Trash2 size={14} aria-hidden="true" /> 删除
@@ -776,9 +813,10 @@ function RepeatableControl({
             onClick={() => {
               const method = pendingGuaranteeMethod.trim();
               if (!method) return;
-              setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
+              const keys = [...sessionKeys, stableId(prefix, nextKey.current++)];
+              setSessionKeys(keys);
               setPendingGuaranteeMethod(null);
-              commitItems([...items, method]);
+              commitItems([...items, method], keys);
             }}
           >
             确认添加保证方式
@@ -830,8 +868,9 @@ function RepeatableControl({
               });
               setFactoryError(undefined);
               setSelectedFactorySource("");
-              setSessionKeys((current) => [...current, stableId(prefix, nextKey.current++)]);
-              commitItems([...items, item]);
+              const keys = [...sessionKeys, stableId(prefix, nextKey.current++)];
+              setSessionKeys(keys);
+              commitItems([...items, item], keys);
             } catch {
               setFactoryError("当前来源无法创建此项，请检查来源内容后重试。");
             }
@@ -859,13 +898,11 @@ export function SchemaForm({
 }: SchemaFormProps) {
   const [localIssues, setLocalIssues] = useState<readonly FormIssue[]>([]);
   const [rawValues, setRawValues] = useState<Readonly<Record<string, unknown>>>({});
-  const pendingGuaranteeRef = useRef<unknown | undefined>(undefined);
-  const [pendingGuarantee, setPendingGuarantee] = useState<unknown | undefined>(undefined);
+  const pendingRawRef = useRef(new Map<string, PendingRawEntry>());
+  const pendingDraftRef = useRef<unknown | undefined>(undefined);
+  const [pendingDraft, setPendingDraft] = useState<unknown | undefined>(undefined);
   const allIssues = [...issues, ...localIssues];
-  const displayDraft =
-    pendingGuarantee === undefined
-      ? draft
-      : setDraftField(draft, GUARANTEE_ROOT_PATH, pendingGuarantee);
+  const displayDraft = pendingDraft ?? draft;
   const sections = useMemo(() => {
     const output = new Map<string, TemplateFieldManifestEntryV1[]>();
     for (const field of registration.definition.fieldManifest) {
@@ -876,66 +913,108 @@ export function SchemaForm({
     return [...output.entries()];
   }, [registration]);
 
-  const acceptCandidate = (candidate: unknown): void => {
+  const syncPendingRaw = (entries: Map<string, PendingRawEntry>): void => {
+    pendingRawRef.current = entries;
+    setRawValues(Object.fromEntries([...entries].map(([key, entry]) => [key, entry.raw])));
+  };
+
+  const reportLocalIssues = (nextIssues: readonly FormIssue[]): void => {
+    setLocalIssues(nextIssues);
+    onValidationChange?.(nextIssues);
+  };
+
+  const evaluateCandidate = (
+    candidate: unknown,
+    inputEntries: Map<string, PendingRawEntry> = new Map(pendingRawRef.current),
+    rawPaths?: RawPathMap,
+    repeatablePath?: string,
+  ): void => {
+    const entries = new Map(inputEntries);
+    if (repeatablePath) {
+      for (const [key, entry] of entries) {
+        if (entry.repeatablePath !== repeatablePath) continue;
+        const nextPath = rawPaths?.[key];
+        if (nextPath) entries.set(key, { ...entry, path: nextPath });
+        else entries.delete(key);
+      }
+    }
+    syncPendingRaw(entries);
+
+    let layered = candidate;
+    const rawIssues: FormIssue[] = [];
+    for (const entry of entries.values()) {
+      try {
+        layered = updateDraftFromRaw(
+          layered,
+          { ...entry.field, path: entry.path } as TemplateFieldManifestEntryV1,
+          entry.raw,
+        );
+      } catch (error) {
+        rawIssues.push({
+          path: entry.path,
+          message: error instanceof Error ? error.message : "字段值无效",
+        });
+      }
+    }
+    if (rawIssues.length > 0) {
+      pendingDraftRef.current = layered;
+      setPendingDraft(layered);
+      reportLocalIssues(rawIssues);
+      return;
+    }
+
     try {
-      const parsed = registration.parseDraft(candidate);
-      setLocalIssues([]);
-      onValidationChange?.([]);
+      const parsed = registration.parseDraft(layered);
+      pendingDraftRef.current = undefined;
+      setPendingDraft(undefined);
+      syncPendingRaw(new Map());
+      reportLocalIssues([]);
       onDraftChange(parsed);
     } catch (error) {
       const nextIssues = errorIssues(error);
-      setLocalIssues(nextIssues);
-      onValidationChange?.(nextIssues);
+      pendingDraftRef.current = layered;
+      setPendingDraft(layered);
+      reportLocalIssues(nextIssues);
     }
   };
 
-  const stageGuaranteeCandidate = (candidate: unknown): void => {
-    const group = getDraftField(candidate, GUARANTEE_ROOT_PATH);
-    const rebased = setDraftField(draft, GUARANTEE_ROOT_PATH, group);
-    try {
-      const parsed = registration.parseDraft(rebased);
-      pendingGuaranteeRef.current = undefined;
-      setPendingGuarantee(undefined);
-      setRawValues((current) =>
-        Object.fromEntries(Object.entries(current).filter(([path]) => !isGuaranteePath(path))),
-      );
-      setLocalIssues([]);
-      onValidationChange?.([]);
-      onDraftChange(parsed);
-    } catch (error) {
-      pendingGuaranteeRef.current = group;
-      setPendingGuarantee(group);
-      const nextIssues = errorIssues(error);
-      setLocalIssues(nextIssues);
-      onValidationChange?.(nextIssues);
+  const clearStagedGuarantee = (): void => {
+    const entries = new Map(pendingRawRef.current);
+    for (const [key, entry] of entries) {
+      if (isGuaranteePath(entry.path)) entries.delete(key);
     }
+    const source = pendingDraftRef.current ?? draft;
+    evaluateCandidate(
+      setDraftField(source, GUARANTEE_ROOT_PATH, {
+        required: false,
+        allowedMethods: [],
+        sourceRefIds: [],
+      }),
+      entries,
+    );
   };
 
-  const updateRaw = (field: EditorField, path: string, raw: unknown): void => {
-    setRawValues((current) => ({ ...current, [path]: raw }));
-    try {
-      const sourceDraft =
-        isGuaranteePath(path) && pendingGuaranteeRef.current !== undefined
-          ? setDraftField(draft, GUARANTEE_ROOT_PATH, pendingGuaranteeRef.current)
-          : draft;
-      const currentValue = getDraftField(sourceDraft, path);
-      const parsedRaw = parseRawFieldValue(
-        field as TemplateFieldManifestEntryV1,
-        raw,
-        currentValue,
-      );
-      const candidate =
-        field.control === "select" && !field.required && raw === ""
-          ? updateDraftFromRaw(sourceDraft, { ...field, path } as TemplateFieldManifestEntryV1, raw)
-          : setDraftField(sourceDraft, path, parsedRaw);
-      if (isGuaranteePath(path)) stageGuaranteeCandidate(candidate);
-      else acceptCandidate(candidate);
-    } catch (error) {
-      const nextIssues = [{ path, message: error instanceof Error ? error.message : "字段值无效" }];
-      setLocalIssues(nextIssues);
-      onValidationChange?.(nextIssues);
+  const updateRaw = (
+    field: EditorField,
+    path: string,
+    raw: unknown,
+    rawKey = path,
+    repeatablePath?: string,
+  ): void => {
+    if (path === `${GUARANTEE_ROOT_PATH}.required` && raw === false) {
+      clearStagedGuarantee();
+      return;
     }
+    const entries = new Map(pendingRawRef.current);
+    entries.set(rawKey, { field, path, raw, ...(repeatablePath ? { repeatablePath } : {}) });
+    const source = pendingDraftRef.current ?? draft;
+    evaluateCandidate(source, entries);
   };
+
+  const guaranteeStaged =
+    pendingDraft !== undefined &&
+    JSON.stringify(getDraftField(displayDraft, GUARANTEE_ROOT_PATH)) !==
+      JSON.stringify(getDraftField(draft, GUARANTEE_ROOT_PATH));
 
   const firstIssue = allIssues[0];
   return (
@@ -955,6 +1034,11 @@ export function SchemaForm({
           }}
         >
           定位第一个错误
+        </button>
+      ) : null}
+      {guaranteeStaged ? (
+        <button type="button" className="validation-jump-v2" onClick={clearStagedGuarantee}>
+          放弃暂存保证要求
         </button>
       ) : null}
       {sections.map(([section, fields]) => (
@@ -977,9 +1061,16 @@ export function SchemaForm({
                     draft={displayDraft}
                     issues={allIssues}
                     rawValues={rawValues}
-                    onRawValue={(itemField, path, raw) => updateRaw(itemField, path, raw)}
-                    onCandidate={
-                      isGuaranteePath(field.path) ? stageGuaranteeCandidate : acceptCandidate
+                    onRawValue={(itemField, path, raw, rawKey, repeatablePath) =>
+                      updateRaw(itemField, path, raw, rawKey, repeatablePath)
+                    }
+                    onCandidate={(candidate, rawPaths, repeatablePath) =>
+                      evaluateCandidate(
+                        candidate,
+                        new Map(pendingRawRef.current),
+                        rawPaths,
+                        repeatablePath,
+                      )
                     }
                     onAttachmentFiles={onAttachmentFiles}
                   />

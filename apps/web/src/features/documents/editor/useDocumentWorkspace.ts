@@ -185,16 +185,15 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
           if (job.generation === generationRef.current) setEnvelope(stored.envelope);
         }
         if (job.generation === generationRef.current) envelopeRef.current = stored.envelope;
-        if (!pendingRef.current) {
+        if (job.generation === generationRef.current && !pendingRef.current) {
           attachmentChangesRef.current = [];
           setStatusIfMounted("saved");
         }
       } catch (error) {
-        pendingRef.current = null;
         if (error instanceof DocumentRepositoryError && error.code === "DOCUMENT_CONFLICT") {
           conflictRef.current = true;
           setStatusIfMounted("conflict");
-        } else {
+        } else if (job.generation === generationRef.current) {
           setStatusIfMounted("error");
         }
       }
@@ -390,10 +389,18 @@ export function useDocumentWorkspace(options: DocumentWorkspaceOptions) {
     [acceptValidEnvelope],
   );
 
-  const reportValidationIssues = useCallback((issues: readonly DocumentValidationIssue[]) => {
-    setValidationIssueList(issues);
-    if (issues.length > 0 && !conflictRef.current) setAutosaveStatus("invalid");
-  }, []);
+  const reportValidationIssues = useCallback(
+    (issues: readonly DocumentValidationIssue[]) => {
+      setValidationIssueList(issues);
+      if (issues.length > 0 && !conflictRef.current) {
+        generationRef.current += 1;
+        clearTimer();
+        pendingRef.current = null;
+        setAutosaveStatus("invalid");
+      }
+    },
+    [clearTimer],
+  );
 
   const applyAttachmentTransaction = useCallback(
     (transaction: AttachmentTransactionResult) => {

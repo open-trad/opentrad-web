@@ -216,6 +216,7 @@ function EditorWorkspace({
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState("");
   const importInputRef = useRef<HTMLInputElement>(null);
+  const importCancelRef = useRef<HTMLButtonElement>(null);
   const importConfirmRef = useRef<HTMLButtonElement>(null);
   const formRef = useRef<HTMLElement>(null);
   const previewRef = useRef<HTMLElement>(null);
@@ -325,8 +326,11 @@ function EditorWorkspace({
 
   const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>) => {
     let view: "form" | "preview" | undefined;
-    if (event.key === "ArrowRight" || event.key === "End") view = "preview";
-    if (event.key === "ArrowLeft" || event.key === "Home") view = "form";
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      view = mobileView === "form" ? "preview" : "form";
+    }
+    if (event.key === "End") view = "preview";
+    if (event.key === "Home") view = "form";
     if (!view) return;
     event.preventDefault();
     selectView(view, "tab");
@@ -405,6 +409,25 @@ function EditorWorkspace({
   const cancelImport = () => {
     setPendingImport(null);
     importInputRef.current?.focus();
+  };
+
+  const handleImportDialogKey = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape" && !importBusy) {
+      event.preventDefault();
+      cancelImport();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const first = importCancelRef.current;
+    const last = importConfirmRef.current;
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   const confirmImport = async () => {
@@ -520,6 +543,7 @@ function EditorWorkspace({
             role="dialog"
             aria-modal="true"
             aria-label="确认导入本地项目"
+            onKeyDown={handleImportDialogKey}
           >
             <span className="eyebrow">本机项目预检</span>
             <h2>确认导入本地项目</h2>
@@ -543,7 +567,12 @@ function EditorWorkspace({
               ) : null}
             </ul>
             <div>
-              <button type="button" disabled={importBusy} onClick={cancelImport}>
+              <button
+                ref={importCancelRef}
+                type="button"
+                disabled={importBusy}
+                onClick={cancelImport}
+              >
                 取消导入
               </button>
               <button

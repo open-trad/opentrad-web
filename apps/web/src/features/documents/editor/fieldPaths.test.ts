@@ -191,4 +191,18 @@ describe("exact raw editor conversions", () => {
     expect(getDraftField(updated, "meta.optionalChoice")).toBeUndefined();
     expect(getDraftField(updated, "meta.retained")).toBe("keep");
   });
+
+  it("deletes an optional money leaf when its raw input is cleared", () => {
+    const source = { meta: { optionalAmountMinor: "1250", retained: "keep" } };
+    const manifest = field("money-minor", {
+      path: "meta.optionalAmountMinor",
+      control: "money",
+      required: false,
+    });
+
+    const updated = updateDraftFromRaw(source, manifest, "");
+
+    expect(getDraftField(updated, "meta.optionalAmountMinor")).toBeUndefined();
+    expect(getDraftField(updated, "meta.retained")).toBe("keep");
+  });
 });

@@ -17,10 +17,12 @@ function Harness({
   templateId,
   initialDraft,
   issues = [],
+  onDraftChange,
 }: {
   readonly templateId: string;
   readonly initialDraft?: unknown;
   readonly issues?: readonly FormIssue[];
+  readonly onDraftChange?: (draft: unknown) => void;
 }) {
   const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
   const [draft, setDraft] = useState(
@@ -33,7 +35,10 @@ function Harness({
         registration={registration}
         draft={draft}
         issues={issues}
-        onDraftChange={setDraft}
+        onDraftChange={(nextDraft) => {
+          onDraftChange?.(nextDraft);
+          setDraft(nextDraft);
+        }}
       />
       <output data-testid="draft-state">{JSON.stringify(draft)}</output>
     </>
@@ -41,6 +46,162 @@ function Harness({
 }
 
 describe("manifest-driven schema form", () => {
+  it("layers every pending raw field and commits only after the whole candidate is valid", () => {
+    const onDraftChange = vi.fn();
+    render(<Harness templateId="quotation.service.project.v1" onDraftChange={onDraftChange} />);
+    const projectName = screen.getByRole("textbox", { name: /项目名称.*必填/u });
+    const unitPrice = screen.getByRole("textbox", { name: /未税单价.*必填/u });
+
+    fireEvent.change(unitPrice, { target: { value: "" } });
+    fireEvent.change(projectName, { target: { value: "多字段暂存项目" } });
+
+    expect(onDraftChange).not.toHaveBeenCalled();
+    expect(unitPrice).toHaveValue("");
+    expect(projectName).toHaveValue("多字段暂存项目");
+    expect(screen.getByRole("button", { name: "定位第一个错误" })).toBeVisible();
+
+    fireEvent.change(unitPrice, { target: { value: "25" } });
+
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    const committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "project.projectName")).toBe("多字段暂存项目");
+    expect(getDraftField(committed, "serviceLines.0.unitPriceMinor")).toBe("2500");
+    expect(screen.queryByRole("button", { name: "定位第一个错误" })).not.toBeInTheDocument();
+  });
+
+  it("keeps invalid repeatable raw values with stable identities through reorder and delete", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("quotation.service.project.v1", "1.0.0");
+    let draft = registration.createDraft({ id: "stable-raw", now: "2026-08-20T00:00:00Z" });
+    const first = (getDraftField(draft, "serviceLines") as readonly Record<string, unknown>[])[0];
+    if (!first) throw new Error("missing first service line");
+    const second = registration.createRepeatableItem("serviceLines", {
+      id: "service-second",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    draft = registration.parseDraft(
+      setDraftField(draft, "serviceLines", [
+        { ...first, serviceName: "第一项服务" },
+        { ...second, serviceName: "第二项服务" },
+      ]),
+    );
+    const onDraftChange = vi.fn();
+    render(
+      <Harness
+        templateId={registration.definition.id}
+        initialDraft={draft}
+        onDraftChange={onDraftChange}
+      />,
+    );
+    let rows = screen.getAllByRole("group", { name: /服务报价项 第 \d+ 项/u });
+    const firstRow = rows[0];
+    const secondRow = rows[1];
+    if (!firstRow || !secondRow) throw new Error("missing service rows");
+    fireEvent.change(within(firstRow).getByRole("textbox", { name: /未税单价.*必填/u }), {
+      target: { value: "bad-first" },
+    });
+    fireEvent.change(within(secondRow).getByRole("textbox", { name: /未税单价.*必填/u }), {
+      target: { value: "bad-second" },
+    });
+
+    await user.click(within(secondRow).getByRole("button", { name: "上移" }));
+    expect(onDraftChange).not.toHaveBeenCalled();
+    rows = screen.getAllByRole("group", { name: /服务报价项 第 \d+ 项/u });
+    expect(
+      within(rows[0] as HTMLElement).getByRole("textbox", { name: /服务名称.*必填/u }),
+    ).toHaveValue("第二项服务");
+    expect(
+      within(rows[0] as HTMLElement).getByRole("textbox", { name: /未税单价.*必填/u }),
+    ).toHaveValue("bad-second");
+    expect(
+      within(rows[1] as HTMLElement).getByRole("textbox", { name: /未税单价.*必填/u }),
+    ).toHaveValue("bad-first");
+
+    await user.click(within(rows[0] as HTMLElement).getByRole("button", { name: "删除" }));
+    const remaining = screen.getByRole("group", { name: "服务报价项 第 1 项" });
+    const remainingPrice = within(remaining).getByRole("textbox", { name: /未税单价.*必填/u });
+    expect(within(remaining).getByRole("textbox", { name: /服务名称.*必填/u })).toHaveValue(
+      "第一项服务",
+    );
+    expect(remainingPrice).toHaveValue("bad-first");
+    expect(screen.queryByDisplayValue("bad-second")).not.toBeInTheDocument();
+
+    fireEvent.change(remainingPrice, { target: { value: "25" } });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    const committedRows = getDraftField(onDraftChange.mock.calls[0]?.[0], "serviceLines");
+    expect(committedRows).toHaveLength(1);
+    expect(getDraftField(committedRows, "0.serviceName")).toBe("第一项服务");
+    expect(getDraftField(committedRows, "0.unitPriceMinor")).toBe("2500");
+  });
+
+  it("keeps idless repeatable raw values with session keys through reorder and delete", async () => {
+    const user = userEvent.setup();
+    const registration = v2.V2_TEMPLATE_REGISTRY.get("bid.construction.works.v1", "1.0.0");
+    let draft = registration.createDraft({ id: "session-raw", now: "2026-08-20T00:00:00Z" });
+    const laborA = registration.createRepeatableItem("laborPlan", {
+      id: "unused-a",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    const laborB = registration.createRepeatableItem("laborPlan", {
+      id: "unused-b",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    }) as Record<string, unknown>;
+    draft = registration.parseDraft(
+      setDraftField(draft, "laborPlan", [
+        { ...laborA, trade: "木工" },
+        { ...laborB, trade: "电工" },
+      ]),
+    );
+    const onDraftChange = vi.fn();
+    render(
+      <Harness
+        templateId={registration.definition.id}
+        initialDraft={draft}
+        onDraftChange={onDraftChange}
+      />,
+    );
+    let rows = screen.getAllByRole("group", { name: /劳动力计划 第 \d+ 项/u });
+    const firstRow = rows[0];
+    const secondRow = rows[1];
+    if (!firstRow || !secondRow) throw new Error("missing labor rows");
+    fireEvent.change(within(firstRow).getByRole("textbox", { name: /人数.*必填/u }), {
+      target: { value: "bad-wood" },
+    });
+    fireEvent.change(within(secondRow).getByRole("textbox", { name: /人数.*必填/u }), {
+      target: { value: "bad-electric" },
+    });
+
+    await user.click(within(secondRow).getByRole("button", { name: "上移" }));
+    rows = screen.getAllByRole("group", { name: /劳动力计划 第 \d+ 项/u });
+    expect(
+      within(rows[0] as HTMLElement).getByRole("textbox", { name: /工种.*必填/u }),
+    ).toHaveValue("电工");
+    expect(
+      within(rows[0] as HTMLElement).getByRole("textbox", { name: /人数.*必填/u }),
+    ).toHaveValue("bad-electric");
+    expect(
+      within(rows[1] as HTMLElement).getByRole("textbox", { name: /人数.*必填/u }),
+    ).toHaveValue("bad-wood");
+    expect(onDraftChange).not.toHaveBeenCalled();
+
+    await user.click(within(rows[0] as HTMLElement).getByRole("button", { name: "删除" }));
+    const remaining = screen.getByRole("group", { name: "劳动力计划 第 1 项" });
+    const count = within(remaining).getByRole("textbox", { name: /人数.*必填/u });
+    expect(within(remaining).getByRole("textbox", { name: /工种.*必填/u })).toHaveValue("木工");
+    expect(count).toHaveValue("bad-wood");
+    expect(screen.queryByDisplayValue("bad-electric")).not.toBeInTheDocument();
+
+    fireEvent.change(count, { target: { value: "2" } });
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    const committed = getDraftField(onDraftChange.mock.calls[0]?.[0], "laborPlan");
+    expect(committed).toHaveLength(1);
+    expect(getDraftField(committed, "0.trade")).toBe("木工");
+    expect(getDraftField(committed, "0.count")).toBe(2);
+  });
+
   it.each(BID_TEMPLATE_IDS)(
     "stages %s guarantee facts and commits the complete combination exactly once",
     async (templateId) => {
@@ -111,6 +272,79 @@ describe("manifest-driven schema form", () => {
       expect(screen.queryByRole("button", { name: "定位第一个错误" })).not.toBeInTheDocument();
     },
   );
+
+  it("can discard or atomically disable a staged guarantee without losing other valid edits", async () => {
+    const user = userEvent.setup();
+    const templateId = "bid.government.goods.v1";
+    const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
+    let draft = registration.createDraft({ id: "guarantee-cancel", now: "2026-08-20T00:00:00Z" });
+    draft = registration.parseDraft(
+      setDraftField(
+        setDraftField(draft, "attachments", [
+          {
+            id: "solicitation-main",
+            category: "other",
+            displayName: "招标文件.pdf",
+            mediaType: "application/pdf",
+            pageCount: 8,
+            required: true,
+            status: "attached",
+            includedInSubmission: false,
+          },
+        ]),
+        "evidenceRefs",
+        [
+          {
+            id: "solicitation-source",
+            kind: "solicitation",
+            attachmentId: "solicitation-main",
+            page: 1,
+            sourceRef: "保证要求章节",
+          },
+        ],
+      ),
+    );
+    const onDraftChange = vi.fn();
+    render(<Harness templateId={templateId} initialDraft={draft} onDraftChange={onDraftChange} />);
+    fireEvent.change(screen.getByRole("textbox", { name: /采购人\/招标人.*必填/u }), {
+      target: { value: "保留的采购人" },
+    });
+    onDraftChange.mockClear();
+
+    await user.click(screen.getByRole("checkbox", { name: /要求投标保证/u }));
+    const amount = document.querySelector<HTMLInputElement>(
+      '[data-field-path="source.guaranteeRequirement.amountMinor"]',
+    );
+    if (!amount) throw new Error("missing guarantee amount");
+    fireEvent.change(amount, { target: { value: "100" } });
+    await user.selectOptions(
+      screen.getByRole("listbox", { name: /保证要求来源/u }),
+      "solicitation-source",
+    );
+    expect(onDraftChange).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "放弃暂存保证要求" }));
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    let committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "source.guaranteeRequirement")).toEqual({
+      required: false,
+      allowedMethods: [],
+      sourceRefIds: [],
+    });
+    expect(getDraftField(committed, "source.issuer")).toBe("保留的采购人");
+
+    onDraftChange.mockClear();
+    await user.click(screen.getByRole("checkbox", { name: /要求投标保证/u }));
+    fireEvent.change(amount, { target: { value: "200" } });
+    await user.click(screen.getByRole("checkbox", { name: /要求投标保证/u }));
+    expect(onDraftChange).toHaveBeenCalledTimes(1);
+    committed = onDraftChange.mock.calls[0]?.[0];
+    expect(getDraftField(committed, "source.guaranteeRequirement")).toEqual({
+      required: false,
+      allowedMethods: [],
+      sourceRefIds: [],
+    });
+  });
 
   it("exposes a safe add state for all 116 manifest repeatables from createDraft", () => {
     let total = 0;
