@@ -6,4 +6,5 @@ export * from "./project.js";
 export * from "./registry.js";
 export * from "./risk.js";
 export * from "./source-basis.js";
+export * from "./templates/index.js";
 export * from "./templates/quote-common.js";

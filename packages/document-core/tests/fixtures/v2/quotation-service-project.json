@@ -1,0 +1,95 @@
+{
+  "id": "service-project-fixture",
+  "templateId": "quotation.service.project.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "number": "SQ-20260819-001",
+    "title": "项目服务报价单",
+    "issueDate": "2026-08-19",
+    "validUntil": "2026-09-18",
+    "currency": "CNY",
+    "taxMode": "tax-excluded",
+    "quoteNature": "invitation",
+    "language": "zh-CN",
+    "layoutStyleId": "modern-business.v1"
+  },
+  "seller": {
+    "legalName": "开源商贸（上海）有限公司",
+    "entityType": "company",
+    "contactName": "张三",
+    "email": "sales@example.invalid"
+  },
+  "buyer": {
+    "legalName": "示例采购有限公司",
+    "entityType": "company",
+    "contactName": "李四"
+  },
+  "project": {
+    "projectName": "业务系统实施项目",
+    "buyerReference": "PRJ-2026-008",
+    "objective": "交付可验收的业务系统",
+    "scope": "需求梳理、配置实施与上线支持",
+    "assumptions": "",
+    "exclusions": ""
+  },
+  "serviceLines": [
+    {
+      "id": "service-1",
+      "serviceName": "需求与实施服务",
+      "deliverable": "需求确认书与上线版本",
+      "unit": "人日",
+      "quantity": "2.5",
+      "unitPriceMinor": "10000",
+      "discountBps": 500,
+      "taxRateBps": 600,
+      "estimatedHours": "20",
+      "milestoneId": "milestone-1"
+    },
+    {
+      "id": "service-2",
+      "serviceName": "验收支持服务",
+      "deliverable": "验收报告",
+      "unit": "项",
+      "quantity": "1",
+      "unitPriceMinor": "20000",
+      "discountBps": 0,
+      "taxRateBps": 600,
+      "milestoneId": "milestone-2"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone-1",
+      "title": "需求确认",
+      "deliverable": "需求确认书",
+      "dueDescription": "启动后十个工作日",
+      "acceptanceCriteria": "双方书面确认",
+      "paymentBps": 4000
+    },
+    {
+      "id": "milestone-2",
+      "title": "项目验收",
+      "deliverable": "验收报告",
+      "dueDescription": "上线后五个工作日",
+      "acceptanceCriteria": "通过约定测试",
+      "paymentBps": 6000
+    }
+  ],
+  "terms": {
+    "startDate": "2026-09-01",
+    "duration": "预计六周",
+    "serviceLocation": "买方指定地点及远程",
+    "customerDependencies": "按计划提供账号、资料与确认",
+    "expensePolicy": "差旅费用须事先书面批准",
+    "acceptance": "交付后五个工作日内书面验收",
+    "payment": "按里程碑比例付款",
+    "intellectualProperty": "背景知识产权归原权利人，项目成果按合同约定",
+    "confidentiality": "双方对保密信息承担保密义务",
+    "changeControl": "范围变更须书面确认工期和费用",
+    "notes": "最终以双方签署合同为准"
+  },
+  "dataHandling": {
+    "personalDataInvolved": false
+  },
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}
