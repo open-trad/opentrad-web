@@ -10,6 +10,17 @@ export interface TemplateEvaluationContext {
   readonly asOf?: string;
 }
 
+export interface CreateRepeatableItemInput<Draft> {
+  readonly id: string;
+  readonly now: string | Date;
+  readonly draft: Draft;
+}
+
+export type CreateRepeatableItemV1<Draft, Item = unknown> = (
+  path: string,
+  input: CreateRepeatableItemInput<Draft>,
+) => Item;
+
 export interface TemplateRegistration<Draft = unknown, Model = unknown> {
   readonly definition: TemplateDefinitionV2;
   readonly parseDraft: (value: unknown) => Draft;
@@ -19,6 +30,7 @@ export interface TemplateRegistration<Draft = unknown, Model = unknown> {
     draft: Draft,
     context?: TemplateEvaluationContext,
   ) => readonly RiskFindingV2[];
+  readonly createRepeatableItem?: CreateRepeatableItemV1<Draft>;
 }
 
 interface TemplateRegistrationShape {
@@ -30,6 +42,7 @@ interface TemplateRegistrationShape {
     draft: never,
     context?: TemplateEvaluationContext,
   ) => readonly RiskFindingV2[];
+  readonly createRepeatableItem?: CreateRepeatableItemV1<never>;
 }
 
 type PublishedRegistration<Registration extends TemplateRegistrationShape> = {
@@ -38,6 +51,7 @@ type PublishedRegistration<Registration extends TemplateRegistrationShape> = {
   readonly createDraft: Registration["createDraft"];
   readonly compile: Registration["compile"];
   readonly preflight: Registration["preflight"];
+  readonly createRepeatableItem: CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>>;
 };
 
 export interface TemplateRegistry<
@@ -59,6 +73,7 @@ interface RegistrationCandidate<Registration extends TemplateRegistrationShape> 
   readonly createDraft: Registration["createDraft"];
   readonly compile: Registration["compile"];
   readonly preflight: Registration["preflight"];
+  readonly createRepeatableItem?: CreateRepeatableItemV1<never>;
 }
 
 function ownDataProperty(object: object, key: PropertyKey): PropertyDescriptor | undefined {
@@ -93,6 +108,17 @@ function validateRegistration<Registration extends TemplateRegistrationShape>(
     if (functionDescriptors.some((descriptor) => typeof descriptor?.value !== "function")) {
       throw new Error("invalid");
     }
+    const repeatableFactoryDescriptor = Reflect.getOwnPropertyDescriptor(
+      value,
+      "createRepeatableItem",
+    );
+    if (
+      repeatableFactoryDescriptor !== undefined &&
+      (!("value" in repeatableFactoryDescriptor) ||
+        typeof repeatableFactoryDescriptor.value !== "function")
+    ) {
+      throw new Error("invalid");
+    }
 
     const parsed = TemplateDefinitionV2Schema.safeParse(definitionDescriptor.value);
     if (!parsed.success) throw new Error("definition");
@@ -102,6 +128,9 @@ function validateRegistration<Registration extends TemplateRegistrationShape>(
       createDraft: functionDescriptors[1]?.value as Registration["createDraft"],
       compile: functionDescriptors[2]?.value as Registration["compile"],
       preflight: functionDescriptors[3]?.value as Registration["preflight"],
+      createRepeatableItem: repeatableFactoryDescriptor?.value as
+        | CreateRepeatableItemV1<never>
+        | undefined,
     };
   } catch (error) {
     if (error instanceof Error && error.message === "definition") {
@@ -144,6 +173,103 @@ function definePublishedProperty(target: object, key: PropertyKey, value: unknow
   });
 }
 
+function readOwnPath(value: unknown, path: string): unknown {
+  let current = value;
+  for (const segment of path.split(".")) {
+    if (current === null || typeof current !== "object") throw new Error("invalid");
+    const descriptor = ownDataProperty(current, segment);
+    if (!descriptor) throw new Error("invalid");
+    current = descriptor.value;
+  }
+  return current;
+}
+
+function factoryInput<Draft>(value: CreateRepeatableItemInput<Draft>): {
+  readonly draft: unknown;
+  readonly id: string;
+  readonly now: string | Date;
+} {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
+    throw new Error("invalid");
+  }
+  const keys = Reflect.ownKeys(value);
+  if (
+    keys.length !== 3 ||
+    !keys.includes("id") ||
+    !keys.includes("now") ||
+    !keys.includes("draft")
+  ) {
+    throw new Error("invalid");
+  }
+  const id = ownDataProperty(value, "id")?.value;
+  const now = ownDataProperty(value, "now")?.value;
+  const draft = ownDataProperty(value, "draft")?.value;
+  if (typeof id !== "string" || id.trim().length === 0 || id.length > 200) {
+    throw new Error("invalid");
+  }
+  if (
+    typeof now !== "string" &&
+    !(
+      now instanceof Date &&
+      Object.getPrototypeOf(now) === Date.prototype &&
+      Number.isFinite(Date.prototype.getTime.call(now))
+    )
+  ) {
+    throw new Error("invalid");
+  }
+  return { draft, id, now };
+}
+
+function publishedRepeatableFactory<Registration extends TemplateRegistrationShape>(
+  candidate: RegistrationCandidate<Registration>,
+): CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>> {
+  const factory = (path: string, input: CreateRepeatableItemInput<unknown>) => {
+    try {
+      if (typeof path !== "string") throw new Error("invalid");
+      const field = candidate.definition.fieldManifest.find((entry) => entry.path === path);
+      if (!field || field.control !== "repeatable") throw new Error("invalid");
+      if (!candidate.createRepeatableItem) throw new Error("invalid");
+      const safeInput = factoryInput(input);
+      const parsedDraft = candidate.parseDraft(safeInput.draft);
+      const parsedItems = readOwnPath(parsedDraft, path);
+      if (!Array.isArray(parsedItems) || Object.getPrototypeOf(parsedItems) !== Array.prototype) {
+        throw new Error("invalid");
+      }
+      const nextDraft = structuredClone(parsedDraft);
+      const nextItems = readOwnPath(nextDraft, path);
+      if (!Array.isArray(nextItems) || Object.getPrototypeOf(nextItems) !== Array.prototype) {
+        throw new Error("invalid");
+      }
+      const now =
+        typeof safeInput.now === "string"
+          ? safeInput.now
+          : new Date(Date.prototype.getTime.call(safeInput.now));
+      const item = candidate.createRepeatableItem(path, {
+        draft: parsedDraft as never,
+        id: safeInput.id,
+        now,
+      });
+      nextItems.push(item);
+      const parsedCandidate = candidate.parseDraft(nextDraft);
+      const candidateItems = readOwnPath(parsedCandidate, path);
+      if (!Array.isArray(candidateItems) || candidateItems.length !== parsedItems.length + 1) {
+        throw new Error("invalid");
+      }
+      const parsedItem = ownDataProperty(candidateItems, String(parsedItems.length))?.value;
+      if (parsedItem === undefined) throw new Error("invalid");
+      deepFreeze(parsedItem);
+      return parsedItem;
+    } catch {
+      throw new Error("无法创建重复项");
+    }
+  };
+  return Object.freeze(factory) as CreateRepeatableItemV1<ReturnType<Registration["parseDraft"]>>;
+}
+
 function publishRegistration<Registration extends TemplateRegistrationShape>(
   candidate: RegistrationCandidate<Registration>,
 ): PublishedRegistration<Registration> {
@@ -153,6 +279,7 @@ function publishRegistration<Registration extends TemplateRegistrationShape>(
   for (const key of REGISTRATION_FUNCTION_KEYS) {
     definePublishedProperty(published, key, candidate[key]);
   }
+  definePublishedProperty(published, "createRepeatableItem", publishedRepeatableFactory(candidate));
   return Object.freeze(published) as PublishedRegistration<Registration>;
 }
 

@@ -13,6 +13,13 @@ import {
 interface TestDraft {
   templateId: "quotation.service.project.v1";
   templateVersion: "1.0.0";
+  seller?: { legalName: string };
+  enabled?: boolean;
+  mode?: string;
+  items?: Array<{ id: string; name: string }>;
+  tags?: string[];
+  attachmentId?: string;
+  attachments?: unknown[];
 }
 
 function createDefinition() {
@@ -46,13 +53,160 @@ function createRegistration(): TemplateRegistration<TestDraft> {
   return {
     definition: createDefinition(),
     parseDraft: (value) => value as TestDraft,
-    createDraft: () => ({
+    createDraft: (_input: { id: string; now: string | Date }) => ({
       templateId: "quotation.service.project.v1",
       templateVersion: "1.0.0",
     }),
     compile: () => ({ schemaVersion: "2.0.0" }),
     preflight: () => [],
   };
+}
+
+function createEditorDefinition() {
+  return {
+    ...createDefinition(),
+    fieldManifest: [
+      {
+        path: "seller.legalName",
+        section: "seller",
+        label: "报价方名称",
+        control: "text" as const,
+        valueKind: "string" as const,
+        required: true,
+        visibleWhen: { path: "enabled", equals: true },
+      },
+      {
+        path: "enabled",
+        section: "seller",
+        label: "启用",
+        control: "checkbox" as const,
+        valueKind: "boolean" as const,
+        required: true,
+      },
+      {
+        path: "mode",
+        section: "seller",
+        label: "模式",
+        control: "select" as const,
+        valueKind: "enum" as const,
+        required: true,
+        options: [
+          { value: "standard", label: "标准" },
+          { value: "custom", label: "定制" },
+        ],
+      },
+      {
+        path: "items",
+        section: "seller",
+        label: "项目",
+        control: "repeatable" as const,
+        valueKind: "object-list" as const,
+        required: true,
+        minItems: 1,
+        maxItems: 3,
+        item: {
+          kind: "object" as const,
+          idPath: "id",
+          fields: [
+            {
+              path: "name",
+              label: "名称",
+              control: "text" as const,
+              valueKind: "string" as const,
+              required: true,
+            },
+          ],
+        },
+      },
+      {
+        path: "tags",
+        section: "seller",
+        label: "标签",
+        control: "repeatable" as const,
+        valueKind: "string-list" as const,
+        required: false,
+        minItems: 0,
+        maxItems: 10,
+        item: {
+          kind: "value" as const,
+          label: "标签",
+          control: "text" as const,
+          valueKind: "string" as const,
+        },
+      },
+      {
+        path: "attachmentId",
+        section: "seller",
+        label: "附件",
+        control: "attachment" as const,
+        valueKind: "attachment-id" as const,
+        required: false,
+        cardinality: "single" as const,
+        maxItems: 1,
+        descriptorPath: "attachments" as const,
+        role: "supporting" as const,
+        category: "commercial" as const,
+        allowedMediaTypes: ["application/pdf", "image/png", "image/jpeg"] as const,
+        pdfPageCount: "user-confirmed" as const,
+        includeInSubmissionDefault: false,
+      },
+    ],
+  };
+}
+
+function createEditorRegistration(
+  factory:
+    | ((
+        path: string,
+        input: { readonly id: string; readonly now: string | Date; readonly draft: TestDraft },
+      ) => unknown)
+    | null = (_path, input) => ({ id: input.id, name: "新增项目" }),
+) {
+  const registration = {
+    definition: createEditorDefinition(),
+    parseDraft(value: unknown): TestDraft {
+      const draft = value as TestDraft;
+      if (
+        draft === null ||
+        typeof draft !== "object" ||
+        !Array.isArray(draft.items) ||
+        draft.items.length < 1 ||
+        draft.items.length > 3 ||
+        draft.items.some(
+          (item) =>
+            item === null ||
+            typeof item !== "object" ||
+            typeof item.id !== "string" ||
+            typeof item.name !== "string" ||
+            item.name.trim().length === 0,
+        )
+      ) {
+        throw new Error("invalid synthetic draft");
+      }
+      return structuredClone(draft);
+    },
+    createDraft: (_input: { id: string; now: string | Date }) => ({
+      templateId: "quotation.service.project.v1" as const,
+      templateVersion: "1.0.0" as const,
+      seller: { legalName: "测试供应商" },
+      enabled: true,
+      mode: "standard",
+      items: [{ id: "item-1", name: "首项" }],
+      tags: [],
+      attachments: [],
+    }),
+    compile: () => ({ schemaVersion: "2.0.0" }),
+    preflight: () => [],
+  };
+  if (factory !== null) {
+    Object.defineProperty(registration, "createRepeatableItem", {
+      configurable: true,
+      enumerable: true,
+      value: factory,
+      writable: true,
+    });
+  }
+  return registration;
 }
 
 function assertReadonlyPublicTypes(
@@ -137,6 +291,205 @@ describe("V2 common schemas", () => {
         })),
       }),
     ).toThrow();
+  });
+
+  it("accepts bounded discriminated editor metadata while legacy metadata stays optional", () => {
+    const legacy = TemplateDefinitionV2Schema.parse(createDefinition());
+    const editor = TemplateDefinitionV2Schema.parse(createEditorDefinition());
+
+    expect(legacy.fieldManifest[0]).not.toHaveProperty("valueKind");
+    expect(editor.fieldManifest.find((field) => field.path === "mode")).toMatchObject({
+      control: "select",
+      valueKind: "enum",
+      options: [
+        { value: "standard", label: "标准" },
+        { value: "custom", label: "定制" },
+      ],
+    });
+    expect(editor.fieldManifest.find((field) => field.path === "items")).toMatchObject({
+      control: "repeatable",
+      valueKind: "object-list",
+      minItems: 1,
+      maxItems: 3,
+      item: {
+        kind: "object",
+        idPath: "id",
+        fields: [{ path: "name", valueKind: "string" }],
+      },
+    });
+    expect(editor.fieldManifest.find((field) => field.path === "attachmentId")).toMatchObject({
+      control: "attachment",
+      valueKind: "attachment-id",
+      cardinality: "single",
+      descriptorPath: "attachments",
+      role: "supporting",
+      category: "commercial",
+      pdfPageCount: "user-confirmed",
+    });
+  });
+
+  it("rejects mismatched controls, empty or duplicate selects and malformed list metadata", () => {
+    const definition = createEditorDefinition();
+    const byPath = (path: string) =>
+      definition.fieldManifest.find((field) => field.path === path) as Record<string, unknown>;
+    const replace = (path: string, replacement: Record<string, unknown>) => ({
+      ...definition,
+      fieldManifest: definition.fieldManifest.map((field) =>
+        field.path === path ? replacement : field,
+      ),
+    });
+
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(
+        replace("seller.legalName", { ...byPath("seller.legalName"), valueKind: "boolean" }),
+      ),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(replace("mode", { ...byPath("mode"), options: [] })),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(
+        replace("mode", {
+          ...byPath("mode"),
+          options: [
+            { value: "same", label: "一" },
+            { value: "same", label: "二" },
+          ],
+        }),
+      ),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(
+        replace("items", { ...byPath("items"), minItems: 4, maxItems: 3 }),
+      ),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(
+        replace("tags", {
+          ...byPath("tags"),
+          valueKind: "string-list",
+          item: { kind: "object", fields: [] },
+        }),
+      ),
+    ).toThrow();
+  });
+
+  it("rejects unsafe paths, oversized editor specs and invalid attachment contracts", () => {
+    const definition = createEditorDefinition();
+    const items = definition.fieldManifest.find((field) => field.path === "items") as Record<
+      string,
+      unknown
+    >;
+    const attachment = definition.fieldManifest.find(
+      (field) => field.path === "attachmentId",
+    ) as Record<string, unknown>;
+    const item = items.item as Record<string, unknown>;
+    const objectField = (path: string) => ({
+      path,
+      label: path,
+      control: "text" as const,
+      valueKind: "string" as const,
+      required: false,
+    });
+
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "items"
+            ? { ...items, item: { ...item, fields: [objectField("safe.__proto__.value")] } }
+            : field,
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "items"
+            ? {
+                ...items,
+                item: {
+                  ...item,
+                  fields: Array.from({ length: 101 }, (__, index) => objectField(`field${index}`)),
+                },
+              }
+            : field,
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "items"
+            ? { ...items, item: { ...item, fields: [objectField("one.two.three.four.five")] } }
+            : field,
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: Array.from({ length: 5 }, (_, index) => ({
+          ...items,
+          path: `items${index}`,
+          item: {
+            ...item,
+            fields: Array.from({ length: 100 }, (__, fieldIndex) =>
+              objectField(`field${fieldIndex}`),
+            ),
+          },
+        })),
+      }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "attachmentId"
+            ? {
+                ...attachment,
+                valueKind: "attachment-id-list",
+                cardinality: "single",
+                maxItems: 2,
+              }
+            : field,
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse({
+        ...definition,
+        fieldManifest: definition.fieldManifest.map((field) =>
+          field.path === "attachmentId"
+            ? { ...attachment, allowedMediaTypes: ["image/gif"] }
+            : field,
+        ),
+      }),
+    ).toThrow();
+  });
+
+  it("requires visible conditions to reference an exact compatible manifest field", () => {
+    const definition = createEditorDefinition();
+    const seller = definition.fieldManifest[0] as Record<string, unknown>;
+    const withCondition = (visibleWhen: { path: string; equals: string | boolean }) => ({
+      ...definition,
+      fieldManifest: [{ ...seller, visibleWhen }, ...definition.fieldManifest.slice(1)],
+    });
+
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withCondition({ path: "missing", equals: true })),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withCondition({ path: "enabled", equals: "true" })),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withCondition({ path: "mode", equals: "unknown" })),
+    ).toThrow();
+    expect(() =>
+      TemplateDefinitionV2Schema.parse(withCondition({ path: "mode", equals: "custom" })),
+    ).not.toThrow();
   });
 
   it("rejects trailing isolated high surrogates in public localized and template text", () => {
@@ -331,5 +684,99 @@ describe("V2 template registry", () => {
       "不支持的模板版本",
     );
     expect(stringifyAttempt).not.toHaveBeenCalled();
+  });
+
+  it("publishes a frozen repeatable factory that trusts only an inserted parsed item", () => {
+    const registration = createEditorRegistration();
+    const registry = createTemplateRegistry([registration as never]);
+    const published = registry.get("quotation.service.project.v1", "1.0.0") as unknown as {
+      createRepeatableItem: (
+        path: string,
+        input: { id: string; now: string | Date; draft: TestDraft },
+      ) => unknown;
+    };
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    const item = published.createRepeatableItem("items", {
+      id: "item-2",
+      now: "2026-08-20T00:00:00Z",
+      draft,
+    });
+
+    expect(item).toEqual({ id: "item-2", name: "新增项目" });
+    expect(Object.isFrozen(item)).toBe(true);
+    expect(draft.items).toEqual([{ id: "item-1", name: "首项" }]);
+    expect(Object.isFrozen(published)).toBe(true);
+    const definition = (published as unknown as { definition: TemplateDefinitionV2 }).definition;
+    const mode = definition.fieldManifest.find((field) => field.path === "mode") as {
+      options?: readonly unknown[];
+    };
+    const items = definition.fieldManifest.find((field) => field.path === "items") as {
+      item?: { fields?: readonly unknown[] };
+    };
+    const attachment = definition.fieldManifest.find((field) => field.path === "attachmentId") as {
+      allowedMediaTypes?: readonly string[];
+    };
+    expect(Object.isFrozen(mode.options)).toBe(true);
+    expect(Object.isFrozen(items.item)).toBe(true);
+    expect(Object.isFrozen(items.item?.fields)).toBe(true);
+    expect(Object.isFrozen(attachment.allowedMediaTypes)).toBe(true);
+  });
+
+  it("rejects unknown, non-repeatable and missing repeatable factories before dispatch", () => {
+    const factory = vi.fn((_path: string, input: { id: string }) => ({
+      id: input.id,
+      name: "新增项目",
+    }));
+    const published = createTemplateRegistry([
+      createEditorRegistration(factory as never) as never,
+    ]).get("quotation.service.project.v1", "1.0.0") as unknown as {
+      createRepeatableItem: (path: string, input: Record<string, unknown>) => unknown;
+    };
+    const draft = createEditorRegistration().createDraft({
+      id: "draft-1",
+      now: "2026-08-20T00:00:00Z",
+    });
+    const input = { id: "item-2", now: "2026-08-20T00:00:00Z", draft };
+
+    expect(() => published.createRepeatableItem("missing", input)).toThrow();
+    expect(() => published.createRepeatableItem("seller.legalName", input)).toThrow();
+    expect(factory).not.toHaveBeenCalled();
+
+    const withoutFactory = createTemplateRegistry([createEditorRegistration(null) as never]).get(
+      "quotation.service.project.v1",
+      "1.0.0",
+    ) as unknown as {
+      createRepeatableItem: (path: string, input: Record<string, unknown>) => unknown;
+    };
+    expect(typeof withoutFactory.createRepeatableItem).toBe("function");
+    expect(() => withoutFactory.createRepeatableItem("items", input)).toThrow();
+  });
+
+  it("rejects invalid factory results through the candidate draft parser", () => {
+    const published = createTemplateRegistry([
+      createEditorRegistration((_path, input) => ({ id: input.id, name: "" })) as never,
+    ]).get("quotation.service.project.v1", "1.0.0") as unknown as {
+      createRepeatableItem: (path: string, input: Record<string, unknown>) => unknown;
+    };
+    const registration = createEditorRegistration();
+    const draft = registration.createDraft({ id: "draft-1", now: "2026-08-20T00:00:00Z" });
+
+    expect(() =>
+      published.createRepeatableItem("items", {
+        id: "item-2",
+        now: "2026-08-20T00:00:00Z",
+        draft,
+      }),
+    ).toThrow();
+  });
+
+  it("rejects accessor repeatable factories without executing them", () => {
+    const getter = vi.fn(() => () => ({ id: "item-2", name: "不应执行" }));
+    const registration = createEditorRegistration(null);
+    Object.defineProperty(registration, "createRepeatableItem", { enumerable: true, get: getter });
+
+    expect(() => createTemplateRegistry([registration as never])).toThrow("模板注册无效");
+    expect(getter).not.toHaveBeenCalled();
   });
 });
