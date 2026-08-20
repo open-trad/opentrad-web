@@ -427,6 +427,8 @@ function show(value?: string): string {
 function compileOemDraft(value: unknown): DocumentModelV2 {
   const draft = parseOemDraft(value);
   const findings = analyzeOemDraft(draft);
+  const publicAttachments = exportedAttachments(draft.attachments);
+  const publicAttachmentIds = new Set(publicAttachments.map((attachment) => attachment.id));
   const calculation =
     draft.production.currency && draft.production.taxMode
       ? calculateQuoteLinesV2(
@@ -516,7 +518,9 @@ function compileOemDraft(value: unknown): DocumentModelV2 {
         {
           type: "attachmentIndex" as const,
           id: "drawing-index",
-          attachmentIds: draft.technical.drawingAttachmentIds,
+          attachmentIds: draft.technical.drawingAttachmentIds.filter((attachmentId) =>
+            publicAttachmentIds.has(attachmentId),
+          ),
         },
       ],
     },
@@ -629,7 +633,7 @@ function compileOemDraft(value: unknown): DocumentModelV2 {
         {
           type: "attachmentIndex" as const,
           id: "oem-attachment-index",
-          attachmentIds: draft.attachments.map((attachment) => attachment.id),
+          attachmentIds: publicAttachments.map((attachment) => attachment.id),
         },
       ],
     },
@@ -662,7 +666,7 @@ function compileOemDraft(value: unknown): DocumentModelV2 {
     sections,
     watermarks: contractWatermarks(findings),
     disclaimers: ["contract-generation-note"],
-    attachmentManifest: exportedAttachments(draft.attachments),
+    attachmentManifest: publicAttachments,
   }) as DocumentModelV2;
 }
 

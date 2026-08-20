@@ -376,6 +376,8 @@ function text(value?: string): string {
 function compileFrameworkDraft(value: unknown): DocumentModelV2 {
   const draft = parseFrameworkDraft(value);
   const findings = analyzeFrameworkDraft(draft);
+  const publicAttachments = exportedAttachments(draft.attachments);
+  const publicAttachmentIds = new Set(publicAttachments.map((attachment) => attachment.id));
   const calculation =
     draft.pricing.currency && draft.pricing.taxMode
       ? calculateQuoteLinesV2(
@@ -572,7 +574,11 @@ function compileFrameworkDraft(value: unknown): DocumentModelV2 {
         {
           type: "attachmentIndex" as const,
           id: "order-template-index",
-          attachmentIds: draft.orderTemplateAttachmentId ? [draft.orderTemplateAttachmentId] : [],
+          attachmentIds:
+            draft.orderTemplateAttachmentId &&
+            publicAttachmentIds.has(draft.orderTemplateAttachmentId)
+              ? [draft.orderTemplateAttachmentId]
+              : [],
         },
       ],
     },
@@ -605,7 +611,7 @@ function compileFrameworkDraft(value: unknown): DocumentModelV2 {
     sections,
     watermarks: contractWatermarks(findings),
     disclaimers: ["contract-generation-note"],
-    attachmentManifest: exportedAttachments(draft.attachments),
+    attachmentManifest: publicAttachments,
   }) as DocumentModelV2;
 }
 

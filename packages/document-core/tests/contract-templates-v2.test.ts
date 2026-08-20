@@ -691,6 +691,109 @@ describe("contract.sale.international-bilingual.v1", () => {
     expect(() => registration.preflight({ ...created, unknown: true })).toThrow();
   });
 
+  it("publishes only the included portable attachment subset for all attachment contracts", () => {
+    const cases = [
+      ["contract.sale.domestic-b2b.v1", "contract-domestic-sale"],
+      ["contract.supply.framework.v1", "contract-framework-supply"],
+      ["contract.oem.processing.v1", "contract-oem-processing"],
+    ] as const;
+
+    for (const [templateId, fixtureName] of cases) {
+      const registration = V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
+      const base = fixture(fixtureName) as Record<string, unknown>;
+      const [original] = base.attachments as Array<Record<string, unknown>>;
+      if (!original || typeof original.id !== "string")
+        throw new Error("Missing attachment fixture");
+      const storageKey = `${templateId}@1.0.0:${base.id as string}`;
+      const draft = registration.parseDraft({
+        ...base,
+        ...(templateId === "contract.supply.framework.v1"
+          ? { orderTemplateAttachmentId: "included-safe" }
+          : {}),
+        ...(templateId === "contract.oem.processing.v1"
+          ? {
+              technical: {
+                ...(base.technical as Record<string, unknown>),
+                drawingAttachmentIds: ["included-safe"],
+              },
+            }
+          : {}),
+        attachments: [
+          {
+            ...original,
+            required: false,
+            sourceRef: "file:///Users/example/private-source.pdf",
+            localBlobKey: `${storageKey}#${original.id}`,
+            includedInSubmission: false,
+          },
+          {
+            ...original,
+            id: "included-safe",
+            displayName: "用户确认的附件证据.pdf",
+            sourceRef: "用户确认的附件证据编号 C-1",
+            localBlobKey: `${storageKey}#included-safe`,
+          },
+          {
+            ...original,
+            id: "included-uri",
+            displayName: "随附技术资料.pdf",
+            sourceRef: "https://example.invalid/private-source.pdf",
+            localBlobKey: `${storageKey}#included-uri`,
+          },
+          {
+            ...original,
+            id: "included-relative",
+            displayName: "相对目录技术资料.pdf",
+            sourceRef: "private/contracts/source.pdf",
+            localBlobKey: `${storageKey}#included-relative`,
+          },
+          {
+            ...original,
+            id: "included-users-path",
+            displayName: "用户目录技术资料.pdf",
+            sourceRef: "Users/example/private.pdf",
+            localBlobKey: `${storageKey}#included-users-path`,
+          },
+        ],
+      });
+
+      const model = DocumentModelV2Schema.parse(registration.compile(draft));
+      expect(model.attachmentManifest.map((attachment) => attachment.id)).toEqual([
+        "included-safe",
+        "included-uri",
+        "included-relative",
+        "included-users-path",
+      ]);
+      expect(model.attachmentManifest[0]?.sourceRef).toBe("用户确认的附件证据编号 C-1");
+      expect(model.attachmentManifest[1]).not.toHaveProperty("sourceRef");
+      expect(model.attachmentManifest[2]).not.toHaveProperty("sourceRef");
+      expect(model.attachmentManifest[3]).not.toHaveProperty("sourceRef");
+      expect(model.attachmentManifest.every((attachment) => !("localBlobKey" in attachment))).toBe(
+        true,
+      );
+      const indexedIds = model.sections.flatMap((section) =>
+        section.blocks.flatMap((block) =>
+          block.type === "attachmentIndex" ? block.attachmentIds : [],
+        ),
+      );
+      expect(indexedIds).not.toContain(original.id);
+      if (templateId === "contract.supply.framework.v1") {
+        expect(
+          model.sections
+            .flatMap((section) => section.blocks)
+            .find((block) => block.id === "order-template-index"),
+        ).toMatchObject({ attachmentIds: ["included-safe"] });
+      }
+      if (templateId === "contract.oem.processing.v1") {
+        expect(
+          model.sections
+            .flatMap((section) => section.blocks)
+            .find((block) => block.id === "drawing-index"),
+        ).toMatchObject({ attachmentIds: ["included-safe"] });
+      }
+    }
+  });
+
   it("keeps four quotations and five contracts in the final fourteen-template registry", () => {
     const registrations = V2_TEMPLATE_REGISTRY.list();
     expect(registrations).toHaveLength(14);

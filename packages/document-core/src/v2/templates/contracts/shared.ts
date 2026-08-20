@@ -285,10 +285,23 @@ export function signerBlocks(
 export function exportedAttachments(
   attachments: readonly AttachmentRefV1[],
 ): readonly AttachmentRefV1[] {
-  return attachments.map((attachment) => {
-    const { localBlobKey: _localBlobKey, ...safe } = attachment;
-    return safe;
-  });
+  return attachments
+    .filter((attachment) => attachment.includedInSubmission)
+    .map((attachment) => {
+      const { localBlobKey: _localBlobKey, sourceRef, ...safe } = attachment;
+      const normalizedSourceRef = sourceRef?.trim();
+      const isLocalOnlySourceRef =
+        normalizedSourceRef !== undefined &&
+        (/^[a-z][a-z0-9+.-]*:/iu.test(normalizedSourceRef) ||
+          /^(?:\/|\\|~[\\/]|\.{1,2}[\\/]|[a-z]:[\\/])/iu.test(normalizedSourceRef) ||
+          normalizedSourceRef.includes("\\") ||
+          (normalizedSourceRef.includes("/") &&
+            /\.(?:pdf|png|jpe?g)(?:[?#].*)?$/iu.test(normalizedSourceRef)));
+      return {
+        ...safe,
+        ...(sourceRef && !isLocalOnlySourceRef ? { sourceRef } : {}),
+      };
+    });
 }
 
 export function validateSignerPartyReferences(

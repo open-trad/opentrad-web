@@ -412,6 +412,7 @@ function display(value: string | undefined): string {
 function compileDomesticDraft(value: unknown): DocumentModelV2 {
   const draft = parseDomesticDraft(value);
   const findings = analyzeDomesticDraft(draft);
+  const publicAttachments = exportedAttachments(draft.attachments);
   const calculation =
     draft.price.currency &&
     draft.price.taxMode &&
@@ -781,7 +782,7 @@ function compileDomesticDraft(value: unknown): DocumentModelV2 {
         {
           type: "attachmentIndex" as const,
           id: "attachment-index",
-          attachmentIds: draft.attachments.map((attachment) => attachment.id),
+          attachmentIds: publicAttachments.map((attachment) => attachment.id),
         },
       ],
     },
@@ -811,7 +812,7 @@ function compileDomesticDraft(value: unknown): DocumentModelV2 {
     sections,
     watermarks: contractWatermarks(findings),
     disclaimers: ["contract-generation-note"],
-    attachmentManifest: exportedAttachments(draft.attachments),
+    attachmentManifest: publicAttachments,
   }) as DocumentModelV2;
 }
 
