@@ -1347,7 +1347,7 @@ describe("five complete contract editor manifests", () => {
           cardinality: "multiple",
           maxItems: 100,
           descriptorPath: "attachments",
-          role: "supporting",
+          role: "submission",
           category: "technical",
           allowedMediaTypes: ["application/pdf", "image/png", "image/jpeg"],
           pdfPageCount: "user-confirmed",

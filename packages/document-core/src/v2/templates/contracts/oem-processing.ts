@@ -264,7 +264,7 @@ export const OEM_PROCESSING_CONTRACT_DEFINITION = {
       required: true,
       multiple: true,
       maxItems: 100,
-      role: "supporting",
+      role: "submission",
       category: "technical",
       includeInSubmissionDefault: true,
     }),
