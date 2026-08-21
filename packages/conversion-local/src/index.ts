@@ -1,4 +1,6 @@
 export * from "./client.js";
+export * from "./docx/convertDocx.js";
+export * from "./image/convertImage.js";
 export * from "./limits.js";
 export * from "./protocol.js";
 export * from "./text/convertText.js";
