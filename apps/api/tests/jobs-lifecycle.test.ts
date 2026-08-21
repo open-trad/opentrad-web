@@ -350,6 +350,8 @@ describe("private staged files", () => {
     ]) {
       const info = statSync(directory);
       expect(info.mode & 0o777).toBe(0o770);
+      expect(info.mode & 0o7777).toBe(0o2770);
+      expect(info.gid).toBe(workerGid);
       expect(posixAllows(info, worker, 0o1)).toBe(true);
       expect(posixAllows(info, worker, 0o2)).toBe(true);
       expect(posixAllows(info, outsider, 0o1)).toBe(false);

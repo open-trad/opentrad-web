@@ -137,6 +137,40 @@ importers:
         specifier: 3.2.6
         version: 3.2.6(@types/debug@4.1.13)(@types/node@24.3.0)(jsdom@26.1.0)
 
+  apps/worker:
+    dependencies:
+      '@opentrad/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@opentrad/document-core':
+        specifier: workspace:*
+        version: link:../../packages/document-core
+      '@opentrad/document-renderer':
+        specifier: workspace:*
+        version: link:../../packages/document-renderer
+      pdfjs-dist:
+        specifier: 6.2.108
+        version: 6.2.108
+      xlsx:
+        specifier: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        version: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: 24.3.0
+        version: 24.3.0
+      pdf-lib:
+        specifier: 1.17.1
+        version: 1.17.1
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: 3.2.6
+        version: 3.2.6(@types/debug@4.1.13)(@types/node@24.3.0)(jsdom@26.1.0)
+
   packages/contracts:
     dependencies:
       zod:
@@ -2296,6 +2330,12 @@ packages:
       utf-8-validate:
         optional: true
 
+  xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz:
+    resolution: {tarball: https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz}
+    version: 0.20.3
+    engines: {node: '>=0.8'}
+    hasBin: true
+
   xml-js@1.6.11:
     resolution: {integrity: sha512-7rVi2KMfwfWFl+GpPg6m80IVMWXLRjO+PxTq7V2CDhoGak0wzYzFgUY2m4XJ47OGdXd8eLE8EmwfAmdjw7lC1g==}
     hasBin: true
@@ -4337,6 +4377,10 @@ snapshots:
       stackback: 0.0.2
 
   ws@8.21.3: {}
+
+  xlsx@https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz:
+    resolution:
+      integrity: sha512-oLDq3jw7AcLqKWH2AhCpVTZl8mf6X2YReP+Neh0SJUzV/BdZYjth94tG5toiMB1PPrYtxOCfaoUCkvtuH+3AJA==
 
   xml-js@1.6.11:
     dependencies:

@@ -663,7 +663,7 @@ export class JobFiles {
       throw new JobFileError("INVALID_REQUEST");
     }
     if (info.gid !== this.#workerGid) chownSync(path, info.uid, this.#workerGid);
-    chmodSync(path, directory ? 0o770 : 0o640);
+    chmodSync(path, directory ? 0o2770 : 0o640);
   }
 
   #grantWorkerTraversal(path: string): void {
