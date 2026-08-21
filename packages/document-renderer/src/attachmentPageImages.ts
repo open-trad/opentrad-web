@@ -287,6 +287,12 @@ function expectedAttachmentPages(plan: DocxPlanV2): readonly {
   readonly attachmentId: string;
   readonly pageNumber: number;
 }[] {
+  if (
+    plan.sections.some((section) => section.blocks.some((block) => block.type === "attachmentPage"))
+  ) {
+    fail();
+  }
+
   const expected: { readonly attachmentId: string; readonly pageNumber: number }[] = [];
   for (const attachment of plan.attachmentManifest) {
     if (!attachment.includedInSubmission) continue;
@@ -297,25 +303,6 @@ function expectedAttachmentPages(plan: DocxPlanV2): readonly {
     }
   }
   if (expected.length > MAX_ATTACHMENT_PAGE_IMAGES) fail();
-
-  const blocks: { readonly attachmentId: string; readonly pageNumber: number }[] = [];
-  for (const section of plan.sections) {
-    for (const block of section.blocks) {
-      if (block.type === "attachmentPage") {
-        blocks.push({ attachmentId: block.attachmentId, pageNumber: block.pageNumber });
-      }
-    }
-  }
-  if (
-    blocks.length !== expected.length ||
-    blocks.some(
-      (block, index) =>
-        block.attachmentId !== expected[index]?.attachmentId ||
-        block.pageNumber !== expected[index]?.pageNumber,
-    )
-  ) {
-    fail();
-  }
   return expected;
 }
 

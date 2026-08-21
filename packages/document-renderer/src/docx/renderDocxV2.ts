@@ -36,6 +36,10 @@ export const DOCX_V2_MIME =
 export const ATTACHMENT_PAGE_VERTICAL_RESERVE_TWIPS = 1_800;
 const DOCUMENT_FONT = "Source Han Sans CN";
 const TWIPS_PER_IMAGE_PIXEL = 15;
+const ATTACHMENT_OVERLAY_CAVEAT_ZH_CN =
+  "附件按页面图像嵌入，正文可编辑不表示附件可编辑或已重新识别";
+const ATTACHMENT_OVERLAY_CAVEAT_EN_US =
+  "Attachments are embedded as page images. An editable body does not mean attachments are editable or have been re-recognized.";
 
 const LABELS = {
   toc: { zhCN: "目录", enUS: "Table of contents" },
@@ -285,6 +289,34 @@ async function renderDocxPlanV2(
     const attachment = attachments.get(attachmentId);
     if (!attachment) throw new Error("附件引用无效");
     return attachment;
+  }
+
+  function attachmentPageTitle(attachment: Attachment, pageNumber: number): string {
+    const pageLabel =
+      plan.languageView === "en-US"
+        ? `${label(LABELS.page)} ${pageNumber}`
+        : plan.languageView === "zh-en"
+          ? `第 ${pageNumber} 页 / Page ${pageNumber}`
+          : `第 ${pageNumber} 页`;
+    return `${attachment.displayName} · ${pageLabel}`;
+  }
+
+  function attachmentImageParagraph(
+    pageImage: TrustedAttachmentPageImage,
+    availableWidth: number,
+    availableHeight: number,
+  ): import("docx").Paragraph {
+    return new docx.Paragraph({
+      alignment: docx.AlignmentType.CENTER,
+      spacing: { after: blockAfter },
+      children: [
+        new docx.ImageRun({
+          type: "jpg",
+          data: pageImage.bytes,
+          transformation: fitAttachmentPageImage(pageImage, availableWidth, availableHeight),
+        }),
+      ],
+    });
   }
 
   function headingLevel(level: 1 | 2 | 3) {
@@ -578,37 +610,15 @@ async function renderDocxPlanV2(
         const pageImage = attachmentPageImages.get(
           attachmentPageImageKey(block.attachmentId, block.pageNumber),
         );
-        const pageLabel =
-          plan.languageView === "en-US"
-            ? `${label(LABELS.page)} ${block.pageNumber}`
-            : plan.languageView === "zh-en"
-              ? `第 ${block.pageNumber} 页 / Page ${block.pageNumber}`
-              : `第 ${block.pageNumber} 页`;
         return [
-          paragraph(`${attachment.displayName} · ${pageLabel}`, {
+          paragraph(attachmentPageTitle(attachment, block.pageNumber), {
             bold: true,
             color: accent,
             size: headingSize,
             keepNext: true,
           }),
           ...(pageImage
-            ? [
-                new docx.Paragraph({
-                  alignment: docx.AlignmentType.CENTER,
-                  spacing: { after: blockAfter },
-                  children: [
-                    new docx.ImageRun({
-                      type: "jpg",
-                      data: pageImage.bytes,
-                      transformation: fitAttachmentPageImage(
-                        pageImage,
-                        availableWidth,
-                        availableHeight,
-                      ),
-                    }),
-                  ],
-                }),
-              ]
+            ? [attachmentImageParagraph(pageImage, availableWidth, availableHeight)]
             : [
                 paragraph(label(LABELS.localAttachmentPlaceholder), {
                   alignment: docx.AlignmentType.CENTER,
@@ -786,6 +796,26 @@ async function renderDocxPlanV2(
           }),
         ),
       );
+    }
+    if (sectionIndex === plan.sections.length - 1 && attachmentPageImages.size > 0) {
+      for (const pageImage of attachmentPageImages.values()) {
+        const attachment = requireAttachment(pageImage.attachmentId);
+        children.push(
+          new docx.Paragraph({ children: [new docx.PageBreak()] }),
+          paragraph(attachmentPageTitle(attachment, pageImage.pageNumber), {
+            bold: true,
+            color: accent,
+            size: headingSize,
+            keepNext: true,
+          }),
+          paragraph(`${ATTACHMENT_OVERLAY_CAVEAT_ZH_CN}\n${ATTACHMENT_OVERLAY_CAVEAT_EN_US}`, {
+            color: muted,
+            size: smallSize,
+            keepNext: true,
+          }),
+          attachmentImageParagraph(pageImage, availableWidth, availableHeight),
+        );
+      }
     }
 
     const defaultHeader = watermarkHeader(everyPageWatermarks);

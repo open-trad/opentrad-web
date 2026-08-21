@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import { inflateRawSync } from "node:zlib";
-import type { DocumentModelV2 } from "@opentrad/document-core";
+import { type DocumentModelV2, DocumentModelV2Schema } from "@opentrad/document-core";
 import { describe, expect, it, vi } from "vitest";
 import {
   AttachmentPageImagesValidationError,
@@ -27,17 +27,17 @@ function createAttachmentModel(pageCounts: readonly number[] = [1]): DocumentMod
     status: "attached" as const,
     includedInSubmission: true,
   }));
-  return {
+  return DocumentModelV2Schema.parse({
     schemaVersion: "2.0.0",
     documentId: "renderer-attachment-fixture",
     template: {
-      id: "quotation.service.project.v1",
+      id: "bid.government.goods.v1",
       version: "1.0.0",
       basisDate: "2026-08-19",
     },
-    documentKind: "quotation",
+    documentKind: "bid",
     language: "zh-CN",
-    title: { zhCN: "附件渲染测试" },
+    title: { zhCN: "附件渲染测试", enUS: "Attachment rendering test" },
     pageDefaults: {
       size: "A4",
       orientation: "portrait",
@@ -45,9 +45,39 @@ function createAttachmentModel(pageCounts: readonly number[] = [1]): DocumentMod
     },
     sections: [
       {
+        id: "editable-bid-body",
+        blocks: [
+          {
+            type: "paragraph",
+            id: "editable-body-end",
+            text: { zhCN: "可编辑正文末尾", enUS: "End of editable body" },
+          },
+          {
+            type: "attachmentIndex",
+            id: "submission-attachment-index",
+            attachmentIds: attachmentManifest.map((attachment) => attachment.id),
+          },
+        ],
+      },
+    ],
+    watermarks: [],
+    disclaimers: [],
+    attachmentManifest,
+  });
+}
+
+function createAttachmentPagePlaceholderModel(
+  pageCounts: readonly number[] = [1],
+): DocumentModelV2 {
+  const model = createAttachmentModel(pageCounts);
+  return DocumentModelV2Schema.parse({
+    ...model,
+    sections: [
+      ...model.sections,
+      {
         id: "attachment-pages",
-        blocks: attachmentManifest.flatMap((attachment) =>
-          Array.from({ length: attachment.pageCount }, (_, pageIndex) => ({
+        blocks: model.attachmentManifest.flatMap((attachment) =>
+          Array.from({ length: attachment.pageCount ?? 0 }, (_, pageIndex) => ({
             type: "attachmentPage" as const,
             id: `${attachment.id}-page-${pageIndex + 1}`,
             attachmentId: attachment.id,
@@ -56,10 +86,14 @@ function createAttachmentModel(pageCounts: readonly number[] = [1]): DocumentMod
         ),
       },
     ],
-    watermarks: [],
-    disclaimers: [],
-    attachmentManifest,
-  };
+  });
+}
+
+function withAttachmentManifest(
+  model: DocumentModelV2,
+  attachmentManifest: DocumentModelV2["attachmentManifest"],
+): DocumentModelV2 {
+  return DocumentModelV2Schema.parse({ ...model, attachmentManifest });
 }
 
 function validImage(
@@ -196,26 +230,118 @@ function textEntry(entries: ReadonlyMap<string, Uint8Array>, name: string): stri
 }
 
 describe("trusted attachment page image seam", () => {
-  it("embeds a supplied local JPEG instead of the attachment placeholder", async () => {
+  it("embeds a supplied local JPEG for a schema-valid bid model without attachmentPage blocks", async () => {
+    const model = createAttachmentModel();
+    const plan = buildDocxPlanV2(model, "classic-formal.v1", "zh-CN");
+    const modelBefore = JSON.stringify(model);
+    const planBefore = JSON.stringify(plan);
     const jpeg = VALID_JPEG.slice();
-    const blob = await renderDocxV2(createAttachmentModel(), "classic-formal.v1", "zh-CN", {
-      attachmentPageImages: [
-        {
-          attachmentId: "attachment-1",
-          pageNumber: 1,
-          bytes: jpeg,
-          widthPixels: 2,
-          heightPixels: 4,
-        },
-      ],
+    const attachmentPageImages = [
+      {
+        attachmentId: "attachment-1",
+        pageNumber: 1,
+        bytes: jpeg,
+        widthPixels: 2,
+        heightPixels: 4,
+      },
+    ];
+    expect(validateAttachmentPageImages(plan, { attachmentPageImages })).toHaveLength(1);
+    const blob = await renderDocxV2(model, "classic-formal.v1", "zh-CN", {
+      attachmentPageImages,
     });
     const entries = await unzipDocx(blob);
     const documentXml = textEntry(entries, "word/document.xml");
     const media = Array.from(entries).find(([name]) => /^word\/media\/.*\.jpg$/u.test(name));
 
+    expect(model.sections.flatMap((section) => section.blocks)).not.toContainEqual(
+      expect.objectContaining({ type: "attachmentPage" }),
+    );
+    expect(plan.blockKinds).not.toContain("attachmentPage");
     expect(documentXml).not.toContain("本地附件占位符");
     expect(documentXml).toMatch(/<a:blip\b[^>]*r:embed=/u);
     expect(media?.[1]).toEqual(jpeg);
+    expect(JSON.stringify(model)).toBe(modelBefore);
+    expect(JSON.stringify(plan)).toBe(planBefore);
+  });
+
+  it("rejects a provider when the validated model already contains attachmentPage blocks", async () => {
+    await expect(
+      renderDocxV2(createAttachmentPagePlaceholderModel(), "classic-formal.v1", "zh-CN", {
+        attachmentPageImages: [validImage()],
+      }),
+    ).rejects.toThrow(AttachmentPageImagesValidationError);
+  });
+
+  it("preserves the legacy attachmentPage placeholder when the provider is omitted", async () => {
+    const blob = await renderDocxV2(
+      createAttachmentPagePlaceholderModel(),
+      "classic-formal.v1",
+      "zh-CN",
+    );
+    const entries = await unzipDocx(blob);
+    const documentXml = textEntry(entries, "word/document.xml");
+
+    expect(documentXml).toContain("本地附件占位符");
+    expect(Array.from(entries).some(([name]) => /^word\/media\/.*\.jpg$/u.test(name))).toBe(false);
+  });
+
+  it("does not require a provider merely because an included attachment is in the manifest", async () => {
+    const model = createAttachmentModel();
+    const blob = await renderDocxV2(model, "classic-formal.v1", "zh-CN");
+    const documentXml = textEntry(await unzipDocx(blob), "word/document.xml");
+
+    expect(documentXml).toContain("附件1.pdf");
+    expect(documentXml).not.toContain("本地附件占位符");
+  });
+
+  it("accepts only an empty provider when no manifest attachment is included", async () => {
+    const source = createAttachmentModel();
+    const model = withAttachmentManifest(
+      source,
+      source.attachmentManifest.map((attachment) => ({
+        ...attachment,
+        status: "missing" as const,
+        includedInSubmission: false,
+      })),
+    );
+
+    await expect(
+      renderDocxV2(model, "classic-formal.v1", "zh-CN", { attachmentPageImages: [] }),
+    ).resolves.toBeInstanceOf(Blob);
+    await expect(
+      renderDocxV2(model, "classic-formal.v1", "zh-CN", {
+        attachmentPageImages: [validImage()],
+      }),
+    ).rejects.toThrow(AttachmentPageImagesValidationError);
+  });
+
+  it("appends ordered attachment pages after the editable body with a bilingual caveat and page breaks", async () => {
+    const model = createAttachmentModel([2, 1]);
+    const images = [
+      validImage(VALID_JPEG.slice(), "attachment-1", 1),
+      validImage(VALID_JPEG.slice(), "attachment-1", 2),
+      validImage(VALID_JPEG.slice(), "attachment-2", 1),
+    ];
+    const blob = await renderDocxV2(model, "classic-formal.v1", "zh-en", {
+      attachmentPageImages: images,
+    });
+    const documentXml = textEntry(await unzipDocx(blob), "word/document.xml");
+    const orderedText = [
+      "可编辑正文末尾",
+      "附件1.pdf · 第 1 页 / Page 1",
+      "附件1.pdf · 第 2 页 / Page 2",
+      "附件2.pdf · 第 1 页 / Page 1",
+    ];
+    const positions = orderedText.map((text) => documentXml.indexOf(text));
+
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(documentXml).toContain("附件按页面图像嵌入，正文可编辑不表示附件可编辑或已重新识别");
+    expect(documentXml).toContain(
+      "Attachments are embedded as page images. An editable body does not mean attachments are editable or have been re-recognized.",
+    );
+    expect(documentXml.match(/<w:br\b[^>]*w:type="page"[^>]*\/>/gu)).toHaveLength(3);
+    expect(documentXml.match(/<a:blip\b[^>]*r:embed=/gu)).toHaveLength(3);
   });
 
   it("copies trusted JPEG bytes before the asynchronous DOCX engine runs", async () => {
@@ -282,6 +408,33 @@ describe("trusted attachment page image seam", () => {
         attachmentPageImages: [...images, { ...validImage(), attachmentId: "attachment-extra" }],
       }),
     ).rejects.toThrow("附件页图像输入无效");
+  });
+
+  it("rejects included attachments with unavailable status or invalid pageCount", async () => {
+    const source = createAttachmentModel();
+    const unavailable = withAttachmentManifest(
+      source,
+      source.attachmentManifest.map((attachment) => ({
+        ...attachment,
+        status: "missing" as const,
+      })),
+    );
+    const missingPageCount = withAttachmentManifest(
+      source,
+      source.attachmentManifest.map(({ pageCount: _pageCount, ...attachment }) => attachment),
+    );
+    const excessivePageCount = withAttachmentManifest(
+      source,
+      source.attachmentManifest.map((attachment) => ({ ...attachment, pageCount: 81 })),
+    );
+
+    for (const model of [unavailable, missingPageCount, excessivePageCount]) {
+      await expect(
+        renderDocxV2(model, "classic-formal.v1", "zh-CN", {
+          attachmentPageImages: [],
+        }),
+      ).rejects.toThrow(AttachmentPageImagesValidationError);
+    }
   });
 
   it("enforces an exact 50 MiB aggregate business limit", () => {
