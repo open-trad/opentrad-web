@@ -1,6 +1,6 @@
 import {
-  type LocalConversionRequest,
   type LocalConversionResponse,
+  type LocalWorkerRequest,
   mediaTypeMatchesOutput,
   parseLocalConversionRequest,
   parseLocalConversionResponse,
@@ -22,8 +22,8 @@ export interface LocalWorkerOutput {
   readonly mediaType: string;
 }
 
-export type LocalWorkerDispatch = (
-  request: LocalConversionRequest,
+export type LocalWorkerDispatch<TRequest extends LocalWorkerRequest = LocalWorkerRequest> = (
+  request: TRequest,
 ) => LocalWorkerOutput | Promise<LocalWorkerOutput>;
 
 export interface LocalWorkerScope {
@@ -49,16 +49,16 @@ function transferBuffer(bytes: Uint8Array<ArrayBuffer>): ArrayBuffer {
   return intrinsicReflectApply(intrinsicTypedArrayBuffer, bytes, []) as ArrayBuffer;
 }
 
-export function installLocalConversionWorker(
+export function installLocalConversionWorker<TRequest extends LocalWorkerRequest>(
   scope: LocalWorkerScope,
-  dispatch: LocalWorkerDispatch,
+  dispatch: LocalWorkerDispatch<TRequest>,
 ): () => void {
   let claimed = false;
   const onMessage = async (event: MessageEvent<unknown>) => {
     if (claimed) return;
     claimed = true;
     const messageId = readLocalMessageId(event.data);
-    let request: LocalConversionRequest;
+    let request: LocalWorkerRequest;
     try {
       request = parseLocalConversionRequest(event.data);
     } catch {
@@ -67,7 +67,7 @@ export function installLocalConversionWorker(
     }
 
     try {
-      const output = await dispatch(request);
+      const output = await (dispatch as LocalWorkerDispatch)(request);
       const response = parseLocalConversionResponse({
         id: request.id,
         ok: true,

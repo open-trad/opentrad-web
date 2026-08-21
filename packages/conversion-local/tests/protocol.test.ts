@@ -109,6 +109,26 @@ function request(overrides: Readonly<Record<string, unknown>> = {}) {
   };
 }
 
+function aggregateRequest(overrides: Readonly<Record<string, unknown>> = {}) {
+  return {
+    id: crypto.randomUUID(),
+    kind: "aggregate",
+    operation: "pdf.organize",
+    outputFormat: "pdf",
+    files: [
+      { inputFormat: "pdf", bytes: new Uint8Array([37, 80, 68, 70]) },
+      { inputFormat: "pdf", bytes: new Uint8Array([37, 80, 68, 70, 45]) },
+    ],
+    options: {
+      pagePlan: [
+        { source: 1, page: 0, rotation: 90 },
+        { source: 0, page: 0, rotation: 0 },
+      ],
+    },
+    ...overrides,
+  };
+}
+
 function success(id: string, overrides: Readonly<Record<string, unknown>> = {}) {
   return {
     id,
@@ -164,6 +184,17 @@ describe("local conversion protocol", () => {
       expect(() => assertLocalFileLimit("text.semantic", bytes)).toThrow("LOCAL_FILE_TOO_LARGE");
     }
     expect(() => assertLocalFileLimit("__proto__", 1)).toThrow("LOCAL_FILE_TOO_LARGE");
+    expect(api.LOCAL_AGGREGATE_LIMITS).toEqual({
+      "images.to.pdf": { maxFiles: 80, maxInputBytes: 25 * MiB, maxTotalBytes: 50 * MiB },
+      "pdf.organize": {
+        maxFiles: 20,
+        maxInputBytes: 25 * MiB,
+        maxPages: 200,
+        maxTotalBytes: 50 * MiB,
+      },
+    });
+    expect(Object.getPrototypeOf(api.LOCAL_AGGREGATE_LIMITS as object)).toBeNull();
+    expect(Object.isFrozen(api.LOCAL_AGGREGATE_LIMITS)).toBe(true);
   });
 
   it("snapshots strict requests into frozen objects and tight byte arrays", () => {
@@ -199,6 +230,47 @@ describe("local conversion protocol", () => {
       expect(() => parseRequest(hostile)).toThrow("LOCAL_PROTOCOL_INVALID");
     }
     expect(getterCalls).toBe(0);
+  });
+
+  it("admits only output-specific PDF page render options", () => {
+    expect(
+      parseRequest(
+        request({
+          operation: "pdf.inspect",
+          inputFormat: "pdf",
+          outputFormat: "jpg",
+          options: { pageNumber: 2, quality: 85, scale: 2 },
+        }),
+      ).options,
+    ).toEqual({ pageNumber: 2, quality: 85, scale: 2 });
+    for (const hostile of [
+      request({
+        operation: "pdf.inspect",
+        inputFormat: "pdf",
+        outputFormat: "txt",
+        options: { pageNumber: 1 },
+      }),
+      request({
+        operation: "pdf.inspect",
+        inputFormat: "pdf",
+        outputFormat: "png",
+        options: { pageNumber: 0 },
+      }),
+      request({
+        operation: "pdf.inspect",
+        inputFormat: "pdf",
+        outputFormat: "jpg",
+        options: { quality: 101 },
+      }),
+      request({
+        operation: "pdf.inspect",
+        inputFormat: "pdf",
+        outputFormat: "png",
+        options: { scale: Number.NaN },
+      }),
+    ]) {
+      expect(() => parseRequest(hostile)).toThrow("LOCAL_PROTOCOL_INVALID");
+    }
   });
 
   it("normalizes errors thrown by hostile options without preserving private data", () => {
@@ -320,6 +392,139 @@ describe("local conversion protocol", () => {
     expect(parsed?.bytes).not.toBe(callerBytes);
     expect((parsed?.bytes as Uint8Array).buffer).not.toBe(callerBytes.buffer);
   });
+
+  it("does not dispatch aggregate indexing through a replaced String constructor", () => {
+    const descriptor = Reflect.getOwnPropertyDescriptor(globalThis, "String");
+    const input = aggregateRequest();
+    const hostile = new Proxy(input, {
+      getPrototypeOf(target) {
+        Object.defineProperty(globalThis, "String", {
+          configurable: true,
+          value: () => "private.pdf",
+          writable: true,
+        });
+        return Reflect.getPrototypeOf(target);
+      },
+    });
+    let parsed: Record<string, unknown> | undefined;
+    try {
+      parsed = parseRequest(hostile);
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, "String", descriptor);
+    }
+    expect(parsed?.id).toBe(input.id);
+    expect(parsed?.files).toHaveLength(2);
+  });
+
+  it("snapshots an explicit aggregate PDF request with frozen null-prototype children", () => {
+    const input = aggregateRequest();
+    const parsed = parseRequest(input);
+    const files = parsed.files as readonly Record<string, unknown>[];
+    const options = parsed.options as Record<string, unknown>;
+    const pagePlan = options.pagePlan as readonly Record<string, unknown>[];
+
+    expect(parsed).toMatchObject({
+      kind: "aggregate",
+      operation: "pdf.organize",
+      outputFormat: "pdf",
+    });
+    expect(files).toHaveLength(2);
+    expect(files[0]?.bytes).toEqual(new Uint8Array([37, 80, 68, 70]));
+    expect(files[0]?.bytes).not.toBe(input.files[0]?.bytes);
+    expect(pagePlan).toEqual([
+      { source: 1, page: 0, rotation: 90 },
+      { source: 0, page: 0, rotation: 0 },
+    ]);
+    for (const value of [parsed, files, files[0], files[1], options, pagePlan, ...pagePlan]) {
+      expect(Object.isFrozen(value)).toBe(true);
+    }
+    for (const value of [parsed, files[0], files[1], options, ...pagePlan]) {
+      expect(Object.getPrototypeOf(value as object)).toBeNull();
+    }
+  });
+
+  it("admits mixed aggregate images while preserving the single-file 25 MiB boundary", () => {
+    const parsed = parseRequest(
+      aggregateRequest({
+        operation: "images.to.pdf",
+        files: [
+          { inputFormat: "png", bytes: new Uint8Array([137, 80, 78, 71]) },
+          { inputFormat: "jpg", bytes: new Uint8Array([255, 216, 255]) },
+        ],
+        options: {},
+      }),
+    );
+    expect(parsed).toMatchObject({ kind: "aggregate", operation: "images.to.pdf" });
+    expect(() =>
+      parseRequest(
+        request({
+          operation: "images.to.pdf",
+          inputFormat: "png",
+          outputFormat: "pdf",
+          bytes: new Uint8Array(40 * MiB),
+          options: {},
+        }),
+      ),
+    ).toThrow("LOCAL_FILE_TOO_LARGE");
+  });
+
+  it("enforces aggregate per-file, total, file-count and page-plan budgets before copying", () => {
+    const twentyOnePdfs = Array.from({ length: 21 }, () => ({
+      inputFormat: "pdf",
+      bytes: new Uint8Array([37, 80, 68, 70]),
+    }));
+    const twoHundredOnePages = Array.from({ length: 201 }, () => ({
+      source: 0,
+      page: 0,
+      rotation: 0,
+    }));
+    for (const hostile of [
+      aggregateRequest({
+        files: [{ inputFormat: "pdf", bytes: new Uint8Array(25 * MiB + 1) }],
+        options: { pagePlan: [{ source: 0, page: 0, rotation: 0 }] },
+      }),
+      aggregateRequest({
+        files: [
+          { inputFormat: "pdf", bytes: new Uint8Array(25 * MiB) },
+          { inputFormat: "pdf", bytes: new Uint8Array(25 * MiB) },
+          { inputFormat: "pdf", bytes: new Uint8Array([1]) },
+        ],
+        options: { pagePlan: [{ source: 0, page: 0, rotation: 0 }] },
+      }),
+      aggregateRequest({ files: twentyOnePdfs }),
+      aggregateRequest({ options: { pagePlan: twoHundredOnePages } }),
+    ]) {
+      expect(() => parseRequest(hostile)).toThrow("LOCAL_FILE_TOO_LARGE");
+    }
+  });
+
+  it("rejects confused and hostile aggregate envelopes without invoking accessors", () => {
+    let calls = 0;
+    const accessorFile = Object.create(null) as Record<string, unknown>;
+    Object.defineProperty(accessorFile, "inputFormat", {
+      enumerable: true,
+      get() {
+        calls += 1;
+        return "pdf";
+      },
+    });
+    Object.defineProperty(accessorFile, "bytes", {
+      enumerable: true,
+      value: new Uint8Array([1]),
+    });
+    for (const hostile of [
+      aggregateRequest({ bytes: new Uint8Array([1]) }),
+      aggregateRequest({ sourceFilename: "private.pdf" }),
+      aggregateRequest({ files: [accessorFile] }),
+      aggregateRequest({ files: [{ inputFormat: "png", bytes: new Uint8Array([1]) }] }),
+      aggregateRequest({ options: { pagePlan: [{ source: 2, page: 0, rotation: 0 }] } }),
+      aggregateRequest({ options: { pagePlan: [{ source: 0, page: 0, rotation: 45 }] } }),
+      aggregateRequest({ files: new Proxy([], {}) }),
+    ]) {
+      expect(() => parseRequest(hostile)).toThrow("LOCAL_PROTOCOL_INVALID");
+    }
+    expect(calls).toBe(0);
+  });
 });
 
 describe("local conversion client lifecycle", () => {
@@ -357,6 +562,32 @@ describe("local conversion client lifecycle", () => {
 
     worker.emitMessage(success(input.id));
     await expect(pending).resolves.toMatchObject({ ok: true, mediaType: "text/markdown" });
+    expectCleaned(worker);
+  });
+
+  it("transfers every aggregate snapshot buffer while preserving every caller buffer", async () => {
+    const worker = new FakeWorker();
+    const input = aggregateRequest();
+    const originals = input.files.map((file) => file.bytes.slice());
+    const pending = client(worker).run(input, new AbortController().signal);
+    const transfer = worker.postMessage.mock.calls[0]?.[1] as Transferable[];
+    const posted = worker.posts[0]?.message as {
+      readonly files: readonly { readonly bytes: Uint8Array }[];
+    };
+    expect(transfer).toHaveLength(2);
+    expect(transfer.every((item) => item instanceof ArrayBuffer && item.byteLength === 0)).toBe(
+      true,
+    );
+    expect(posted.files.map((file) => file.bytes)).toEqual(originals);
+    expect(input.files.map((file) => file.bytes)).toEqual(originals);
+
+    worker.emitMessage({
+      id: input.id,
+      ok: true,
+      bytes: new Uint8Array([37, 80, 68, 70]),
+      mediaType: "application/pdf",
+    });
+    await expect(pending).resolves.toMatchObject({ ok: true, mediaType: "application/pdf" });
     expectCleaned(worker);
   });
 

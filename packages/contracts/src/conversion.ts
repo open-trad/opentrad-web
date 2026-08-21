@@ -168,7 +168,12 @@ const capabilityInputs = [
     quality: "A",
     authRequired: false,
     consentRequired: false,
-    limits: { maxInputBytes: 25 * MiB, maxFiles: 20, maxPages: 200 },
+    limits: {
+      maxInputBytes: 25 * MiB,
+      maxTotalBytes: 50 * MiB,
+      maxFiles: 20,
+      maxPages: 200,
+    },
     caveatCodes: [],
   },
   {

@@ -1,7 +1,7 @@
 import {
-  type LocalConversionRequest,
   type LocalConversionResponse,
   type LocalConversionSuccess,
+  type LocalWorkerRequest,
   mediaTypeMatchesOutput,
   parseLocalConversionRequest,
   parseLocalConversionResponse,
@@ -40,6 +40,19 @@ function transferBuffer(bytes: Uint8Array<ArrayBuffer>): ArrayBuffer {
   } catch {
     throw fixedError("LOCAL_PROTOCOL_ERROR");
   }
+}
+
+function transferBuffers(request: LocalWorkerRequest): ArrayBuffer[] {
+  if ("kind" in request) {
+    const buffers: ArrayBuffer[] = [];
+    for (let index = 0; index < request.files.length; index += 1) {
+      const file = request.files[index];
+      if (!file) throw fixedError("LOCAL_PROTOCOL_ERROR");
+      buffers[index] = transferBuffer(file.bytes);
+    }
+    return buffers;
+  }
+  return [transferBuffer(request.bytes)];
 }
 
 export class LocalConversionClient {
@@ -136,7 +149,7 @@ export class LocalConversionClient {
 
       timer = intrinsicSetTimeout(() => fail("LOCAL_CONVERSION_TIMEOUT"), this.timeoutMs);
       try {
-        worker.postMessage(request, [transferBuffer(request.bytes)]);
+        worker.postMessage(request, transferBuffers(request));
       } catch {
         fail("LOCAL_PROTOCOL_ERROR");
       }
@@ -144,4 +157,4 @@ export class LocalConversionClient {
   }
 }
 
-export type { LocalConversionRequest };
+export type { LocalWorkerRequest };
