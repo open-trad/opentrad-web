@@ -78,6 +78,9 @@ importers:
       '@opentrad/document-renderer':
         specifier: workspace:*
         version: link:../../packages/document-renderer
+      better-auth:
+        specifier: 1.7.1
+        version: 1.7.1(better-sqlite3@13.0.3)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(vitest@3.2.6(@types/debug@4.1.13)(@types/node@24.3.0)(jsdom@26.1.0))
       docx:
         specifier: 9.7.1
         version: 9.7.1

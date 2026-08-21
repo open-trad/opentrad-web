@@ -17,6 +17,7 @@ import { type JobCleanupController, startJobCleanup } from "./jobs/jobCleanup.js
 import { JobFiles } from "./jobs/jobFiles.js";
 import { type JobReconciliationController, startJobReconciliation } from "./jobs/jobReconcile.js";
 import { JobRepository } from "./jobs/jobRepository.js";
+import { registerAuthOptionsRoute } from "./routes/authOptions.js";
 import { registerCapabilitiesRoute } from "./routes/capabilities.js";
 import { type JobRouteRuntime, registerJobRoutes } from "./routes/jobs.js";
 import { type RegistrationAuthRuntime, registerRegistrationRoute } from "./routes/register.js";
@@ -190,6 +191,7 @@ function routePath(request: FastifyRequest): string {
 function knownPath(path: string): boolean {
   return (
     path === "/api/health" ||
+    path === "/api/v1/auth-options" ||
     path === "/api/v1/capabilities" ||
     path === "/api/v1/jobs" ||
     (intrinsicReflectApply(intrinsicStringStartsWith, path, ["/api/v1/jobs/"]) as boolean) ||
@@ -423,6 +425,10 @@ export async function buildServer(
     app.options("/api/auth/*", async (_request, reply) => reply.status(204).send());
 
     registerCapabilitiesRoute(app);
+    registerAuthOptionsRoute(
+      app,
+      config.githubClientId !== null && config.githubClientSecret !== null,
+    );
     if (jobs) {
       registerJobRoutes(
         app,

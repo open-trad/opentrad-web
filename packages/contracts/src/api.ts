@@ -14,9 +14,16 @@ export const UsernameSchema = z
   .max(30)
   .regex(/^[a-zA-Z0-9_.]+$/u);
 
+const PasswordSchema = z.string().min(12).max(128);
+
+export const UsernameSignInRequestSchema = safeSchema(
+  z.strictObject({ username: UsernameSchema, password: PasswordSchema }),
+);
+export type UsernameSignInRequest = z.infer<typeof UsernameSignInRequestSchema>;
+
 const RegisterRequestRawSchema = z.strictObject({
   username: UsernameSchema,
-  password: z.string().min(12).max(128),
+  password: PasswordSchema,
   acknowledgements: z.strictObject({ noPasswordRecovery: z.literal(true) }),
 });
 export const RegisterRequestSchema = safeSchema(RegisterRequestRawSchema);
@@ -29,6 +36,9 @@ export const RegistrationResponseSchema = safeSchema(
   }),
 );
 export type RegistrationResponse = z.infer<typeof RegistrationResponseSchema>;
+
+export const AuthOptionsResponseSchema = safeSchema(z.strictObject({ githubEnabled: z.boolean() }));
+export type AuthOptionsResponse = z.infer<typeof AuthOptionsResponseSchema>;
 
 export const ApiErrorResponseSchema = safeSchema(
   z.strictObject({

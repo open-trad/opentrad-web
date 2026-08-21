@@ -40,8 +40,10 @@ function testConfig(overrides: Readonly<Record<string, string | undefined>> = {}
   });
 }
 
-async function appForTest(): Promise<{ app: FastifyInstance; config: ApiConfig }> {
-  const config = testConfig();
+async function appForTest(
+  overrides: Readonly<Record<string, string | undefined>> = {},
+): Promise<{ app: FastifyInstance; config: ApiConfig }> {
+  const config = testConfig(overrides);
   const app = await buildServer(config);
   liveApps.push(app);
   return { app, config };
@@ -58,6 +60,30 @@ afterEach(async () => {
 });
 
 describe("same-origin registration boundary", () => {
+  it.each([
+    ["disabled", {}, false],
+    [
+      "enabled",
+      { GITHUB_CLIENT_ID: "github-id-private", GITHUB_CLIENT_SECRET: "github-secret-private" },
+      true,
+    ],
+  ] as const)(
+    "reports GitHub auth availability without secrets when %s",
+    async (_name, env, enabled) => {
+      const { app } = await appForTest(env);
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/auth-options",
+        headers: { host: "opentrad.example" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ githubEnabled: enabled });
+      expect(response.body).not.toContain("github-id-private");
+      expect(response.body).not.toContain("github-secret-private");
+    },
+  );
+
   it("blocks every public Better Auth signup path without writing auth rows", async () => {
     const { app, config } = await appForTest();
     const publicEmailSignup = await app.inject({
