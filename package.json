@@ -15,7 +15,7 @@
     "golds:generate": "node scripts/generate-template-golds.mjs",
     "golds:verify": "node --test scripts/gold-verification-helpers.test.mjs && node scripts/verify-template-golds.mjs",
     "lint": "biome check .",
-    "test": "pnpm --filter @opentrad/document-core build && pnpm -r --if-present test",
+    "test": "pnpm --filter @opentrad/document-core build && pnpm --workspace-concurrency=1 -r --if-present test",
     "typecheck": "pnpm --filter @opentrad/document-core build && pnpm -r --if-present typecheck"
   },
   "devDependencies": {
