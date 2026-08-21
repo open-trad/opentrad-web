@@ -7,9 +7,22 @@ import { openDatabase } from "./openDatabase.js";
 const MANIFEST = Object.freeze([
   Object.freeze({ id: "001_auth", file: new URL("./migrations/001_auth.sql", import.meta.url) }),
   Object.freeze({ id: "002_jobs", file: new URL("./migrations/002_jobs.sql", import.meta.url) }),
+  Object.freeze({
+    id: "003_job_admission",
+    file: new URL("./migrations/003_job_admission.sql", import.meta.url),
+  }),
+  Object.freeze({
+    id: "004_job_cleanup",
+    file: new URL("./migrations/004_job_cleanup.sql", import.meta.url),
+  }),
 ] as const);
 
-export const MIGRATION_IDS = Object.freeze(["001_auth", "002_jobs"] as const);
+export const MIGRATION_IDS = Object.freeze([
+  "001_auth",
+  "002_jobs",
+  "003_job_admission",
+  "004_job_cleanup",
+] as const);
 export type MigrationId = (typeof MIGRATION_IDS)[number];
 const intrinsicArrayIsArray = Array.isArray;
 const intrinsicArrayPrototype = Array.prototype;

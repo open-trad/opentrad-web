@@ -1,5 +1,6 @@
 import { BlockList } from "node:net";
 import { pathToFileURL } from "node:url";
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import fastify, {
   type FastifyInstance,
@@ -11,6 +12,12 @@ import { createAuth } from "./auth/auth.js";
 import { type AuthHandlerRuntime, mountAuthHandler } from "./auth/fastifyHandler.js";
 import type { SessionAuthRuntime } from "./auth/sessionGuard.js";
 import { type ApiConfig, assertApiConfig, canonicalizeIpAddress, loadConfig } from "./config.js";
+import { ClamdClient } from "./jobs/clamdClient.js";
+import { type JobCleanupController, startJobCleanup } from "./jobs/jobCleanup.js";
+import { JobFiles } from "./jobs/jobFiles.js";
+import { JobRepository } from "./jobs/jobRepository.js";
+import { registerCapabilitiesRoute } from "./routes/capabilities.js";
+import { type JobRouteRuntime, registerJobRoutes } from "./routes/jobs.js";
 import { type RegistrationAuthRuntime, registerRegistrationRoute } from "./routes/register.js";
 import { createPrivacyLoggerOptions, type PrivacyLogStream } from "./security/logRedaction.js";
 import {
@@ -44,12 +51,14 @@ export interface ServerAuthRuntime extends AuthHandlerRuntime {
 export interface ServerDependencies {
   readonly auth?: ServerAuthRuntime;
   readonly authHandlerTimeoutMs?: number;
+  readonly jobs?: JobRouteRuntime;
   readonly logStream?: PrivacyLogStream;
 }
 
 interface ValidatedDependencies {
   readonly auth?: ServerAuthRuntime;
   readonly authHandlerTimeoutMs: number;
+  readonly jobs?: JobRouteRuntime;
   readonly logStream?: PrivacyLogStream;
 }
 
@@ -80,10 +89,15 @@ function snapshotDependencies(value: ServerDependencies | undefined): ValidatedD
     const prototype = intrinsicGetPrototypeOf(value);
     if (prototype !== intrinsicObjectPrototype && prototype !== null) invalidDependencies();
     const keys = intrinsicReflectOwnKeys(value);
-    if (keys.length > 3) invalidDependencies();
+    if (keys.length > 4) invalidDependencies();
     for (let index = 0; index < keys.length; index += 1) {
       const key = keys[index];
-      if (key !== "auth" && key !== "authHandlerTimeoutMs" && key !== "logStream") {
+      if (
+        key !== "auth" &&
+        key !== "authHandlerTimeoutMs" &&
+        key !== "jobs" &&
+        key !== "logStream"
+      ) {
         invalidDependencies();
       }
     }
@@ -107,9 +121,45 @@ function snapshotDependencies(value: ServerDependencies | undefined): ValidatedD
         invalidDependencies();
       }
     }
+    const jobs = ownDependency(value, "jobs");
+    if (jobs !== undefined) {
+      if (jobs === null || typeof jobs !== "object") invalidDependencies();
+      const prototype = intrinsicGetPrototypeOf(jobs);
+      const jobKeys = intrinsicReflectOwnKeys(jobs);
+      if (
+        (prototype !== intrinsicObjectPrototype && prototype !== null) ||
+        jobKeys.length !== 3 ||
+        !jobKeys.includes("files") ||
+        !jobKeys.includes("repository") ||
+        !jobKeys.includes("scanner")
+      ) {
+        invalidDependencies();
+      }
+      for (const key of jobKeys) {
+        const descriptor = intrinsicReflectGetOwnPropertyDescriptor(jobs, key);
+        if (!descriptor || !("value" in descriptor)) invalidDependencies();
+      }
+      const files = ownDependency(jobs, "files");
+      const repository = ownDependency(jobs, "repository");
+      const scanner = ownDependency(jobs, "scanner");
+      const scan =
+        scanner && typeof scanner === "object"
+          ? intrinsicReflectGetOwnPropertyDescriptor(scanner, "scan")
+          : undefined;
+      if (
+        !(files instanceof JobFiles) ||
+        !(repository instanceof JobRepository) ||
+        !scan ||
+        !("value" in scan) ||
+        typeof scan.value !== "function"
+      ) {
+        invalidDependencies();
+      }
+    }
     return {
       auth: auth as ServerAuthRuntime | undefined,
       authHandlerTimeoutMs: (timeout as number | undefined) ?? DEFAULT_AUTH_HANDLER_TIMEOUT_MS,
+      jobs: jobs as JobRouteRuntime | undefined,
       logStream: logStream as PrivacyLogStream | undefined,
     };
   } catch {
@@ -139,6 +189,9 @@ function routePath(request: FastifyRequest): string {
 function knownPath(path: string): boolean {
   return (
     path === "/api/health" ||
+    path === "/api/v1/capabilities" ||
+    path === "/api/v1/jobs" ||
+    (intrinsicReflectApply(intrinsicStringStartsWith, path, ["/api/v1/jobs/"]) as boolean) ||
     path === "/api/v1/register" ||
     (intrinsicReflectApply(intrinsicStringStartsWith, path, ["/api/auth/"]) as boolean)
   );
@@ -277,10 +330,38 @@ export async function buildServer(
   const app = fastify(serverOptions);
 
   const ownsAuth = dependencies.auth === undefined;
-  const auth = dependencies.auth ?? (createAuth(config) as unknown as ServerAuthRuntime);
-  const ownedDatabase = ownsAuth ? auth.options?.database : undefined;
+  let auth: ServerAuthRuntime | undefined;
+  let ownedDatabase: ServerAuthRuntime["options"] extends { database?: infer Value }
+    ? Value
+    : { close(): void } | undefined;
+  let jobs: JobRouteRuntime | undefined;
+  let cleanupController: JobCleanupController | undefined;
+  let jobAdmissionEnabled = true;
+  let databaseClosed = false;
 
   try {
+    auth = dependencies.auth ?? (createAuth(config) as unknown as ServerAuthRuntime);
+    ownedDatabase = ownsAuth ? auth.options?.database : undefined;
+    const database = auth.options?.database;
+    const currentGid = typeof process.getgid === "function" ? process.getgid() : 0;
+    const currentGroups = typeof process.getgroups === "function" ? process.getgroups() : [];
+    const productionWorkerReady = currentGid === 10_100 || currentGroups.includes(10_100);
+    const runtimeWorkerGid =
+      config.nodeEnv === "production" && productionWorkerReady ? 10_100 : currentGid;
+    jobAdmissionEnabled = config.nodeEnv !== "production" || productionWorkerReady;
+    jobs =
+      dependencies.jobs ??
+      (database && "prepare" in database
+        ? {
+            files: new JobFiles(config.jobRoot, {
+              workerGid: runtimeWorkerGid,
+            }),
+            repository: new JobRepository(database as never, {
+              idempotencySecret: config.betterAuthSecret,
+            }),
+            scanner: new ClamdClient({ host: config.clamdHost, port: config.clamdPort }),
+          }
+        : undefined);
     app.removeContentTypeParser("application/json");
     app.addContentTypeParser(
       "application/json",
@@ -301,17 +382,20 @@ export async function buildServer(
       keyGenerator: (request) => rateLimitKey(request, isTrustedProxy),
     });
 
+    await app.register(multipart, {
+      attachFieldsToBody: false,
+      limits: { fileSize: 52 * 1024 * 1024, files: 1, parts: 1 },
+      throwFileSizeLimit: true,
+    });
+
     app.addHook("onRequest", async (request) => {
       requireTrustedHost(request, config.publicOrigin, isTrustedProxy);
       requestPath(request);
       if (stateChanging(request)) requireSameOrigin(request, config.publicOrigin);
     });
 
-    app.addHook("onResponse", async (request, reply) => {
-      app.log.info(
-        { event: "request_complete", method: request.method, statusCode: reply.statusCode },
-        "request_complete",
-      );
+    app.addHook("onResponse", async (_request, _reply) => {
+      app.log.info({ code: "REQUEST_COMPLETE", event: "request_complete" }, "request_complete");
     });
 
     app.setErrorHandler((error, _request, reply) => {
@@ -336,6 +420,18 @@ export async function buildServer(
     app.options("/api/v1/register", async (_request, reply) => reply.status(204).send());
     app.options("/api/auth/*", async (_request, reply) => reply.status(204).send());
 
+    registerCapabilitiesRoute(app);
+    if (jobs) {
+      registerJobRoutes(
+        app,
+        auth,
+        jobs,
+        dependencies.jobs ? true : jobAdmissionEnabled,
+        (request) => rateLimitKey(request, isTrustedProxy),
+      );
+      cleanupController = await startJobCleanup(jobs);
+      app.addHook("onClose", async () => cleanupController?.stop());
+    }
     registerRegistrationRoute(app, auth, config.publicOrigin);
     mountAuthHandler(app, auth, {
       handlerTimeoutMs: dependencies.authHandlerTimeoutMs,
@@ -350,7 +446,8 @@ export async function buildServer(
 
     if (ownedDatabase) {
       app.addHook("onClose", async () => {
-        ownedDatabase.close();
+        ownedDatabase?.close();
+        databaseClosed = true;
       });
     }
 
@@ -360,7 +457,15 @@ export async function buildServer(
     try {
       await app.close();
     } catch {
-      if (ownedDatabase) ownedDatabase.close();
+      // The owned writer is closed below even when Fastify cleanup fails.
+    }
+    if (ownedDatabase && !databaseClosed) {
+      try {
+        ownedDatabase.close();
+        databaseClosed = true;
+      } catch {
+        // Preserve the original startup failure.
+      }
     }
     throw error;
   }

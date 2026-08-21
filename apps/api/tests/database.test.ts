@@ -421,6 +421,50 @@ describe("reviewed migration manifest", () => {
     }
   });
 
+  it("adds only the canonical request shape and atomic result claim state", async () => {
+    const { migrationSql } = await import("../src/db/migrate.js");
+    const sql = migrationSql("003_job_admission");
+    expect(sql).not.toMatch(/canonical_options|file[_ ]?name|content[_ ]?(?:hash|digest)/iu);
+    const database = new Database(":memory:");
+    try {
+      database.pragma("foreign_keys = ON");
+      database.exec(migrationSql("001_auth"));
+      database.exec(migrationSql("002_jobs"));
+      database.exec(sql);
+      expect(tableColumns(database, "idempotency").slice(-1)).toEqual(["request_shape"]);
+      expect(tableColumns(database, "jobs").slice(-3)).toEqual([
+        "result_claim_token",
+        "result_claimed_at",
+        "result_consumed",
+      ]);
+    } finally {
+      database.close();
+    }
+  });
+
+  it("adds only durable cleanup claim state in the follow-up immutable migration", async () => {
+    const { migrationSql } = await import("../src/db/migrate.js");
+    const sql = migrationSql("004_job_cleanup");
+    expect(sql).not.toMatch(
+      /file[_ ]?name|document[_ ]?(?:text|body)|content[_ ]?(?:hash|digest)/iu,
+    );
+    const database = new Database(":memory:");
+    try {
+      database.pragma("foreign_keys = ON");
+      database.exec(migrationSql("001_auth"));
+      database.exec(migrationSql("002_jobs"));
+      database.exec(migrationSql("003_job_admission"));
+      database.exec(sql);
+      expect(tableColumns(database, "jobs").slice(-3)).toEqual([
+        "cleanup_kind",
+        "cleanup_token",
+        "cleanup_claimed_at",
+      ]);
+    } finally {
+      database.close();
+    }
+  });
+
   it("enforces current status, quality, progress, result, and error invariants", async () => {
     const { applyMigrations } = await import("../src/db/migrate.js");
     const { openDatabase } = await import("../src/db/openDatabase.js");
@@ -811,7 +855,7 @@ describe("reviewed migration manifest", () => {
 
 it("keeps the migration SQL files explicit and immutable at runtime", async () => {
   const { MIGRATION_IDS } = await import("../src/db/migrate.js");
-  expect(MIGRATION_IDS).toEqual(["001_auth", "002_jobs"]);
+  expect(MIGRATION_IDS).toEqual(["001_auth", "002_jobs", "003_job_admission", "004_job_cleanup"]);
   expect(Object.isFrozen(MIGRATION_IDS)).toBe(true);
   for (const id of MIGRATION_IDS) {
     const contents = readFileSync(

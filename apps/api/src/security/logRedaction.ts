@@ -4,6 +4,8 @@ export const LOGGER_REDACT_PATHS = Object.freeze([
   "req.headers.set-cookie",
   "req.headers.idempotency-key",
   "req.headers.x-opentrad-processing-consent",
+  "req.headers.x-opentrad-job-request",
+  "x-opentrad-job-request",
   "res.headers.set-cookie",
   "authorization",
   "cookie",
