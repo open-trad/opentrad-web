@@ -1,4 +1,6 @@
 export * from "./client.js";
+export * from "./dispatch.js";
+export * from "./document/generateDocument.js";
 export * from "./docx/convertDocx.js";
 export * from "./image/convertImage.js";
 export * from "./limits.js";

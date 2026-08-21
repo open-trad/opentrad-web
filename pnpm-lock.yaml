@@ -210,6 +210,9 @@ importers:
       '@opentrad/contracts':
         specifier: workspace:*
         version: link:../contracts
+      docx:
+        specifier: 9.7.1
+        version: 9.7.1
       mammoth:
         specifier: 1.12.1
         version: 1.12.1
