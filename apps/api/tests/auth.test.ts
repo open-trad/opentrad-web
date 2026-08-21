@@ -1,4 +1,5 @@
-import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import { SocketAddress } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RegisterRequestSchema } from "@opentrad/contracts";
@@ -44,10 +45,51 @@ afterEach(() => {
 });
 
 describe("loadConfig", () => {
+  it("keeps the production API environment template aligned with the runtime contract", () => {
+    const releasePlan = readFileSync(
+      new URL(
+        "../../../docs/superpowers/plans/2026-08-19-opentrad-production-release.md",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const template = releasePlan.match(
+      /Create `infra\/runtime\/api\.env\.example`:\n\n~~~dotenv\n([\s\S]*?)\n~~~/u,
+    )?.[1];
+
+    expect(template).toBeDefined();
+    for (const name of [
+      "OPENTRAD_PUBLIC_ORIGIN",
+      "OPENTRAD_TRUSTED_PROXY_CIDR",
+      "OPENTRAD_DATABASE_PATH",
+      "OPENTRAD_JOB_ROOT",
+      "OPENTRAD_CLAMD_HOST",
+      "OPENTRAD_CLAMD_PORT",
+    ]) {
+      expect(template).toMatch(new RegExp(`^${name}=`, "mu"));
+    }
+    expect(template).toContain(
+      "OPENTRAD_TRUSTED_PROXY_CIDR=REPLACE_WITH_EXACT_CONTAINER_OBSERVED_PROXY_CIDR",
+    );
+    expect(template).not.toMatch(
+      /^(?:BETTER_AUTH_URL|TRUSTED_ORIGINS|AUTH_DATABASE_PATH|JOB_ROOT|CLAMD_HOST|CLAMD_PORT)=/mu,
+    );
+    expect(releasePlan).toContain(
+      "Task 15 production preflight must replace the deliberately invalid placeholder",
+    );
+  });
+
   it.each(["development", "test", "production"] as const)(
     "requires and preserves the explicit %s environment",
     (nodeEnvironment) => {
-      const config = loadConfig(validEnvironment({ NODE_ENV: nodeEnvironment }));
+      const config = loadConfig(
+        validEnvironment({
+          NODE_ENV: nodeEnvironment,
+          ...(nodeEnvironment === "production"
+            ? { OPENTRAD_TRUSTED_PROXY_CIDR: "172.30.0.0/24" }
+            : {}),
+        }),
+      );
 
       expect(config).toEqual({
         nodeEnv: nodeEnvironment,
@@ -59,6 +101,7 @@ describe("loadConfig", () => {
         jobRoot: "/tmp/opentrad-jobs",
         clamdHost: "127.0.0.1",
         clamdPort: 3310,
+        trustedProxyCidr: nodeEnvironment === "production" ? "172.30.0.0/24" : null,
       });
     },
   );
@@ -68,8 +111,6 @@ describe("loadConfig", () => {
       "NODE_ENV",
       "OPENTRAD_PUBLIC_ORIGIN",
       "BETTER_AUTH_SECRET",
-      "GITHUB_CLIENT_ID",
-      "GITHUB_CLIENT_SECRET",
       "OPENTRAD_DATABASE_PATH",
       "OPENTRAD_JOB_ROOT",
       "OPENTRAD_CLAMD_HOST",
@@ -80,6 +121,116 @@ describe("loadConfig", () => {
       const environment = validEnvironment();
       delete environment[name];
       expect(() => loadConfig(environment), name).toThrow("Invalid API configuration");
+    }
+  });
+
+  it("allows GitHub OAuth to be explicitly absent", () => {
+    const environment = validEnvironment();
+    delete environment.GITHUB_CLIENT_ID;
+    delete environment.GITHUB_CLIENT_SECRET;
+
+    expect(loadConfig(environment)).toEqual({
+      nodeEnv: "test",
+      publicOrigin: "https://opentrad.example",
+      betterAuthSecret: "a".repeat(48),
+      githubClientId: null,
+      githubClientSecret: null,
+      databasePath: ":memory:",
+      jobRoot: "/tmp/opentrad-jobs",
+      clamdHost: "127.0.0.1",
+      clamdPort: 3310,
+      trustedProxyCidr: null,
+    });
+  });
+
+  it("requires one explicit trusted proxy IP or CIDR only in production", () => {
+    expect(loadConfig(validEnvironment()).trustedProxyCidr).toBeNull();
+    expect(loadConfig(validEnvironment({ NODE_ENV: "development" })).trustedProxyCidr).toBeNull();
+    expect(() => loadConfig(validEnvironment({ NODE_ENV: "production" }))).toThrow(
+      "Invalid API configuration",
+    );
+    expect(
+      loadConfig(
+        validEnvironment({
+          NODE_ENV: "production",
+          OPENTRAD_TRUSTED_PROXY_CIDR: "172.30.0.7",
+        }),
+      ).trustedProxyCidr,
+    ).toBe("172.30.0.7");
+    expect(
+      loadConfig(
+        validEnvironment({
+          NODE_ENV: "production",
+          OPENTRAD_TRUSTED_PROXY_CIDR: "fd00:1234::/64",
+        }),
+      ).trustedProxyCidr,
+    ).toBe("fd00:1234::/64");
+    expect(
+      loadConfig(
+        validEnvironment({
+          NODE_ENV: "production",
+          OPENTRAD_TRUSTED_PROXY_CIDR: "2001:0db8:0:0:0:0:0:1",
+        }),
+      ).trustedProxyCidr,
+    ).toBe("2001:db8::1");
+  });
+
+  it("rejects ambiguous, mapped, host-bit, zero and overbroad trusted proxy networks", () => {
+    for (const trustedProxyCidr of [
+      "172.30.0.7/24",
+      "2001:db8::1/64",
+      "2001:0db8::/64",
+      "::ffff:127.0.0.1",
+      "::ffff:127.0.0.1/128",
+      "0.0.0.0/32",
+      "::/128",
+      "10.0.0.0/8",
+      "2001:db8::/32",
+    ]) {
+      expect(() =>
+        loadConfig(
+          validEnvironment({
+            NODE_ENV: "production",
+            OPENTRAD_TRUSTED_PROXY_CIDR: trustedProxyCidr,
+          }),
+        ),
+      ).toThrow("Invalid API configuration");
+    }
+  });
+
+  it("uses captured socket parsing when host prototypes are poisoned later", () => {
+    const originalParse = SocketAddress.parse;
+    let parsed: string | null | undefined;
+    try {
+      Object.defineProperty(SocketAddress, "parse", {
+        configurable: true,
+        value: () => undefined,
+        writable: true,
+      });
+      parsed = loadConfig(
+        validEnvironment({
+          NODE_ENV: "production",
+          OPENTRAD_TRUSTED_PROXY_CIDR: "2001:db8::/64",
+        }),
+      ).trustedProxyCidr;
+    } finally {
+      Object.defineProperty(SocketAddress, "parse", {
+        configurable: true,
+        value: originalParse,
+        writable: true,
+      });
+    }
+    expect(parsed).toBe("2001:db8::/64");
+  });
+
+  it("rejects half-configured or empty GitHub OAuth settings", () => {
+    for (const overrides of [
+      { GITHUB_CLIENT_ID: undefined },
+      { GITHUB_CLIENT_SECRET: undefined },
+      { GITHUB_CLIENT_ID: "" },
+      { GITHUB_CLIENT_SECRET: "" },
+    ]) {
+      expect(() => loadConfig(validEnvironment(overrides))).toThrow("Invalid API configuration");
     }
   });
 
@@ -101,6 +252,12 @@ describe("loadConfig", () => {
       { OPENTRAD_CLAMD_PORT: "1e3" },
       { OPENTRAD_CLAMD_PORT: "0" },
       { OPENTRAD_CLAMD_PORT: "65536" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "172.30.0.0/33" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "fd00::/129" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "proxy.internal" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "0.0.0.0/0" },
+      { OPENTRAD_TRUSTED_PROXY_CIDR: "172.30.0.1,172.30.0.2" },
     ]) {
       expect(() => loadConfig(validEnvironment(overrides)), JSON.stringify(overrides)).toThrow(
         "Invalid API configuration",
@@ -186,6 +343,13 @@ describe("loadConfig", () => {
     expect(thrown).toBeInstanceOf(Error);
     expect(String(thrown)).toBe("Error: Invalid API configuration");
     expect(String(thrown)).not.toContain(secret);
+  });
+
+  it("rejects environment lookalikes with a custom prototype", () => {
+    const environment = validEnvironment();
+    Object.setPrototypeOf(environment, { inherited: "not-native-process-env" });
+
+    expect(() => loadConfig(environment)).toThrow("Invalid API configuration");
   });
 
   it("returns an immutable null-prototype configuration snapshot", () => {
@@ -351,10 +515,17 @@ describe("createAuthOptions", () => {
 
     expect(options.advanced).toEqual({
       cookiePrefix: "opentrad",
+      database: { generateId: "uuid" },
       disableCSRFCheck: false,
       disableOriginCheck: false,
       useSecureCookies: true,
     });
+  });
+
+  it("generates UUID database identifiers for the exact registration response contract", () => {
+    const options = optionsForTest();
+
+    expect(options.advanced).toMatchObject({ database: { generateId: "uuid" } });
   });
 
   it("uses non-secure cookies only for explicitly validated loopback HTTP", () => {
@@ -436,6 +607,19 @@ describe("createAuthOptions", () => {
     });
   });
 
+  it("does not expose the GitHub provider when both credentials are absent", () => {
+    const environment = validEnvironment();
+    delete environment.GITHUB_CLIENT_ID;
+    delete environment.GITHUB_CLIENT_SECRET;
+    const options = createAuthOptions(loadConfig(environment));
+    const database = options.database;
+    if (typeof database === "object" && database !== null && "close" in database) {
+      DATABASES.push(database as { close(): void });
+    }
+
+    expect(options.socialProviders).toBeUndefined();
+  });
+
   it("makes usernames immutable, omits display usernames and blocks enumeration", () => {
     const options = optionsForTest();
     const usernamePlugin = options.plugins?.[0] as {
@@ -457,7 +641,10 @@ describe("createAuthOptions", () => {
       "/is-username-available",
       "/request-password-reset",
       "/reset-password",
+      "/sign-up/email",
+      "/sign-up/username",
     ]);
+    expect(options.logger).toEqual({ disabled: true });
   });
 
   it("createAuth opens exactly the unified configured database path", () => {

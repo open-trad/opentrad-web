@@ -533,17 +533,15 @@ Create `infra/runtime/api.env.example`:
 
 ~~~dotenv
 NODE_ENV=production
-PORT=3000
-HOST=0.0.0.0
-BETTER_AUTH_URL=https://opentrad.dynv6.net
-TRUSTED_ORIGINS=https://opentrad.dynv6.net
-SESSION_TTL_SECONDS=604800
-JOB_TTL_SECONDS=900
-MAX_ACTIVE_GLOBAL=1
-MAX_QUEUED_GLOBAL=1
-MAX_ACTIVE_PER_USER=1
-MAX_JOBS_PER_USER_DAY=10
+OPENTRAD_PUBLIC_ORIGIN=https://opentrad.dynv6.net
+OPENTRAD_TRUSTED_PROXY_CIDR=REPLACE_WITH_EXACT_CONTAINER_OBSERVED_PROXY_CIDR
+OPENTRAD_DATABASE_PATH=/var/lib/opentrad/opentrad.sqlite
+OPENTRAD_JOB_ROOT=/jobs
+OPENTRAD_CLAMD_HOST=clamav
+OPENTRAD_CLAMD_PORT=3310
 ~~~
+
+`OPENTRAD_TRUSTED_PROXY_CIDR` is a single canonical trusted proxy IP/CIDR, never a hop count or a broad private range. The Task 15 production preflight must replace the deliberately invalid placeholder with the exact container-observed Nginx source IP/CIDR before launch; leaving it unchanged must fail API startup.
 
 Create `infra/runtime/worker.env.example`:
 

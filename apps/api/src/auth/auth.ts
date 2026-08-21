@@ -26,6 +26,7 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
     },
     advanced: {
       cookiePrefix: "opentrad",
+      database: { generateId: "uuid" },
       disableCSRFCheck: false,
       disableOriginCheck: false,
       useSecureCookies: intrinsicReflectApply(intrinsicStringStartsWith, config.publicOrigin, [
@@ -34,24 +35,33 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
     },
     baseURL: config.publicOrigin,
     database: openDatabase(config.databasePath),
-    disabledPaths: ["/is-username-available", "/request-password-reset", "/reset-password"],
+    disabledPaths: [
+      "/is-username-available",
+      "/request-password-reset",
+      "/reset-password",
+      "/sign-up/email",
+      "/sign-up/username",
+    ],
     emailAndPassword: {
       enabled: true,
       maxPasswordLength: 128,
       minPasswordLength: 12,
     },
+    logger: { disabled: true },
     plugins: [username({ displayUsername: false, immutableUsername: true })],
     secret: config.betterAuthSecret,
     session: { expiresIn: 604_800, updateAge: 86_400 },
-    socialProviders: {
+    trustedOrigins: [config.publicOrigin],
+  };
+  if (config.githubClientId !== null && config.githubClientSecret !== null) {
+    options.socialProviders = {
       github: {
         clientId: config.githubClientId,
         clientSecret: config.githubClientSecret,
         scope: ["user:email"],
       },
-    },
-    trustedOrigins: [config.publicOrigin],
-  };
+    };
+  }
   return options;
 }
 
