@@ -279,6 +279,28 @@ describe("bid assembly contract", () => {
     }
   });
 
+  it("keeps portable excluded PDFs up to 10,000 pages while counting only included pages", () => {
+    expect(
+      schema("BidAssemblyManifestSchema").parse(
+        bidManifest({
+          attachmentManifest: [attachment(1, { includedInSubmission: false, pageCount: 10_000 })],
+        }),
+      ),
+    ).toBeDefined();
+    expect(() =>
+      schema("BidAssemblyManifestSchema").parse(
+        bidManifest({
+          attachmentManifest: [attachment(1, { includedInSubmission: false, pageCount: 10_001 })],
+        }),
+      ),
+    ).toThrow();
+    expect(() =>
+      schema("BidAssemblyManifestSchema").parse(
+        bidManifest({ attachmentManifest: [attachment(1, { pageCount: 79 })] }),
+      ),
+    ).toThrow();
+  });
+
   it("keeps sourceRef as opaque citation data with no network-fetch field", () => {
     for (const sourceRef of ["第三章/2.1", "https://example.invalid/solicitation.pdf#page=18"]) {
       const parsed = schema("BidAssemblyManifestSchema").parse(

@@ -102,7 +102,7 @@ export async function inspectPdfBytes(
     input.byteLength > MAX_PDF_BYTES ||
     !Number.isSafeInteger(maximumPages) ||
     maximumPages < 1 ||
-    maximumPages > 80 ||
+    maximumPages > 10_000 ||
     !Number.isSafeInteger(absoluteDeadline) ||
     absoluteDeadline <= Date.now() ||
     signal?.aborted

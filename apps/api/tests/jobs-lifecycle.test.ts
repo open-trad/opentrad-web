@@ -626,7 +626,12 @@ describe("canonical OpenTrad bid admission", () => {
     ]);
   }
 
-  function pdfArchive(pdf: Uint8Array, declaredPageCount: number): Buffer {
+  function pdfArchive(
+    pdf: Uint8Array,
+    declaredPageCount: number,
+    includedInSubmission = true,
+    mediaType: "application/pdf" | "image/png" | "image/jpeg" = "application/pdf",
+  ): Buffer {
     const template = {
       id: bidOptions.templateId,
       version: bidOptions.templateVersion,
@@ -637,11 +642,11 @@ describe("canonical OpenTrad bid admission", () => {
       id: "technical",
       category: "technical",
       displayName: "Technical",
-      mediaType: "application/pdf",
+      mediaType,
       pageCount: declaredPageCount,
       required: true,
       status: "attached",
-      includedInSubmission: true,
+      includedInSubmission,
     } as const;
     const draft = Buffer.from(
       JSON.stringify({
@@ -664,7 +669,7 @@ describe("canonical OpenTrad bid admission", () => {
       files: [
         {
           id: attachment.id,
-          path: "attachments/technical.pdf",
+          path: `attachments/technical.${mediaType === "application/pdf" ? "pdf" : mediaType === "image/png" ? "png" : "jpg"}`,
           mediaType: attachment.mediaType,
           byteLength: pdf.byteLength,
           pageCount: declaredPageCount,
@@ -681,7 +686,10 @@ describe("canonical OpenTrad bid admission", () => {
     return storedZip([
       { path: "manifest.json", data: Buffer.from(JSON.stringify(manifest)) },
       { path: "draft.json", data: draft },
-      { path: "attachments/technical.pdf", data: pdf },
+      {
+        path: `attachments/technical.${mediaType === "application/pdf" ? "pdf" : mediaType === "image/png" ? "png" : "jpg"}`,
+        data: pdf,
+      },
     ]);
   }
 
@@ -948,6 +956,45 @@ describe("canonical OpenTrad bid admission", () => {
       attachmentCount: 1,
       entryCount: 3,
     });
+
+    const overPath = join(privateRoot(), "page-boundary-plus-one.opentrad");
+    writeFileSync(overPath, pdfArchive(await generatedPdf(80), 80), { mode: 0o600 });
+    await expect(preflightOpenTradArchive(overPath, bidOptions)).rejects.toBeInstanceOf(
+      OpenTradPreflightError,
+    );
+  });
+
+  it("admits and fully inspects an excluded 110-page source PDF", async () => {
+    const path = join(privateRoot(), "excluded-source-pages.opentrad");
+    const excludedPdf = await generatedPdf(110);
+    writeFileSync(path, pdfArchive(excludedPdf, 110, false), { mode: 0o600 });
+    await expect(preflightOpenTradArchive(path, bidOptions)).resolves.toMatchObject({
+      attachmentBytes: excludedPdf.byteLength,
+      attachmentCount: 1,
+      entryCount: 3,
+    });
+
+    const activePath = join(privateRoot(), "excluded-source-active.opentrad");
+    writeFileSync(activePath, pdfArchive(await generatedPdf(1, true), 1, false), { mode: 0o600 });
+    await expect(preflightOpenTradArchive(activePath, bidOptions)).rejects.toBeInstanceOf(
+      OpenTradPreflightError,
+    );
+  });
+
+  it("requires every attached PNG and JPEG manifest page count to be exactly one", async () => {
+    const png = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0);
+    const validPath = join(privateRoot(), "one-page-image.opentrad");
+    writeFileSync(validPath, pdfArchive(png, 1, false, "image/png"), { mode: 0o600 });
+    await expect(preflightOpenTradArchive(validPath, bidOptions)).resolves.toMatchObject({
+      attachmentBytes: png.byteLength,
+      attachmentCount: 1,
+    });
+
+    const invalidPath = join(privateRoot(), "multi-page-image.opentrad");
+    writeFileSync(invalidPath, pdfArchive(png, 2, false, "image/png"), { mode: 0o600 });
+    await expect(preflightOpenTradArchive(invalidPath, bidOptions)).rejects.toBeInstanceOf(
+      OpenTradPreflightError,
+    );
   });
 
   it("uses one absolute archive deadline across every PDF inspection", async () => {

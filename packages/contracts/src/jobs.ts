@@ -179,7 +179,7 @@ const BidAssemblyAttachmentRawSchema = z.discriminatedUnion("status", [
       .int()
       .positive()
       .max(25 * MiB),
-    pageCount: z.number().int().positive().max(80),
+    pageCount: z.number().int().positive().max(10_000),
     includedInSubmission: z.boolean(),
   }),
   z.strictObject({

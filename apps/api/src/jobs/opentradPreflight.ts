@@ -728,7 +728,7 @@ export async function preflightOpenTradArchive(
       const outerFile = parsedOuter.files.find((file) => file.id === attachment.id);
       if (!outerFile) invalid();
       expectedAttachments.push({ path: outerFile.path, size: outerFile.byteLength });
-      if (attachment.includedInSubmission) attachmentBytes += attachment.byteLength;
+      attachmentBytes += attachment.byteLength;
       if (
         attachment.byteLength > MAX_ATTACHMENT_BYTES ||
         attachmentBytes > MAX_ATTACHMENT_TOTAL_BYTES
@@ -749,20 +749,22 @@ export async function preflightOpenTradArchive(
       const magic = await readExact(handle, Math.min(actual.size, 12), actual.dataOffset, budget);
       if (!attachmentMagic(magic, outerFile.mediaType)) invalid();
       if (outerFile.mediaType === "application/pdf") {
+        const attachment = parsed.attachmentManifest.find(
+          (candidate) => candidate.id === outerFile.id,
+        );
+        if (!attachment) invalid();
         const pdf = await readExact(handle, actual.size, actual.dataOffset, budget);
         const inspection = await Reflect.apply(runtime.inspectPdf, undefined, [
           pdf,
-          80,
+          attachment.includedInSubmission ? 80 : 10_000,
           signal,
           budget.deadline,
         ]);
         checkBudget(budget);
         if (inspection.pageCount !== outerFile.pageCount) invalid();
-        const attachment = parsed.attachmentManifest.find(
-          (candidate) => candidate.id === outerFile.id,
-        );
-        if (attachment?.includedInSubmission) actualIncludedPages += inspection.pageCount;
+        if (attachment.includedInSubmission) actualIncludedPages += inspection.pageCount;
       } else {
+        if (outerFile.pageCount !== 1) invalid();
         const attachment = parsed.attachmentManifest.find(
           (candidate) => candidate.id === outerFile.id,
         );
