@@ -210,7 +210,7 @@ export async function validateAttachmentInventory(input: {
     if (bytes.byteLength !== record.byteLength) throw attachmentError("附件字节长度不一致");
     validateAttachmentBytes(bytes, record.mediaType);
     totalBytes += record.byteLength;
-    totalPages += record.pageCount;
+    if (descriptor.includedInSubmission) totalPages += record.pageCount;
     if (totalBytes > MAX_ATTACHMENT_TOTAL_BYTES) {
       throw attachmentError("附件总大小超过 50 MiB");
     }

@@ -1,3 +1,8 @@
+import {
+  BID_TEMPLATE_IDS,
+  type BidAssemblyManifest,
+  BidAssemblyManifestSchema,
+} from "@opentrad/contracts";
 import { v2 } from "@opentrad/document-core";
 import { Unzip, UnzipPassThrough } from "fflate";
 import {
@@ -76,6 +81,10 @@ export interface ImportedProjectV2 {
   readonly portableEnvelope: v2.ProjectEnvelopeV2;
   readonly model: v2.DocumentModelV2;
   readonly attachments: readonly ProjectV2AttachmentFile[];
+  readonly bidAssembly: BidAssemblyManifest | null;
+  readonly serverSubmission:
+    | Readonly<{ allowed: true }>
+    | Readonly<{ allowed: false; code: "BID_ASSEMBLY_REQUIRED" | "NOT_A_BID_PROJECT" }>;
   readonly requiresUserConfirmation: true;
 }
 
@@ -98,6 +107,14 @@ interface ProjectZipManifest {
   readonly presentation: v2.ProjectEnvelopeV2["presentation"];
   readonly attachmentManifest: readonly v2.AttachmentRefV1[];
   readonly files: readonly ManifestFile[];
+  readonly bidAssembly?: BidAssemblyManifest;
+}
+
+interface ExportProjectV2ZipInput {
+  readonly envelope: unknown;
+  readonly attachments: unknown;
+  readonly registry: DocumentTemplateRegistry;
+  readonly bidBodyPageCountHint?: number;
 }
 
 function projectError(message: string): Error {
@@ -122,6 +139,31 @@ function assertExactOwnKeys(object: object, expected: readonly string[], message
   for (const key of expected) {
     const descriptor = Reflect.getOwnPropertyDescriptor(object, key);
     if (!descriptor || !("value" in descriptor)) throw projectError(message);
+  }
+}
+
+function snapshotExportInput(input: unknown): ExportProjectV2ZipInput {
+  try {
+    if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error();
+    const prototype = Object.getPrototypeOf(input);
+    if (prototype !== Object.prototype && prototype !== null) throw new Error();
+    const hint = Reflect.getOwnPropertyDescriptor(input, "bidBodyPageCountHint");
+    if (hint && !("value" in hint)) throw new Error();
+    assertExactOwnKeys(
+      input,
+      hint
+        ? ["envelope", "attachments", "registry", "bidBodyPageCountHint"]
+        : ["envelope", "attachments", "registry"],
+      "项目包输入无效",
+    );
+    return {
+      envelope: ownData(input, "envelope"),
+      attachments: ownData(input, "attachments"),
+      registry: ownData(input, "registry") as DocumentTemplateRegistry,
+      ...(hint === undefined ? {} : { bidBodyPageCountHint: hint.value as number }),
+    };
+  } catch {
+    throw projectError("项目包输入无效");
   }
 }
 
@@ -267,7 +309,7 @@ function validateFilesAgainstEnvelope(
       }
       validateAttachmentBytes(file.bytes, file.mediaType);
       totalBytes += file.bytes.byteLength;
-      totalPages += file.pageCount;
+      if (descriptor.includedInSubmission) totalPages += file.pageCount;
       if (totalBytes > MAX_ATTACHMENT_TOTAL_BYTES) {
         throw projectError("项目包附件超过 50 MiB");
       }
@@ -379,12 +421,65 @@ function buildCanonicalZip(entries: readonly { path: string; data: Uint8Array }[
 function manifestFor(
   envelope: v2.ProjectEnvelopeV2,
   files: readonly ProjectV2AttachmentFile[],
+  documentKind: v2.DocumentModelV2["documentKind"],
+  draftByteLength: number,
+  bidBodyPageCountHint: number | undefined,
 ): ProjectZipManifest {
+  const attachmentManifest = envelope.attachmentManifest.map(portableAttachment);
+  if (documentKind !== "bid" && bidBodyPageCountHint !== undefined) {
+    throw projectError("非投标项目不得包含投标组装信息");
+  }
+  let bidAssembly: BidAssemblyManifest | undefined;
+  if (documentKind === "bid") {
+    if (
+      !Number.isSafeInteger(bidBodyPageCountHint) ||
+      (bidBodyPageCountHint as number) < 1 ||
+      (bidBodyPageCountHint as number) > MAX_BID_ATTACHMENT_PAGES
+    ) {
+      throw projectError("投标项目缺少有效正文页数");
+    }
+    const filesById = new Map(files.map((file) => [file.id, file]));
+    try {
+      bidAssembly = BidAssemblyManifestSchema.parse({
+        templateId: envelope.template.id,
+        templateVersion: envelope.template.version,
+        body: { byteLength: draftByteLength, pageCount: bidBodyPageCountHint },
+        attachmentManifest: attachmentManifest.map((attachment) => {
+          const base = {
+            id: attachment.id,
+            category: attachment.category,
+            displayName: attachment.displayName,
+            mediaType: attachment.mediaType,
+            required: attachment.required,
+            ...(attachment.sourceRef === undefined ? {} : { sourceRef: attachment.sourceRef }),
+          };
+          if (attachment.status !== "attached") {
+            return {
+              ...base,
+              status: attachment.status,
+              includedInSubmission: false,
+            };
+          }
+          const file = filesById.get(attachment.id);
+          if (!file) throw new Error();
+          return {
+            ...base,
+            status: "attached",
+            byteLength: file.bytes.byteLength,
+            pageCount: file.pageCount,
+            includedInSubmission: attachment.includedInSubmission,
+          };
+        }),
+      });
+    } catch {
+      throw projectError("投标组装清单无效");
+    }
+  }
   return {
     formatVersion: "2.0.0",
     template: envelope.template,
     presentation: envelope.presentation,
-    attachmentManifest: envelope.attachmentManifest.map(portableAttachment),
+    attachmentManifest,
     files: files.map((file) => ({
       id: file.id,
       path: attachmentPath(file),
@@ -392,16 +487,14 @@ function manifestFor(
       byteLength: file.bytes.byteLength,
       pageCount: file.pageCount,
     })),
+    ...(bidAssembly === undefined ? {} : { bidAssembly }),
   };
 }
 
-export async function exportProjectV2Zip(input: {
-  readonly envelope: unknown;
-  readonly attachments: unknown;
-  readonly registry: DocumentTemplateRegistry;
-}): Promise<Blob> {
-  const { envelope, model } = validateDocumentEnvelope(input.envelope, input.registry);
-  const files = snapshotAttachmentFiles(input.attachments).sort(compareAsciiPaths);
+export async function exportProjectV2Zip(input: ExportProjectV2ZipInput): Promise<Blob> {
+  const request = snapshotExportInput(input);
+  const { envelope, model } = validateDocumentEnvelope(request.envelope, request.registry);
+  const files = snapshotAttachmentFiles(request.attachments).sort(compareAsciiPaths);
   validateFilesAgainstEnvelope(envelope, files, model.documentKind);
   const portableCandidate = v2.ProjectEnvelopeV2Schema.parse({
     ...envelope,
@@ -410,12 +503,19 @@ export async function exportProjectV2Zip(input: {
   });
   const { envelope: portableEnvelope } = validateDocumentEnvelope(
     portableCandidate,
-    input.registry,
+    request.registry,
   );
-  const manifest = manifestFor(portableEnvelope, files);
+  const draftBytes = encoder.encode(v2.serializeProjectV2(portableEnvelope));
+  const manifest = manifestFor(
+    portableEnvelope,
+    files,
+    model.documentKind,
+    draftBytes.byteLength,
+    request.bidBodyPageCountHint,
+  );
   const entries = [
     { path: "manifest.json", data: encoder.encode(stableJson(manifest)) },
-    { path: "draft.json", data: encoder.encode(v2.serializeProjectV2(portableEnvelope)) },
+    { path: "draft.json", data: draftBytes },
     ...files.map((file) => ({
       path: attachmentPath(file),
       data: file.bytes,
@@ -546,9 +646,20 @@ function decodeJson(bytes: Uint8Array, label: string): unknown {
 function parseManifest(input: unknown): ProjectZipManifest {
   try {
     if (input === null || typeof input !== "object" || Array.isArray(input)) throw new Error();
+    const bidAssemblyDescriptor = Reflect.getOwnPropertyDescriptor(input, "bidAssembly");
+    if (bidAssemblyDescriptor && !("value" in bidAssemblyDescriptor)) throw new Error();
     assertExactOwnKeys(
       input,
-      ["formatVersion", "template", "presentation", "attachmentManifest", "files"],
+      bidAssemblyDescriptor
+        ? [
+            "formatVersion",
+            "template",
+            "presentation",
+            "attachmentManifest",
+            "files",
+            "bidAssembly",
+          ]
+        : ["formatVersion", "template", "presentation", "attachmentManifest", "files"],
       "项目包 manifest 无效",
     );
     if (ownData(input, "formatVersion") !== "2.0.0") throw new Error();
@@ -598,12 +709,64 @@ function parseManifest(input: unknown): ProjectZipManifest {
       presentation,
       attachmentManifest,
     });
+    const isBid = BID_TEMPLATE_IDS.some((id) => id === envelope.template.id);
+    if (!isBid && bidAssemblyDescriptor) throw new Error();
+    let bidAssembly: BidAssemblyManifest | undefined;
+    if (bidAssemblyDescriptor) {
+      bidAssembly = BidAssemblyManifestSchema.parse(bidAssemblyDescriptor.value);
+      if (
+        bidAssembly.templateId !== envelope.template.id ||
+        bidAssembly.templateVersion !== envelope.template.version ||
+        bidAssembly.attachmentManifest.length !== envelope.attachmentManifest.length
+      ) {
+        throw new Error();
+      }
+      for (let index = 0; index < bidAssembly.attachmentManifest.length; index += 1) {
+        const attachment = bidAssembly.attachmentManifest[index];
+        const outerAttachment = envelope.attachmentManifest[index];
+        if (
+          !attachment ||
+          !outerAttachment ||
+          attachment.id !== outerAttachment.id ||
+          attachment.category !== outerAttachment.category ||
+          attachment.displayName !== outerAttachment.displayName ||
+          attachment.mediaType !== outerAttachment.mediaType ||
+          attachment.required !== outerAttachment.required ||
+          attachment.sourceRef !== outerAttachment.sourceRef ||
+          attachment.status !== outerAttachment.status ||
+          attachment.includedInSubmission !== outerAttachment.includedInSubmission
+        ) {
+          throw new Error();
+        }
+        const file = parsedFiles.find((candidate) => candidate.id === attachment.id);
+        if (attachment.status === "attached") {
+          if (
+            !file ||
+            file.mediaType !== attachment.mediaType ||
+            file.byteLength !== attachment.byteLength ||
+            file.pageCount !== attachment.pageCount
+          ) {
+            throw new Error();
+          }
+        } else if (file !== undefined) {
+          throw new Error();
+        }
+      }
+      if (
+        parsedFiles.length !==
+        bidAssembly.attachmentManifest.filter((attachment) => attachment.status === "attached")
+          .length
+      ) {
+        throw new Error();
+      }
+    }
     return {
       formatVersion: "2.0.0",
       template: envelope.template,
       presentation: envelope.presentation,
       attachmentManifest: envelope.attachmentManifest,
       files: parsedFiles,
+      ...(bidAssembly === undefined ? {} : { bidAssembly }),
     };
   } catch {
     throw projectError("项目包 manifest 无效");
@@ -734,6 +897,9 @@ export async function importProjectV2Zip(
   ) {
     throw projectError("manifest 与 draft 描述不一致");
   }
+  if (manifest.bidAssembly && manifest.bidAssembly.body.byteLength !== draftBytes.byteLength) {
+    throw projectError("投标组装清单与正文长度不一致");
+  }
   const attachmentFiles: ProjectV2AttachmentFile[] = manifest.files.map((file) => {
     if (file.path !== `attachments/${file.id}.${extension(file.mediaType)}`) {
       throw projectError("manifest 附件路径不一致");
@@ -769,6 +935,13 @@ export async function importProjectV2Zip(
     portableEnvelope,
     model,
     attachments: attachmentFiles,
+    bidAssembly: manifest.bidAssembly ?? null,
+    serverSubmission:
+      model.documentKind !== "bid"
+        ? { allowed: false, code: "NOT_A_BID_PROJECT" }
+        : manifest.bidAssembly === undefined
+          ? { allowed: false, code: "BID_ASSEMBLY_REQUIRED" }
+          : { allowed: true },
     requiresUserConfirmation: true,
   };
 }

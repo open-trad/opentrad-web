@@ -1,3 +1,4 @@
+import { inspectPdf } from "@opentrad/conversion-local/pdf";
 import { v2 } from "@opentrad/document-core";
 import { Download, FileArchive, FileJson, FileText } from "lucide-react";
 import { useId, useMemo, useState } from "react";
@@ -11,6 +12,7 @@ import type { DocumentRevisionSnapshot } from "./useDocumentWorkspace";
 export interface ExportPanelServices {
   readonly renderDocx: typeof renderDocxV2;
   readonly renderPdf: typeof renderPdfV2;
+  readonly inspectPdf: typeof inspectPdf;
   readonly exportProject: typeof exportProjectV2Zip;
   readonly download: typeof downloadBlob;
 }
@@ -18,6 +20,7 @@ export interface ExportPanelServices {
 const DEFAULT_SERVICES: ExportPanelServices = {
   renderDocx: renderDocxV2,
   renderPdf: renderPdfV2,
+  inspectPdf,
   exportProject: exportProjectV2Zip,
   download: downloadBlob,
 };
@@ -82,11 +85,18 @@ export function ExportPanel({
           buildDownloadFilename(basename, "json"),
         );
       } else {
+        let bidBodyPageCountHint: number | undefined;
+        if (snapshot.model.documentKind === "bid") {
+          const bodyPdf = await services.renderPdf(snapshot.model, layoutStyleId, languageView);
+          const bodyPdfBytes = new Uint8Array(await bodyPdf.arrayBuffer());
+          bidBodyPageCountHint = (await services.inspectPdf(bodyPdfBytes)).pageCount;
+        }
         services.download(
           await services.exportProject({
             envelope: snapshot.envelope,
             attachments,
             registry: v2.V2_TEMPLATE_REGISTRY,
+            ...(bidBodyPageCountHint === undefined ? {} : { bidBodyPageCountHint }),
           }),
           buildDownloadFilename(basename, "opentrad"),
         );

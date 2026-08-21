@@ -109,7 +109,7 @@ describe("attachment validation", () => {
     ).rejects.toThrow("附件不能为空");
   });
 
-  it("requires a user-confirmed PDF page count, fixes images at one page, and caps bids at 80", async () => {
+  it("requires confirmed PDF pages and caps only included bid pages at 80", async () => {
     const documentKey = "bid.government.goods.v1@1.0.0:bid-1";
     await expect(
       prepareAttachmentPut({
@@ -156,10 +156,18 @@ describe("attachment validation", () => {
       validateAttachmentInventory({
         documentKey,
         documentKind: "bid",
-        descriptors: [descriptor("pages", { pageCount: 81 })],
+        descriptors: [descriptor("pages", { pageCount: 81, includedInSubmission: true })],
         records: [{ ...record80, pageCount: 81 }],
       }),
     ).rejects.toThrow("投标附件页数超过 80 页");
+    await expect(
+      validateAttachmentInventory({
+        documentKey,
+        documentKind: "bid",
+        descriptors: [descriptor("pages", { pageCount: 110, includedInSubmission: false })],
+        records: [{ ...record80, pageCount: 110 }],
+      }),
+    ).resolves.toBeUndefined();
     expect(MAX_BID_ATTACHMENT_PAGES).toBe(80);
   });
 

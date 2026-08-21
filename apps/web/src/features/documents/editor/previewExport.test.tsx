@@ -1,3 +1,4 @@
+import { Blob as NodeBlob } from "node:buffer";
 import { v2 } from "@opentrad/document-core";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -77,6 +78,7 @@ describe("V2 preview and local exports", () => {
     const services: ExportPanelServices = {
       renderDocx: vi.fn(async () => new Blob(["docx"])),
       renderPdf: vi.fn(async () => new Blob(["pdf"])),
+      inspectPdf: vi.fn(async () => ({ pageCount: 1, pages: [] })),
       exportProject: vi.fn(async () => new Blob(["zip"])),
       download: vi.fn((blob, filename) => downloads.push({ blob, filename })),
     };
@@ -138,6 +140,7 @@ describe("V2 preview and local exports", () => {
         throw new Error("secret stack and local path");
       }),
       renderPdf: vi.fn(async () => new Blob()),
+      inspectPdf: vi.fn(async () => ({ pageCount: 1, pages: [] })),
       exportProject: vi.fn(async () => new Blob()),
       download: vi.fn(),
     };
@@ -156,6 +159,38 @@ describe("V2 preview and local exports", () => {
 });
 
 describe("bid preflight export boundary", () => {
+  it("derives the bid body page hint from the same local PDF snapshot without network access", async () => {
+    const user = userEvent.setup();
+    const snapshot = snapshotFor("bid.government.goods.v1");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const services = {
+      renderDocx: vi.fn(async () => new Blob(["docx"])),
+      renderPdf: vi.fn(async () => new NodeBlob(["%PDF-local"]) as Blob),
+      inspectPdf: vi.fn(async () => ({ pageCount: 4, pages: [] })),
+      exportProject: vi.fn(async () => new Blob(["zip"])),
+      download: vi.fn(),
+    } as unknown as ExportPanelServices;
+    render(<ExportPanel snapshot={snapshot} attachments={[]} services={services} />);
+    expect(snapshot.model.documentKind).toBe("bid");
+
+    await user.click(screen.getByRole("button", { name: "导出本地项目 ZIP" }));
+    await waitFor(() => expect(services.download).toHaveBeenCalledTimes(1));
+
+    expect(services.renderPdf).toHaveBeenCalledWith(
+      snapshot.model,
+      snapshot.envelope.presentation.layoutStyleId,
+      snapshot.envelope.presentation.languageView,
+    );
+    expect(services.inspectPdf).toHaveBeenCalledTimes(1);
+    expect(services.exportProject).toHaveBeenCalledWith({
+      envelope: snapshot.envelope,
+      attachments: [],
+      registry: v2.V2_TEMPLATE_REGISTRY,
+      bidBodyPageCountHint: 4,
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it.each(BID_TEMPLATE_IDS)("localizes every default finding message for %s", (templateId) => {
     const snapshot = snapshotFor(templateId);
     const decision = resolveBidExportDecision(snapshot);

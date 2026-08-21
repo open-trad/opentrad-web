@@ -278,11 +278,157 @@ function rewriteStoredEntry(
   return copy;
 }
 
+function rewriteArchiveEntry(
+  archive: Uint8Array,
+  path: string,
+  rewrite: (data: Uint8Array) => Uint8Array,
+): Uint8Array {
+  const report = preflightProjectZip(archive);
+  return canonicalStoreZip(
+    report.entries.map((entry) => {
+      const data = archive.slice(entry.dataOffset, entry.dataOffset + entry.uncompressedSize);
+      return { path: entry.path, data: entry.path === path ? rewrite(data) : data };
+    }),
+  );
+}
+
 beforeEach(() => {
   vi.stubGlobal("Blob", NodeBlob);
 });
 
 describe("V2 .opentrad project ZIP", () => {
+  it("embeds and round-trips the canonical bidAssembly extension for bid exports only", async () => {
+    const project = realBidProject();
+    const blob = await exportProjectV2Zip({
+      ...project,
+      registry: v2.V2_TEMPLATE_REGISTRY,
+      bidBodyPageCountHint: 3,
+    } as Parameters<typeof exportProjectV2Zip>[0]);
+
+    const imported = await importProjectV2Zip(blob, { registry: v2.V2_TEMPLATE_REGISTRY });
+    expect(imported).toMatchObject({
+      bidAssembly: {
+        templateId: "bid.government.goods.v1",
+        templateVersion: "1.0.0",
+        body: { pageCount: 3 },
+      },
+      requiresUserConfirmation: true,
+    });
+    expect(imported.bidAssembly?.body.byteLength).toBeGreaterThan(0);
+    expect(
+      imported.bidAssembly?.attachmentManifest.map((attachment) => {
+        if (attachment.status !== "attached") return attachment;
+        const { byteLength: _byteLength, ...portable } = attachment;
+        return portable;
+      }),
+    ).toEqual(imported.portableEnvelope.attachmentManifest);
+    expect(imported.serverSubmission).toEqual({ allowed: true });
+
+    const nonBid = await importProjectV2Zip(
+      await exportProjectV2Zip({
+        envelope: localEnvelope(),
+        attachments: [attachmentFile()],
+        registry: registry(),
+      }),
+      { registry: registry() },
+    );
+    expect(nonBid.bidAssembly).toBeNull();
+  });
+
+  it("keeps legacy bid projects local-only with a fixed server-submission reason", async () => {
+    const project = realBidProject();
+    const currentBlob = await exportProjectV2Zip({
+      ...project,
+      registry: v2.V2_TEMPLATE_REGISTRY,
+      bidBodyPageCountHint: 3,
+    });
+    const legacyBytes = rewriteArchiveEntry(
+      new Uint8Array(await currentBlob.arrayBuffer()),
+      "manifest.json",
+      (data) => {
+        const manifest = JSON.parse(new TextDecoder().decode(data)) as Record<string, unknown>;
+        delete manifest.bidAssembly;
+        return bytes(JSON.stringify(manifest));
+      },
+    );
+    const imported = await importProjectV2Zip(legacyBytes, { registry: v2.V2_TEMPLATE_REGISTRY });
+
+    expect(imported.bidAssembly).toBeNull();
+    expect(imported.serverSubmission).toEqual({
+      allowed: false,
+      code: "BID_ASSEMBLY_REQUIRED",
+    });
+    expect(imported.requiresUserConfirmation).toBe(true);
+  });
+
+  it("strictly cross-checks bidAssembly against the outer manifest, draft and files", async () => {
+    const project = realBidProject();
+    const current = new Uint8Array(
+      await (
+        await exportProjectV2Zip({
+          ...project,
+          registry: v2.V2_TEMPLATE_REGISTRY,
+          bidBodyPageCountHint: 3,
+        })
+      ).arrayBuffer(),
+    );
+    const mutateManifest = (mutate: (manifest: Record<string, unknown>) => void): Uint8Array =>
+      rewriteArchiveEntry(current, "manifest.json", (data) => {
+        const manifest = JSON.parse(new TextDecoder().decode(data)) as Record<string, unknown>;
+        mutate(manifest);
+        return bytes(JSON.stringify(manifest));
+      });
+
+    await expect(
+      importProjectV2Zip(
+        mutateManifest((manifest) => {
+          const bidAssembly = manifest.bidAssembly as Record<string, unknown>;
+          bidAssembly.unexpected = true;
+        }),
+        { registry: v2.V2_TEMPLATE_REGISTRY },
+      ),
+    ).rejects.toThrow("项目包 manifest 无效");
+
+    await expect(
+      importProjectV2Zip(
+        mutateManifest((manifest) => {
+          const bidAssembly = manifest.bidAssembly as Record<string, unknown>;
+          const body = bidAssembly.body as Record<string, unknown>;
+          body.byteLength = (body.byteLength as number) + 1;
+        }),
+        { registry: v2.V2_TEMPLATE_REGISTRY },
+      ),
+    ).rejects.toThrow("投标组装清单与正文长度不一致");
+
+    await expect(
+      importProjectV2Zip(
+        mutateManifest((manifest) => {
+          const bidAssembly = manifest.bidAssembly as Record<string, unknown>;
+          const attachments = bidAssembly.attachmentManifest as Array<Record<string, unknown>>;
+          const attachment = attachments[0];
+          if (!attachment) throw new Error("missing fixture attachment");
+          attachment.byteLength = (attachment.byteLength as number) + 1;
+        }),
+        { registry: v2.V2_TEMPLATE_REGISTRY },
+      ),
+    ).rejects.toThrow("项目包 manifest 无效");
+  });
+
+  it("keeps non-bid archives compatible without exposing bid server submission", async () => {
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope(),
+      attachments: [attachmentFile()],
+      registry: registry(),
+    });
+    const imported = await importProjectV2Zip(blob, { registry: registry() });
+
+    expect(imported.bidAssembly).toBeNull();
+    expect(imported.serverSubmission).toEqual({
+      allowed: false,
+      code: "NOT_A_BID_PROJECT",
+    });
+  });
+
   it("exports byte-identical canonical STORE archives and strips localBlobKey", async () => {
     const input = {
       envelope: localEnvelope(),
@@ -424,6 +570,40 @@ describe("V2 .opentrad project ZIP", () => {
         registry: registry(),
       }),
     ).rejects.toThrow("附件输入无效");
+  });
+
+  it("rejects hostile top-level export requests without invoking the page-hint getter", async () => {
+    let getterCalls = 0;
+    const request = {
+      envelope: localEnvelope([], "bid.government.goods.v1"),
+      attachments: [],
+      registry: registry(),
+    } as Record<string, unknown>;
+    Object.defineProperty(request, "bidBodyPageCountHint", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return 1;
+      },
+    });
+
+    await expect(
+      exportProjectV2Zip(request as unknown as Parameters<typeof exportProjectV2Zip>[0]),
+    ).rejects.toThrow("项目包输入无效");
+    expect(getterCalls).toBe(0);
+
+    const revoked = Proxy.revocable(
+      {
+        envelope: localEnvelope(),
+        attachments: [attachmentFile()],
+        registry: registry(),
+      },
+      {},
+    );
+    revoked.revoke();
+    await expect(
+      exportProjectV2Zip(revoked.proxy as Parameters<typeof exportProjectV2Zip>[0]),
+    ).rejects.toThrow("项目包输入无效");
   });
 
   it("checks the 52 MiB project size before reading a Blob-like input", async () => {
@@ -666,37 +846,64 @@ describe("V2 .opentrad project ZIP", () => {
     );
   });
 
-  it("enforces the bid attachment aggregate page limit on direct export", async () => {
-    const atLimit = portableAttachment({ pageCount: 80 });
+  it("enforces the bid body plus included attachment page limit on direct export", async () => {
+    const atLimit = portableAttachment({ pageCount: 79 });
     const bidEnvelope = localEnvelope([atLimit], "bid.government.goods.v1");
     const atLimitBlob = await exportProjectV2Zip({
       envelope: bidEnvelope,
-      attachments: [{ ...attachmentFile(), pageCount: 80 }],
+      attachments: [{ ...attachmentFile(), pageCount: 79 }],
       registry: registry(),
+      bidBodyPageCountHint: 1,
     });
     expect(atLimitBlob).toBeInstanceOf(Blob);
 
-    const overLimit = portableAttachment({ pageCount: 81 });
+    const overLimit = portableAttachment({ pageCount: 80 });
     await expect(
       exportProjectV2Zip({
         envelope: localEnvelope([overLimit], "bid.government.goods.v1"),
-        attachments: [{ ...attachmentFile(), pageCount: 81 }],
+        attachments: [{ ...attachmentFile(), pageCount: 80 }],
         registry: registry(),
+        bidBodyPageCountHint: 1,
       }),
-    ).rejects.toThrow("投标附件页数超过 80 页");
+    ).rejects.toThrow("投标组装清单无效");
 
     let overLimitArchive: Uint8Array = new Uint8Array(await atLimitBlob.arrayBuffer());
     const raisePageCount = (data: Uint8Array) => {
       const text = new TextDecoder().decode(data);
-      const changed = text.replaceAll('"pageCount":80', '"pageCount":81');
+      const changed = text.replaceAll('"pageCount":79', '"pageCount":80');
       expect(changed).not.toBe(text);
       return bytes(changed);
     };
     overLimitArchive = rewriteStoredEntry(overLimitArchive, "manifest.json", raisePageCount);
     overLimitArchive = rewriteStoredEntry(overLimitArchive, "draft.json", raisePageCount);
     await expect(importProjectV2Zip(overLimitArchive, { registry: registry() })).rejects.toThrow(
-      "投标附件页数超过 80 页",
+      "项目包 manifest 无效",
     );
+  });
+
+  it("counts excluded bid source pages in storage but not in the 80-page submission budget", async () => {
+    const excluded = portableAttachment({
+      id: "source-only",
+      displayName: "采购方招标文件.pdf",
+      pageCount: 110,
+      includedInSubmission: false,
+    });
+    const blob = await exportProjectV2Zip({
+      envelope: localEnvelope([excluded], "bid.government.goods.v1"),
+      attachments: [{ ...attachmentFile(), id: "source-only", pageCount: 110 }],
+      registry: registry(),
+      bidBodyPageCountHint: 1,
+    });
+    const imported = await importProjectV2Zip(blob, { registry: registry() });
+
+    expect(imported.bidAssembly?.attachmentManifest).toContainEqual(
+      expect.objectContaining({
+        id: "source-only",
+        includedInSubmission: false,
+        pageCount: 110,
+      }),
+    );
+    expect(imported.serverSubmission).toEqual({ allowed: true });
   });
 
   it("backs up excluded source attachment bytes without publishing local refs in draft or model", async () => {
@@ -740,6 +947,7 @@ describe("V2 .opentrad project ZIP", () => {
     const blob = await exportProjectV2Zip({
       ...project,
       registry: v2.V2_TEMPLATE_REGISTRY,
+      bidBodyPageCountHint: 1,
     });
     const imported = await importProjectV2Zip(blob, { registry: v2.V2_TEMPLATE_REGISTRY });
     const evidenceRefs = imported.portableEnvelope.draft.evidenceRefs as Array<

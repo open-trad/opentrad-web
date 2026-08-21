@@ -10,6 +10,8 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@opentrad/contracts": "workspace:*",
+    "@opentrad/conversion-local": "workspace:*",
     "@opentrad/document-core": "workspace:*",
     "@opentrad/document-renderer": "workspace:*",
     "docx": "9.7.1",

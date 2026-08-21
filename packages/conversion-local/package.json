@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./pdf": {
+      "types": "./dist/pdf/pdfjs.d.ts",
+      "import": "./dist/pdf/pdfjs.js"
     }
   },
   "files": [

@@ -247,7 +247,7 @@ describe("editor attachment transactions", () => {
     ).rejects.toThrow("最多 1 个");
   });
 
-  it("enforces 25 MiB per file, 50 MiB total, 100 files, and 80 bid pages", async () => {
+  it("enforces file budgets while allowing excluded bid source pages beyond 80", async () => {
     const templateId = "contract.oem.processing.v1";
     const base = {
       registration: registration(templateId),
@@ -383,21 +383,25 @@ describe("editor attachment transactions", () => {
         },
       ],
     } as unknown as v2.ProjectDraftV2;
-    await expect(
-      prepareAttachmentAddition({
-        registration: registration(bidTemplate),
-        envelope: { ...bidEnvelope, draft, attachmentManifest: [descriptor] },
-        field: attachmentField(bidTemplate, "source.versionEvidence.mainSolicitationAttachmentId"),
-        path: "source.versionEvidence.mainSolicitationAttachmentId",
-        attachmentId: "another-source",
-        displayName: "another.png",
-        blob: pngBlob(),
-        pageCount: 1,
-        documentKind: "bid",
-        savedAt: NOW,
-        existingRecords: [existing],
+    const sourceResult = await prepareAttachmentAddition({
+      registration: registration(bidTemplate),
+      envelope: { ...bidEnvelope, draft, attachmentManifest: [descriptor] },
+      field: attachmentField(bidTemplate, "source.versionEvidence.mainSolicitationAttachmentId"),
+      path: "source.versionEvidence.mainSolicitationAttachmentId",
+      attachmentId: "another-source",
+      displayName: "another.png",
+      blob: pngBlob(),
+      pageCount: 1,
+      documentKind: "bid",
+      savedAt: NOW,
+      existingRecords: [existing],
+    });
+    expect(sourceResult.envelope.attachmentManifest).toContainEqual(
+      expect.objectContaining({
+        id: "another-source",
+        includedInSubmission: false,
       }),
-    ).rejects.toThrow("80 页");
+    );
   });
 
   it("never allows an imported ZIP result to enter storage without explicit confirmation", () => {
