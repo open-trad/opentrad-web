@@ -674,6 +674,139 @@ describe("owned job lifecycle and one-shot result", () => {
     expect(await testRuntime.files.exists(jobId)).toBe(false);
   });
 
+  it("expires an API-private succeeded result only after deleting its files", async () => {
+    const testRuntime = await runtime();
+    const jobId = await admitted(testRuntime, "succeeded-expiry-idempotency-key-0001");
+    await testRuntime.files.promoteResult({
+      jobId,
+      resultBytes: 4,
+      source: (async function* () {
+        yield Buffer.from("PDF!");
+      })(),
+    });
+    expect(
+      testRuntime.repository.markTerminal(jobId, "succeeded", {
+        mediaType: "application/pdf",
+        resultBytes: 4,
+      }),
+    ).toBe(true);
+    testRuntime.database
+      .prepare("UPDATE jobs SET created_at=0, expires_at=1 WHERE id=?")
+      .run(jobId);
+    testRuntime.database.prepare("UPDATE idempotency SET expires_at=1 WHERE job_id=?").run(jobId);
+    const destroy = JobFiles.prototype.destroy.bind(testRuntime.files);
+    let attempts = 0;
+    Object.defineProperty(testRuntime.files, "destroy", {
+      configurable: true,
+      value: async (id: string) => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("terminal-expiry-delete-failure");
+        await destroy(id);
+      },
+    });
+
+    await runJobCleanup({ files: testRuntime.files, repository: testRuntime.repository });
+
+    expect(testRuntime.database.prepare("SELECT count(*) AS count FROM jobs").get()).toEqual({
+      count: 1,
+    });
+    expect(await testRuntime.files.exists(jobId)).toBe(true);
+    await runJobCleanup({ files: testRuntime.files, repository: testRuntime.repository });
+
+    expect(testRuntime.database.prepare("SELECT count(*) AS count FROM jobs").get()).toEqual({
+      count: 0,
+    });
+    expect(await testRuntime.files.exists(jobId)).toBe(false);
+  });
+
+  it.each(["failed", "cancelled"] as const)(
+    "expires a file-free terminal %s row",
+    async (status) => {
+      const testRuntime = await runtime();
+      const jobId = await admitted(testRuntime, `${status}-expiry-idempotency-key-0001`);
+      await testRuntime.files.destroy(jobId);
+      expect(
+        status === "failed"
+          ? testRuntime.repository.markTerminal(jobId, status, {
+              errorCode: "CONVERSION_FAILED",
+              retryable: false,
+            })
+          : testRuntime.repository.markTerminal(jobId, status),
+      ).toBe(true);
+      testRuntime.database
+        .prepare("UPDATE jobs SET created_at=0, expires_at=1 WHERE id=?")
+        .run(jobId);
+      testRuntime.database.prepare("UPDATE idempotency SET expires_at=1 WHERE job_id=?").run(jobId);
+
+      await runJobCleanup({ files: testRuntime.files, repository: testRuntime.repository });
+
+      expect(testRuntime.database.prepare("SELECT count(*) AS count FROM jobs").get()).toEqual({
+        count: 0,
+      });
+      expect(await testRuntime.files.exists(jobId)).toBe(false);
+    },
+  );
+
+  it("marks an expired running job cancelled before publishing its control marker", async () => {
+    const testRuntime = await runtime();
+    const jobId = await admitted(testRuntime, "running-expiry-idempotency-key-0001");
+    renameSync(
+      testRuntime.files.queuedDirectory(jobId),
+      join(testRuntime.config.jobRoot, "running", jobId),
+    );
+    expect(testRuntime.repository.markRunning(jobId)).toBe(true);
+    testRuntime.database
+      .prepare("UPDATE jobs SET created_at=0, expires_at=1 WHERE id=?")
+      .run(jobId);
+
+    await runJobCleanup({ files: testRuntime.files, repository: testRuntime.repository });
+
+    expect(
+      testRuntime.database
+        .prepare(
+          "SELECT status, cancel_requested, cleanup_kind, cleanup_token FROM jobs WHERE id=?",
+        )
+        .get(jobId),
+    ).toEqual({
+      cancel_requested: 1,
+      cleanup_kind: "expiry",
+      cleanup_token: null,
+      status: "cancelling",
+    });
+    expect(await readdir(join(testRuntime.config.jobRoot, "control"))).toEqual([`${jobId}.cancel`]);
+    expect(await testRuntime.files.exists(jobId)).toBe(true);
+  });
+
+  it("atomically expires an outbox completion without publishing a private result", async () => {
+    const testRuntime = await runtime();
+    const jobId = await admitted(testRuntime, "outbox-expiry-idempotency-key-0001");
+    const running = join(testRuntime.config.jobRoot, "running", jobId);
+    renameSync(testRuntime.files.queuedDirectory(jobId), running);
+    expect(testRuntime.repository.markRunning(jobId)).toBe(true);
+    writeFileSync(join(running, "result.bin"), "%PDF", { mode: 0o640 });
+    writeFileSync(
+      join(running, "status.json"),
+      `${JSON.stringify({
+        mediaType: "application/pdf",
+        resultBytes: 4,
+        schemaVersion: "worker-result-v1",
+        status: "succeeded",
+      })}\n`,
+      { mode: 0o640 },
+    );
+    renameSync(running, testRuntime.files.outboxDirectory(jobId));
+    testRuntime.database
+      .prepare("UPDATE jobs SET created_at=0, expires_at=1 WHERE id=?")
+      .run(jobId);
+
+    await runJobCleanup({ files: testRuntime.files, repository: testRuntime.repository });
+
+    expect(testRuntime.database.prepare("SELECT count(*) AS count FROM jobs").get()).toEqual({
+      count: 0,
+    });
+    expect(await testRuntime.files.exists(jobId)).toBe(false);
+  });
+
   it("runs cleanup immediately, installs one bounded interval, and clears it on stop", async () => {
     const testRuntime = await runtime();
     let callback: (() => void) | undefined;
@@ -787,6 +920,63 @@ describe("owned job lifecycle and one-shot result", () => {
         .get(jobId),
     ).toEqual({ status: "cancelled", cleanup_kind: null, cleanup_token: null });
     expect(await testRuntime.files.exists(jobId)).toBe(false);
+  });
+
+  it("persists running cancellation in DB before publishing a worker control marker", async () => {
+    const testRuntime = await runtime();
+    const jobId = await admitted(testRuntime, "running-cancel-control-idempotency-key-0001");
+    renameSync(
+      testRuntime.files.queuedDirectory(jobId),
+      join(testRuntime.config.jobRoot, "running", jobId),
+    );
+    expect(testRuntime.repository.markRunning(jobId)).toBe(true);
+
+    const response = await testRuntime.app.inject({
+      method: "DELETE",
+      url: `/api/v1/jobs/${jobId}`,
+      headers: { host: "127.0.0.1", origin, "sec-fetch-site": "same-origin" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().job.status).toBe("cancelling");
+    expect(
+      testRuntime.database
+        .prepare("SELECT status, cancel_requested FROM jobs WHERE id=?")
+        .get(jobId),
+    ).toEqual({ cancel_requested: 1, status: "cancelling" });
+    expect(await readdir(join(testRuntime.config.jobRoot, "control"))).toEqual([`${jobId}.cancel`]);
+    expect(await readdir(join(testRuntime.config.jobRoot, "running", jobId))).toEqual([
+      "input.bin",
+      "manifest.json",
+    ]);
+  });
+
+  it("does not delete a filesystem-claimed job before DB running reconciliation", async () => {
+    const testRuntime = await runtime();
+    const jobId = await admitted(testRuntime, "claim-cancel-race-idempotency-key-0001");
+    renameSync(
+      testRuntime.files.queuedDirectory(jobId),
+      join(testRuntime.config.jobRoot, "running", jobId),
+    );
+
+    const response = await testRuntime.app.inject({
+      method: "DELETE",
+      url: `/api/v1/jobs/${jobId}`,
+      headers: { host: "127.0.0.1", origin, "sec-fetch-site": "same-origin" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().job.status).toBe("cancelling");
+    expect(
+      testRuntime.database
+        .prepare("SELECT status, cancel_requested, cleanup_kind FROM jobs WHERE id=?")
+        .get(jobId),
+    ).toEqual({ cancel_requested: 1, cleanup_kind: null, status: "cancelling" });
+    expect(await readdir(join(testRuntime.config.jobRoot, "running", jobId))).toEqual([
+      "input.bin",
+      "manifest.json",
+    ]);
+    expect(await readdir(join(testRuntime.config.jobRoot, "control"))).toEqual([`${jobId}.cancel`]);
   });
 
   it("HEAD and Range do not consume, while concurrent GET claims only once", async () => {
@@ -1263,6 +1453,70 @@ describe("owned job lifecycle and one-shot result", () => {
 });
 
 describe("startup ownership cleanup", () => {
+  it("reconciles a crash-persisted worker outbox before server readiness", async () => {
+    const testConfig = config();
+    const database = new Database(testConfig.databasePath);
+    databases.push(database);
+    database.pragma("foreign_keys = ON");
+    const files = new JobFiles(testConfig.jobRoot, { workerGid: process.getgid?.() ?? 0 });
+    const repository = new JobRepository(database, {
+      idempotencySecret: testConfig.betterAuthSecret,
+    });
+    const reservation = repository.reserveAdmission({
+      idempotencyKey: "startup-reconcile-idempotency-key-0001",
+      ownerId: randomUUID(),
+      request: requestMetadata,
+    });
+    await files.stageAndQueue({
+      declaredBytes: Buffer.byteLength(privatePayload),
+      jobId: reservation.job.id,
+      request: requestMetadata,
+      scan: async (source) => {
+        for await (const _chunk of source) {
+          // Consume the production pipeline.
+        }
+        return "clean";
+      },
+      source: (async function* () {
+        yield Buffer.from(privatePayload);
+      })(),
+    });
+    repository.markQueued(reservation.job.id);
+    const running = join(testConfig.jobRoot, "running", reservation.job.id);
+    renameSync(files.queuedDirectory(reservation.job.id), running);
+    expect(repository.markRunning(reservation.job.id)).toBe(true);
+    writeFileSync(join(running, "result.bin"), "%PDF", { mode: 0o640 });
+    writeFileSync(
+      join(running, "status.json"),
+      `${JSON.stringify({
+        mediaType: "application/pdf",
+        resultBytes: 4,
+        schemaVersion: "worker-result-v1",
+        status: "succeeded",
+      })}\n`,
+      { mode: 0o640 },
+    );
+    renameSync(running, files.outboxDirectory(reservation.job.id));
+    const auth = {
+      api: {
+        getSession: async () => null,
+        signUpEmail: async () => {
+          throw new Error("unused");
+        },
+      },
+      handler: async () => new Response("{}", { status: 404 }),
+    };
+
+    const app = await buildServer(testConfig, {
+      auth,
+      jobs: { files, repository, scanner: { scan: async () => "clean" as const } },
+    });
+    apps.push(app);
+
+    expect(repository.workerJobState(reservation.job.id)).toBeUndefined();
+    expect(readFileSync(files.resultPath(reservation.job.id), "utf8")).toBe("%PDF");
+  });
+
   it("runs durable job cleanup before server readiness", async () => {
     const testConfig = config();
     const database = new Database(testConfig.databasePath);

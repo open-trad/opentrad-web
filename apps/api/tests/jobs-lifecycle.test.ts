@@ -495,10 +495,13 @@ describe("bounded durable cleanup", () => {
     let destroyed = 0;
     await runJobCleanup({
       files: {
+        cancelQueued: async () => true,
         cleanupOrphanStaging: async () => 0,
         destroy: async () => {
           destroyed += 1;
         },
+        requestCancellation: async () => undefined,
+        runningExists: async () => false,
       },
       repository: {
         claimExpiredCleanup: () => {
@@ -507,6 +510,8 @@ describe("bounded durable cleanup", () => {
         },
         claimPendingCleanup: () => pending,
         completeCleanup: () => true,
+        deferRunningCancellation: () => true,
+        markExpiryCancellation: () => false,
         releaseCleanupClaim: () => true,
       },
     });

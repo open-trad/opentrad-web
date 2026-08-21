@@ -3,6 +3,8 @@ import { type CreateJobRequest, CreateJobRequestSchema } from "@opentrad/contrac
 import { z } from "zod";
 
 const intrinsicArrayIsArray = Array.isArray;
+const intrinsicArrayEvery = Array.prototype.every;
+const intrinsicArrayIncludes = Array.prototype.includes;
 const intrinsicDefineProperty = Object.defineProperty;
 const intrinsicFreeze = Object.freeze;
 const intrinsicGetPrototypeOf = Object.getPrototypeOf;
@@ -10,6 +12,7 @@ const intrinsicObjectCreate = Object.create;
 const intrinsicObjectPrototype = Object.prototype;
 const intrinsicReflectGetOwnPropertyDescriptor = Reflect.getOwnPropertyDescriptor;
 const intrinsicReflectOwnKeys = Reflect.ownKeys;
+const intrinsicReflectApply = Reflect.apply;
 
 const MANIFEST_KEYS = Object.freeze([
   "schemaVersion",
@@ -91,7 +94,9 @@ export function hardenWorkerValue<T>(value: T): Hardened<T> {
 function hasExactManifestKeys(value: Record<string, unknown>): boolean {
   const keys = intrinsicReflectOwnKeys(value);
   if (keys.length !== MANIFEST_KEYS.length) return false;
-  return MANIFEST_KEYS.every((key) => keys.includes(key));
+  return intrinsicReflectApply(intrinsicArrayEvery, MANIFEST_KEYS, [
+    (key: string) => intrinsicReflectApply(intrinsicArrayIncludes, keys, [key]) as boolean,
+  ]) as boolean;
 }
 
 export function parseWorkerManifest(input: unknown): WorkerManifest {

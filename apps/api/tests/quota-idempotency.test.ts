@@ -203,6 +203,56 @@ describe("transactional admission quotas", () => {
     expect(repo.findOwnedJob(secondOwner, second.job.id)?.queuePosition).toBe(0);
   });
 
+  it("lets a cancellation CAS defeat a stale success terminalization", () => {
+    const db = database();
+    const repo = repository(db);
+    const owner = randomUUID();
+    const admission = reserve(repo, owner, "cancel-success-race-request-key-0001");
+    expect(repo.markRunning(admission.job.id)).toBe(true);
+    expect(repo.workerJobState(admission.job.id)).toEqual({
+      cancelRequested: false,
+      status: "running",
+    });
+
+    expect(repo.cancelOwnedJob(owner, admission.job.id)?.job.status).toBe("cancelling");
+    expect(
+      repo.markTerminal(admission.job.id, "succeeded", {
+        mediaType: "application/pdf",
+        resultBytes: 4,
+      }),
+    ).toBe(false);
+    expect(
+      db
+        .prepare("SELECT status, cancel_requested, result_media_type FROM jobs WHERE id=?")
+        .get(admission.job.id),
+    ).toEqual({ cancel_requested: 1, result_media_type: null, status: "cancelling" });
+  });
+
+  it("does not retrofit cancellation after success wins the terminal CAS", () => {
+    const db = database();
+    const repo = repository(db);
+    const owner = randomUUID();
+    const admission = reserve(repo, owner, "success-cancel-race-request-key-0001");
+    expect(repo.markRunning(admission.job.id)).toBe(true);
+    expect(
+      repo.markTerminal(admission.job.id, "succeeded", {
+        mediaType: "application/pdf",
+        resultBytes: 4,
+      }),
+    ).toBe(true);
+
+    expect(repo.cancelOwnedJob(owner, admission.job.id)?.job.status).toBe("succeeded");
+    expect(
+      db
+        .prepare("SELECT status, cancel_requested, result_media_type FROM jobs WHERE id=?")
+        .get(admission.job.id),
+    ).toEqual({
+      cancel_requested: 0,
+      result_media_type: "application/pdf",
+      status: "succeeded",
+    });
+  });
+
   it("counts at most ten accepted jobs per owner and UTC day", () => {
     const db = database();
     const repo = repository(db);

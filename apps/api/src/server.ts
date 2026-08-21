@@ -15,6 +15,7 @@ import { type ApiConfig, assertApiConfig, canonicalizeIpAddress, loadConfig } fr
 import { ClamdClient } from "./jobs/clamdClient.js";
 import { type JobCleanupController, startJobCleanup } from "./jobs/jobCleanup.js";
 import { JobFiles } from "./jobs/jobFiles.js";
+import { type JobReconciliationController, startJobReconciliation } from "./jobs/jobReconcile.js";
 import { JobRepository } from "./jobs/jobRepository.js";
 import { registerCapabilitiesRoute } from "./routes/capabilities.js";
 import { type JobRouteRuntime, registerJobRoutes } from "./routes/jobs.js";
@@ -336,6 +337,7 @@ export async function buildServer(
     : { close(): void } | undefined;
   let jobs: JobRouteRuntime | undefined;
   let cleanupController: JobCleanupController | undefined;
+  let reconciliationController: JobReconciliationController | undefined;
   let jobAdmissionEnabled = true;
   let databaseClosed = false;
 
@@ -430,7 +432,11 @@ export async function buildServer(
         (request) => rateLimitKey(request, isTrustedProxy),
       );
       cleanupController = await startJobCleanup(jobs);
-      app.addHook("onClose", async () => cleanupController?.stop());
+      reconciliationController = await startJobReconciliation(jobs);
+      app.addHook("onClose", async () => {
+        reconciliationController?.stop();
+        cleanupController?.stop();
+      });
     }
     registerRegistrationRoute(app, auth, config.publicOrigin);
     mountAuthHandler(app, auth, {

@@ -429,8 +429,29 @@ export function registerJobRoutes(
           });
         }
         try {
-          await runtime.files.destroy(id);
-          if (!runtime.repository.completeCleanup(id, claim.token)) {
+          const claimedQueued = await runtime.files.cancelQueued(id);
+          if (!claimedQueued) {
+            if (!runtime.repository.deferRunningCancellation(id, claim.token)) {
+              runtime.repository.releaseCleanupClaim(id, claim.token);
+              return errorResponse(reply, {
+                code: "INVALID_REQUEST",
+                retryable: true,
+                status: 503,
+              });
+            }
+            try {
+              await runtime.files.requestCancellation(id);
+            } catch {
+              return errorResponse(reply, {
+                code: "INVALID_REQUEST",
+                retryable: true,
+                status: 503,
+              });
+            }
+          } else {
+            await runtime.files.destroy(id);
+          }
+          if (claimedQueued && !runtime.repository.completeCleanup(id, claim.token)) {
             runtime.repository.releaseCleanupClaim(id, claim.token);
             return errorResponse(reply, {
               code: "INVALID_REQUEST",
@@ -440,6 +461,16 @@ export function registerJobRoutes(
           }
         } catch {
           runtime.repository.releaseCleanupClaim(id, claim.token);
+          return errorResponse(reply, {
+            code: "INVALID_REQUEST",
+            retryable: true,
+            status: 503,
+          });
+        }
+      } else if (decision.job.status === "cancelling") {
+        try {
+          await runtime.files.requestCancellation(id);
+        } catch {
           return errorResponse(reply, {
             code: "INVALID_REQUEST",
             retryable: true,

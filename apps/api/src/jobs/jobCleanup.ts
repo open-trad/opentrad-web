@@ -9,10 +9,18 @@ const intrinsicReflectApply = Reflect.apply;
 const intrinsicSetInterval = setInterval;
 
 export interface JobCleanupRuntime {
-  readonly files: Pick<JobFiles, "cleanupOrphanStaging" | "destroy">;
+  readonly files: Pick<
+    JobFiles,
+    "cancelQueued" | "cleanupOrphanStaging" | "destroy" | "requestCancellation" | "runningExists"
+  >;
   readonly repository: Pick<
     JobRepository,
-    "claimExpiredCleanup" | "claimPendingCleanup" | "completeCleanup" | "releaseCleanupClaim"
+    | "claimExpiredCleanup"
+    | "claimPendingCleanup"
+    | "completeCleanup"
+    | "deferRunningCancellation"
+    | "markExpiryCancellation"
+    | "releaseCleanupClaim"
   >;
 }
 
@@ -46,6 +54,31 @@ export async function runJobCleanup(runtime: JobCleanupRuntime): Promise<void> {
     const claim = claims[index];
     if (!claim) continue;
     try {
+      if (claim.kind === "cancel") {
+        const claimedQueued = await runtime.files.cancelQueued(claim.jobId);
+        if (!claimedQueued) {
+          if (!runtime.repository.deferRunningCancellation(claim.jobId, claim.token)) {
+            runtime.repository.releaseCleanupClaim(claim.jobId, claim.token);
+            continue;
+          }
+          await runtime.files.requestCancellation(claim.jobId).catch(() => undefined);
+          continue;
+        }
+      }
+      if (claim.kind === "expiry") {
+        const claimedQueued = await runtime.files.cancelQueued(claim.jobId);
+        if (!claimedQueued) {
+          const active = runtime.repository.markExpiryCancellation(claim.jobId, claim.token);
+          if (active && (await runtime.files.runningExists(claim.jobId))) {
+            try {
+              await runtime.files.requestCancellation(claim.jobId);
+            } finally {
+              runtime.repository.releaseCleanupClaim(claim.jobId, claim.token);
+            }
+            continue;
+          }
+        }
+      }
       await runtime.files.destroy(claim.jobId);
       if (!runtime.repository.completeCleanup(claim.jobId, claim.token)) {
         runtime.repository.releaseCleanupClaim(claim.jobId, claim.token);

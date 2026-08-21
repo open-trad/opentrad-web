@@ -83,6 +83,19 @@ export interface CleanupClaim {
   readonly token: string;
 }
 
+export interface WorkerJobState {
+  readonly cancelRequested: boolean;
+  readonly status: "queued" | "running" | "cancelling";
+}
+
+export type WorkerTerminalState =
+  | Readonly<{
+      readonly mediaType: string;
+      readonly resultBytes: number;
+      readonly status: "succeeded";
+    }>
+  | Readonly<{ readonly status: "cancelled" | "failed" }>;
+
 export class JobAdmissionError extends Error {
   readonly code: JobErrorCode;
 
@@ -372,7 +385,7 @@ export class JobRepository {
           `UPDATE jobs SET status='succeeded', queue_position=NULL, progress_phase=NULL,
              progress_completed=NULL, progress_total=NULL, result_media_type=?, result_bytes=?,
              error_code=NULL, error_retryable=NULL
-           WHERE id=? AND status IN ('queued','running','cancelling')`,
+           WHERE id=? AND cancel_requested=0 AND status IN ('queued','running')`,
         )
         .run(details?.mediaType, details?.resultBytes, jobId);
     } else if (status === "failed") {
@@ -381,7 +394,7 @@ export class JobRepository {
           `UPDATE jobs SET status='failed', queue_position=NULL, progress_phase=NULL,
              progress_completed=NULL, progress_total=NULL, error_code=?, error_retryable=?,
              result_media_type=NULL, result_bytes=NULL
-           WHERE id=? AND status IN ('queued','running','cancelling')`,
+           WHERE id=? AND cancel_requested=0 AND status IN ('queued','running')`,
         )
         .run(details?.errorCode, details?.retryable ? 1 : 0, jobId);
     } else {
@@ -396,6 +409,81 @@ export class JobRepository {
     }
     if (changed.changes === 1) this.#rebalanceQueue();
     return changed.changes === 1;
+  }
+
+  pendingCancellationJobIds(limit: number): readonly string[] {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 32) {
+      throw new Error("JOB_REPOSITORY_INVALID");
+    }
+    const rows = this.#database
+      .prepare(
+        `SELECT id FROM jobs WHERE status='cancelling' AND cancel_requested=1
+           AND cleanup_kind IS NULL ORDER BY started_at, id LIMIT ?`,
+      )
+      .raw(true)
+      .all(limit) as Array<[string]>;
+    const output: string[] = [];
+    for (let index = 0; index < rows.length; index += 1) {
+      const jobId = rows[index]?.[0];
+      if (typeof jobId !== "string") throw new Error("JOB_REPOSITORY_STATE_INVALID");
+      intrinsicReflectApply(intrinsicArrayPush, output, [jobId]);
+    }
+    return Object.freeze(output);
+  }
+
+  workerJobState(jobId: string): WorkerJobState | undefined {
+    const row = this.#database
+      .prepare("SELECT status, cancel_requested FROM jobs WHERE id=?")
+      .raw(true)
+      .get(jobId) as [JobStatusValue, 0 | 1] | undefined;
+    if (!row) return undefined;
+    const [status, cancelRequested] = row;
+    if (status !== "queued" && status !== "running" && status !== "cancelling") return undefined;
+    return Object.freeze({ cancelRequested: cancelRequested === 1, status });
+  }
+
+  workerTerminalState(jobId: string): WorkerTerminalState | undefined {
+    const row = this.#database
+      .prepare("SELECT status, result_media_type, result_bytes FROM jobs WHERE id=?")
+      .raw(true)
+      .get(jobId) as [JobStatusValue, string | null, number | null] | undefined;
+    if (!row) return undefined;
+    const [status, mediaType, resultBytes] = row;
+    if (status === "succeeded") {
+      if (
+        typeof mediaType !== "string" ||
+        !Number.isSafeInteger(resultBytes) ||
+        (resultBytes as number) < 1
+      ) {
+        throw new Error("JOB_REPOSITORY_STATE_INVALID");
+      }
+      return Object.freeze({ mediaType, resultBytes: resultBytes as number, status });
+    }
+    return status === "failed" || status === "cancelled" ? Object.freeze({ status }) : undefined;
+  }
+
+  deferRunningCancellation(jobId: string, cleanupToken: string): boolean {
+    return (
+      this.#database
+        .prepare(
+          `UPDATE jobs SET cleanup_kind=NULL, cleanup_token=NULL, cleanup_claimed_at=NULL
+           WHERE id=? AND status='cancelling' AND cancel_requested=1
+             AND cleanup_kind='cancel' AND cleanup_token=?`,
+        )
+        .run(jobId, cleanupToken).changes === 1
+    );
+  }
+
+  markExpiryCancellation(jobId: string, cleanupToken: string): boolean {
+    return (
+      this.#database
+        .prepare(
+          `UPDATE jobs SET status='cancelling', cancel_requested=1
+           WHERE id=? AND cleanup_kind='expiry' AND cleanup_token=?
+             AND status IN ('queued','running','cancelling')`,
+        )
+        .run(jobId, cleanupToken).changes === 1
+    );
   }
 
   findOwnedJob(ownerId: string, jobId: string): JobStatus | undefined {

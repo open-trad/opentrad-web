@@ -13,10 +13,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
     "test:native-bid-attachment": "pnpm build && node tests/bid-attachment-native-smoke.mjs",
     "test:native-bid-document": "pnpm build && node tests/bid-document-native-smoke.mjs",
     "test:native-spreadsheet": "pnpm build && node tests/spreadsheet-native-smoke.mjs",
-    "test": "vitest run",
+    "test:native-main": "pnpm --filter @opentrad/api build && pnpm build && node tests/main-native-smoke.mjs",
+    "test": "vitest run && pnpm test:native-main",
     "typecheck": "tsc -p tsconfig.json --pretty false"
   },
   "dependencies": {

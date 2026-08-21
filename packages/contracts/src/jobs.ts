@@ -3,6 +3,7 @@ import { ConversionGradeSchema, MiB } from "./conversion.js";
 import { safeSchema } from "./safety.js";
 
 const intrinsicReflectApply = Reflect.apply;
+const intrinsicObjectFreeze = Object.freeze;
 const intrinsicStringToLowerCase = String.prototype.toLowerCase;
 const intrinsicStringTrim = String.prototype.trim;
 
@@ -144,6 +145,74 @@ const CreateJobRequestRawSchema = z.discriminatedUnion("operation", [
 export const CreateJobRequestSchema = safeSchema(CreateJobRequestRawSchema);
 export type CreateJobRequest = z.infer<typeof CreateJobRequestSchema>;
 
+export type JobResultMediaType =
+  | "application/pdf"
+  | "application/rtf"
+  | "application/vnd.oasis.opendocument.text"
+  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  | "image/avif"
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "text/csv"
+  | "text/html"
+  | "text/markdown"
+  | "text/plain";
+
+export const JOB_RESULT_MEDIA_TYPES = intrinsicObjectFreeze([
+  "application/pdf",
+  "application/rtf",
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/avif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/csv",
+  "text/html",
+  "text/markdown",
+  "text/plain",
+] as const satisfies readonly JobResultMediaType[]);
+
+export function jobResultMediaType(outputFormat: unknown): JobResultMediaType {
+  switch (outputFormat) {
+    case "pdf":
+      return "application/pdf";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "odt":
+      return "application/vnd.oasis.opendocument.text";
+    case "rtf":
+      return "application/rtf";
+    case "html":
+      return "text/html";
+    case "md":
+      return "text/markdown";
+    case "csv":
+      return "text/csv";
+    case "txt":
+      return "text/plain";
+    case "png":
+      return "image/png";
+    case "jpg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "avif":
+      return "image/avif";
+    default:
+      throw new Error("JOB_RESULT_MEDIA_INVALID");
+  }
+}
+
+export function isJobResultMediaType(input: unknown): input is JobResultMediaType {
+  if (typeof input !== "string") return false;
+  for (let index = 0; index < JOB_RESULT_MEDIA_TYPES.length; index += 1) {
+    if (JOB_RESULT_MEDIA_TYPES[index] === input) return true;
+  }
+  return false;
+}
+
 const CitationSchema = z
   .string()
   .min(1)
@@ -278,36 +347,40 @@ function qualityForOperation(operation: ConversionOperation): "A" | "B" | "C" {
   }
 }
 
-function mediaTypeMatchesOperation(operation: ConversionOperation, mediaType: string): boolean {
-  const docx = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+export function jobResultMediaTypeMatchesOperation(
+  operation: ConversionOperation,
+  mediaType: unknown,
+): mediaType is JobResultMediaType {
+  if (!isJobResultMediaType(mediaType)) return false;
+  const docx = jobResultMediaType("docx");
   switch (operation) {
     case "office.to.pdf":
     case "pdf.repair":
-      return mediaType === "application/pdf";
+      return mediaType === jobResultMediaType("pdf");
     case "spreadsheet.to.csv":
-      return mediaType === "text/csv";
+      return mediaType === jobResultMediaType("csv");
     case "structured.convert":
       return (
         mediaType === docx ||
-        mediaType === "application/vnd.oasis.opendocument.text" ||
-        mediaType === "application/rtf" ||
-        mediaType === "text/html" ||
-        mediaType === "text/markdown"
+        mediaType === jobResultMediaType("odt") ||
+        mediaType === jobResultMediaType("rtf") ||
+        mediaType === jobResultMediaType("html") ||
+        mediaType === jobResultMediaType("md")
       );
     case "ocr.pdf":
     case "ocr.image":
-      return mediaType === "application/pdf" || mediaType === "text/plain";
+      return mediaType === jobResultMediaType("pdf") || mediaType === jobResultMediaType("txt");
     case "image.convert.hq":
       return (
-        mediaType === "image/png" ||
-        mediaType === "image/jpeg" ||
-        mediaType === "image/webp" ||
-        mediaType === "image/avif"
+        mediaType === jobResultMediaType("png") ||
+        mediaType === jobResultMediaType("jpg") ||
+        mediaType === jobResultMediaType("webp") ||
+        mediaType === jobResultMediaType("avif")
       );
     case "pdf.text-to-docx":
       return mediaType === docx;
     case "bid.assemble":
-      return mediaType === "application/pdf" || mediaType === docx;
+      return mediaType === jobResultMediaType("pdf") || mediaType === docx;
   }
 }
 
@@ -361,7 +434,7 @@ const JobStatusRawSchema = z
     }
     if (
       job.result !== undefined &&
-      !mediaTypeMatchesOperation(job.operation, job.result.mediaType)
+      !jobResultMediaTypeMatchesOperation(job.operation, job.result.mediaType)
     ) {
       context.addIssue({ code: "custom", message: "Result media type does not match operation" });
     }

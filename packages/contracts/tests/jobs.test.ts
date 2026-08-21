@@ -214,6 +214,82 @@ describe("job privacy and operation contracts", () => {
       }
     }
   });
+
+  it("provides one canonical result media authority for every server output", () => {
+    const resultMediaType = api.jobResultMediaType as
+      | ((outputFormat: unknown) => string)
+      | undefined;
+    const isResultMediaType = api.isJobResultMediaType as
+      | ((mediaType: unknown) => boolean)
+      | undefined;
+    expect(resultMediaType).toBeTypeOf("function");
+    expect(isResultMediaType).toBeTypeOf("function");
+    if (!resultMediaType || !isResultMediaType) return;
+
+    const expected = {
+      avif: "image/avif",
+      csv: "text/csv",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      html: "text/html",
+      jpg: "image/jpeg",
+      md: "text/markdown",
+      odt: "application/vnd.oasis.opendocument.text",
+      pdf: "application/pdf",
+      png: "image/png",
+      rtf: "application/rtf",
+      txt: "text/plain",
+      webp: "image/webp",
+    } as const;
+    expect(
+      Object.fromEntries(Object.keys(expected).map((format) => [format, resultMediaType(format)])),
+    ).toEqual(expected);
+    expect(() => resultMediaType("xlsx")).toThrow("JOB_RESULT_MEDIA_INVALID");
+    expect(isResultMediaType("text/csv;charset=utf-8")).toBe(false);
+
+    const now = new Date().toISOString();
+    for (const capability of (api.CAPABILITIES as readonly Record<string, unknown>[]).filter(
+      (item) => item.execution === "server",
+    )) {
+      const operation = capability.id as string;
+      const inputFormats = capability.inputFormats as readonly string[];
+      const outputFormats = capability.outputFormats as readonly string[];
+      const options =
+        operation === "bid.assemble"
+          ? { templateId: BID_TEMPLATE_ID, templateVersion: "1.0.0" }
+          : {};
+      for (const inputFormat of inputFormats) {
+        for (const outputFormat of outputFormats) {
+          const mediaType = resultMediaType(outputFormat);
+          expect(isResultMediaType(mediaType)).toBe(true);
+          expect(
+            schema("CreateJobRequestSchema").parse({
+              inputBytes: 12,
+              inputFormat,
+              operation,
+              options,
+              outputFormat,
+            }),
+          ).toBeDefined();
+          expect(
+            schema("JobStatusSchema").parse({
+              createdAt: now,
+              expiresAt: now,
+              id: crypto.randomUUID(),
+              operation,
+              quality:
+                operation === "image.convert.hq"
+                  ? "A"
+                  : operation === "pdf.text-to-docx"
+                    ? "C"
+                    : "B",
+              result: { mediaType, ready: true, sizeBytes: 12 },
+              status: "succeeded",
+            }),
+          ).toBeDefined();
+        }
+      }
+    }
+  });
 });
 
 describe("bid assembly contract", () => {
