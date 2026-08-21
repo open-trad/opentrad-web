@@ -10,13 +10,15 @@
   "packageManager": "pnpm@10.28.2",
   "scripts": {
     "build": "pnpm -r --if-present build",
-    "dev": "pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/web dev",
+    "build:document-prerequisites": "pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build",
+    "dev": "pnpm run build:document-prerequisites && pnpm --filter @opentrad/web dev",
     "e2e": "pnpm --filter @opentrad/web exec playwright test",
-    "golds:generate": "node scripts/generate-template-golds.mjs",
-    "golds:verify": "node --test scripts/gold-verification-helpers.test.mjs && node scripts/verify-template-golds.mjs",
+    "golds:generate": "pnpm run build:document-prerequisites && node scripts/generate-template-golds.mjs",
+    "golds:verify": "pnpm run build:document-prerequisites && node --test scripts/gold-verification-helpers.test.mjs && node scripts/verify-template-golds.mjs",
     "lint": "biome check .",
-    "test": "pnpm --filter @opentrad/document-core build && pnpm --workspace-concurrency=1 -r --if-present test",
-    "typecheck": "pnpm --filter @opentrad/document-core build && pnpm -r --if-present typecheck"
+    "test": "pnpm run build:document-prerequisites && pnpm --workspace-concurrency=1 -r --if-present test",
+    "test:fresh-renderer-dist": "node scripts/fresh-renderer-dist-smoke.mjs",
+    "typecheck": "pnpm run build:document-prerequisites && pnpm -r --if-present typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
