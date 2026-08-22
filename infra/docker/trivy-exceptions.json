@@ -1,10 +1,10 @@
 {
   "approval": {
-    "approvedAt": null,
-    "approvedBy": null,
-    "expiresAt": null,
+    "approvedAt": "2026-08-22T16:28:27.000Z",
+    "approvedBy": "yrjmdqmmx",
+    "expiresAt": "2026-09-05T16:28:27.000Z",
     "rationale": "Trivy run 32580505927 reported no FixedVersion for these exact Debian 12.15 tuples. API and worker run non-root, read-only, without package managers; the worker has no network during tool verification. Any changed, added, fixed, missing, or expired finding fails closed.",
-    "status": "proposed"
+    "status": "approved"
   },
   "findings": [
     {
