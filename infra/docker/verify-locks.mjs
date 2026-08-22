@@ -80,7 +80,7 @@ assert.equal(freetypeLock.version, "2.13.3");
 assert.equal(freetypeLock.license, "FTL OR GPL-2.0-only");
 assert.equal(
   freetypeLock.source,
-  "https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz",
+  "https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz",
 );
 assert.match(freetypeLock.sha256, /^[a-f0-9]{64}$/);
 

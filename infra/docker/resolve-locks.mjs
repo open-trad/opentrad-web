@@ -79,7 +79,7 @@ const buildSupportTools = [
   {
     id: "freetype",
     version: "2.13.3",
-    source: "https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz",
+    source: "https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz",
     license: "FTL OR GPL-2.0-only",
   },
   {
@@ -107,7 +107,7 @@ const allowedHosts = new Set([
   "github.com",
   "files.pythonhosted.org",
   "poppler.freedesktop.org",
-  "download.savannah.gnu.org",
+  "download-mirror.savannah.gnu.org",
   "www.freedesktop.org",
   "ftp.gnu.org",
 ]);
