@@ -43,15 +43,25 @@ jobs:
             echo 'PAUSE_RELEASE:INVALID_SHA' >&2
             exit 78
           fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$REQUESTED_SHA" != "$GITHUB_SHA" ]; then
+            echo 'PAUSE_RELEASE:DISPATCH_SHA_MUST_EQUAL_HEAD_SHA' >&2
+            exit 78
+          fi
           echo "sha=$REQUESTED_SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ steps.target.outputs.sha }}
           fetch-depth: 0
-      - name: Prove exact checkout
+      - name: Prove exact checkout on protected main history
         env:
-          RELEASE_SHA: ${{ steps.target.outputs.sha }}
-        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          REQUESTED_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$REQUESTED_SHA" refs/remotes/origin/main; then
+            echo 'PAUSE_RELEASE:SHA_NOT_ON_PROTECTED_MAIN' >&2
+            exit 78
+          fi
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -134,7 +144,7 @@ jobs:
           version: v0.74.0
       - name: Fail on high or critical findings
         run: >-
-          jq -e '[inputs.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'
+          jq -s -e '[.[].Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'
           trivy-api.json trivy-worker.json
       - name: Create web SPDX SBOM
         uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
@@ -185,6 +195,8 @@ jobs:
           cp sbom*.spdx.json trivy-*.json release-bundle/
           node scripts/release/create-manifest.mjs \
             --web release-bundle/web.tar \
+            --infra release-bundle/infra \
+            --release-scripts release-bundle/scripts/release \
             --web-sbom release-bundle/sbom-web.spdx.json \
             --api-sbom release-bundle/sbom-api.spdx.json \
             --worker-sbom release-bundle/sbom-worker.spdx.json \

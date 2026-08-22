@@ -70,8 +70,8 @@ sudo sh infra/deploy/bootstrap-host.sh
 sudo sh infra/deploy/install-secrets.sh
 sudo /usr/local/libexec/opentrad/check-external-gates.sh
 sudo /usr/local/libexec/opentrad/capture-baseline.sh manual-preflight
-docker compose --project-name opentrad -f infra/compose.prod.yml config --quiet
-docker compose --project-name opentrad -f infra/compose.prod.yml --dry-run up -d
+sudo docker compose --project-name opentrad -f infra/compose.prod.yml config --quiet
+sudo docker compose --project-name opentrad -f infra/compose.prod.yml --dry-run up -d
 ```
 
 `install-host-tools.sh infra/deploy/host-tools.lock` must run before bootstrap and before external gates. It installs the checksum-locked Node and Cosign versions plus `sqlite3`; stop on any `PAUSE_HOST_TOOLS:*` result. Bootstrap repeats that installation idempotently, but it is not a substitute for the explicit preflight.
@@ -80,8 +80,8 @@ Read-only host checks:
 
 ```bash
 sudo ss -ltnp
-docker compose ls --format json
-docker ps --format '{{.ID}} {{.Names}} {{.Status}} {{.Ports}}'
+sudo docker compose ls --format json
+sudo docker ps --format '{{.ID}} {{.Names}} {{.Status}} {{.Ports}}'
 sudo nginx -t
 ```
 
@@ -116,7 +116,7 @@ sudo sh -c 'node /opt/opentrad/current/scripts/release/privacy-sentinel.mjs --re
 
 `/run/opentrad/load-profile.json` is a root-owned mode-`0600` object with exactly three `existingServices` entries. Each entry contains a non-secret ID, the observed container name, its HTTPS health URL, and the measured pre-release `baselineP95Ms`. Do not commit or guess these production values. The runner creates 12 temporary accounts and 1 KiB fixtures internally, respects registration rate limits, runs a 60-second ramp, five-minute hold, 60-second drain, and up-to-15-minute retention check, then attempts deletion of every temporary account. It stops submissions immediately on a threshold breach and emits only numeric metrics and stable failure codes.
 
-`/run/opentrad/privacy-markers.json` is root-owned mode `0600` and contains only the operator-generated marker ID/value objects. The production profile discovers the `opentrad_auth_data` and `opentrad_job_ram` volume mountpoints, captures logs into `/run`, and scans all required evidence without placing markers on the command line.
+`/run/opentrad/privacy-markers.json` is root-owned mode `0600`. Every marker value must be copied exactly from the one real acceptance fixture uploaded in this run: one unique token embedded in its filename, one in its body, and one in metadata that the upload contract preserves. Confirm the upload was accepted before running the sentinel. Never use a random or otherwise unuploaded marker: absence of a value the service never processed proves nothing. The production profile discovers the `opentrad_auth_data` and `opentrad_job_ram` volume mountpoints, captures logs into `/run`, and scans all required evidence without placing marker values on the command line.
 
 - If canary fails, stop and pause traffic changes. Preserve sanitized numeric/status evidence, then have the operator choose rollback; never auto-restore the database.
 - If load fails, stop new submissions and pause. Record only numeric metrics and opaque job IDs, compare the before/after baseline, and let the operator choose rollback.

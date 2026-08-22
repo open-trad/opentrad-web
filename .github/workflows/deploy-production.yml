@@ -78,16 +78,38 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/opentrad-ssh/key"
           printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/opentrad-ssh/known_hosts"
           chmod 0600 "$RUNNER_TEMP/opentrad-ssh/key" "$RUNNER_TEMP/opentrad-ssh/known_hosts"
-      - name: Upload only the exact verified release directory
+      - name: Create an empty immutable staging directory
         env:
           DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
           RELEASE_SHA: ${{ steps.target.outputs.sha }}
-        run: >-
-          rsync --archive --delete --mkpath
-          -e "ssh -i $RUNNER_TEMP/opentrad-ssh/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/opentrad-ssh/known_hosts -o StrictHostKeyChecking=yes"
-          release-bundle/
-          "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/releases/${RELEASE_SHA}/"
+        run: |
+          staging_dir="/opt/opentrad/releases/${RELEASE_SHA}.incoming-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          final_dir="/opt/opentrad/releases/${RELEASE_SHA}"
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -eu; staging_dir='${staging_dir}'; final_dir='${final_dir}'; test ! -e \"\${final_dir}\"; test ! -e \"\${staging_dir}\"; install -d -m 0750 \"\${staging_dir}\""
+      - name: Upload and atomically seal the exact verified release directory
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          staging_dir="/opt/opentrad/releases/${RELEASE_SHA}.incoming-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          final_dir="/opt/opentrad/releases/${RELEASE_SHA}"
+          rsync --archive --delete \
+            -e "ssh -i $RUNNER_TEMP/opentrad-ssh/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/opentrad-ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            release-bundle/ \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${staging_dir}/"
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -eu; staging_dir='${staging_dir}'; final_dir='${final_dir}'; test ! -e \"\${final_dir}\"; test -f \"\${staging_dir}/release-manifest.json\"; mv -- \"\${staging_dir}\" \"\${final_dir}\""
       - name: Invoke the fixed production deploy command
         env:
           DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
@@ -102,7 +124,6 @@ jobs:
           /usr/bin/sudo /usr/local/libexec/opentrad/deploy-release.sh "$RELEASE_SHA"
       - name: Capture sanitized acceptance evidence
         if: always()
-        continue-on-error: true
         env:
           DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
@@ -113,17 +134,17 @@ jobs:
             -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
             -o StrictHostKeyChecking=yes \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/reports/${RELEASE_SHA}.json" acceptance/ || true
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/reports/${RELEASE_SHA}.json" acceptance/
           scp -i "$RUNNER_TEMP/opentrad-ssh/key" \
             -o IdentitiesOnly=yes \
             -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
             -o StrictHostKeyChecking=yes \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/baselines/after-${RELEASE_SHA}.json" acceptance/ || true
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/baselines/after-${RELEASE_SHA}.json" acceptance/
       - name: Upload acceptance evidence even on failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: production-acceptance-${{ steps.target.outputs.sha }}
           path: acceptance
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 90

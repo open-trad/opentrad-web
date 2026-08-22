@@ -39,6 +39,7 @@ export function evaluateLoadSamples(input) {
     maxQueued: input.maxQueued,
     maxPerUserActive: input.maxPerUserActive,
     acceptedByUser: Object.freeze({ ...(input.acceptedByUser ?? {}) }),
+    quotaVerifiedByUser: Object.freeze({ ...(input.quotaVerifiedByUser ?? {}) }),
     workerMemoryBytes: input.workerMemoryBytes,
     workerOomKills: input.workerOomKills,
     existingServiceRestartDelta: input.existingServiceRestartDelta,
@@ -72,7 +73,9 @@ export function evaluateLoadSamples(input) {
       Object.keys(metrics.acceptedByUser).length !== 12 ||
       Object.values(metrics.acceptedByUser).some(
         (count) => !Number.isInteger(count) || count !== 10,
-      )
+      ) ||
+      Object.keys(metrics.quotaVerifiedByUser).length !== 12 ||
+      Object.values(metrics.quotaVerifiedByUser).some((verified) => verified !== true)
     )
       failures.push("DAILY_QUOTA");
     if (metrics.workerMemoryBytes >= TWO_GIB || metrics.workerOomKills !== 0) {
@@ -100,6 +103,9 @@ export function runFixture(mode = "pass") {
     maxPerUserActive: 1,
     acceptedByUser: Object.fromEntries(
       Array.from({ length: 12 }, (_, index) => [`user-${index + 1}`, 10]),
+    ),
+    quotaVerifiedByUser: Object.fromEntries(
+      Array.from({ length: 12 }, (_, index) => [`user-${index + 1}`, true]),
     ),
     workerMemoryBytes: 1_500_000_000,
     workerOomKills: 0,
@@ -417,6 +423,7 @@ const isTerminal = (status) => ["succeeded", "failed", "cancelled"].includes(sta
 
 export async function runTarget({
   host,
+  now = Date.now,
   profile,
   sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
   target,
@@ -428,6 +435,9 @@ export async function runTarget({
   const acceptedByUser = Object.fromEntries(
     Array.from({ length: timings.users }, (_, index) => [`user-${index + 1}`, 0]),
   );
+  const quotaVerifiedByUser = Object.fromEntries(
+    Array.from({ length: timings.users }, (_, index) => [`user-${index + 1}`, false]),
+  );
   const metrics = {
     requests: 1,
     fiveXx: 0,
@@ -437,6 +447,7 @@ export async function runTarget({
     maxQueued: 0,
     maxPerUserActive: 0,
     acceptedByUser,
+    quotaVerifiedByUser,
     workerMemoryBytes: 0,
     workerOomKills: 0,
     existingServiceRestartDelta: 0,
@@ -445,10 +456,26 @@ export async function runTarget({
   };
   const liveFailures = new Set();
   let stopped = false;
+  const observeHttp = () => {
+    const observed = transport.snapshot?.();
+    if (!observed) return;
+    metrics.requests = observed.requests;
+    metrics.fiveXx = observed.fiveXx;
+    if (
+      numeric(observed.requests) &&
+      observed.requests > 0 &&
+      numeric(observed.fiveXx) &&
+      observed.fiveXx / observed.requests >= 0.01
+    ) {
+      liveFailures.add("FIVE_XX_RATE");
+      stopped = true;
+    }
+  };
   const sample = async () => {
     metrics.healthChecks += 1;
     if (await transport.readiness()) metrics.healthSuccesses += 1;
     else liveFailures.add("READINESS");
+    observeHttp();
     const value = await host.sample();
     metrics.workerMemoryBytes = Math.max(metrics.workerMemoryBytes, value.workerMemoryBytes);
     metrics.workerOomKills = Math.max(metrics.workerOomKills, value.workerOomKills);
@@ -482,6 +509,7 @@ export async function runTarget({
       if (!isTerminal(value.status))
         perUser.set(record.user.index, (perUser.get(record.user.index) ?? 0) + 1);
     }
+    observeHttp();
     metrics.maxRunning = Math.max(metrics.maxRunning, running);
     metrics.maxQueued = Math.max(metrics.maxQueued, queued);
     metrics.maxPerUserActive = Math.max(metrics.maxPerUserActive, ...perUser.values(), 0);
@@ -493,11 +521,15 @@ export async function runTarget({
     if (stopped) return;
     const user = users.find(
       (candidate) =>
-        acceptedByUser[`user-${candidate.index + 1}`] < 10 &&
+        (acceptedByUser[`user-${candidate.index + 1}`] < 10 ||
+          !quotaVerifiedByUser[`user-${candidate.index + 1}`]) &&
         ![...jobs.values()].some((job) => job.user === candidate && !isTerminal(job.status)),
     );
     if (!user) return;
+    const key = `user-${user.index + 1}`;
+    const quotaProbe = acceptedByUser[key] === 10;
     const response = await transport.submit(user);
+    observeHttp();
     if (response.accepted) {
       if (response.queuePosition > 1) {
         liveFailures.add("QUEUE_LIMIT");
@@ -505,7 +537,13 @@ export async function runTarget({
         return;
       }
       jobs.set(response.id, { status: "queued", user });
-      acceptedByUser[`user-${user.index + 1}`] += 1;
+      acceptedByUser[key] += 1;
+      if (quotaProbe) {
+        liveFailures.add("DAILY_QUOTA");
+        stopped = true;
+      }
+    } else if (quotaProbe && response.code === "DAILY_QUOTA_EXCEEDED") {
+      quotaVerifiedByUser[key] = true;
     } else if (!["QUEUE_FULL", "JOB_ALREADY_ACTIVE"].includes(response.code)) {
       liveFailures.add(
         response.code === "DAILY_QUOTA_EXCEEDED" ? "DAILY_QUOTA" : "SUBMISSION_FAILED",
@@ -517,44 +555,43 @@ export async function runTarget({
     await transport.initialize?.(timings.users);
     for (let index = 0; index < timings.users; index += 1)
       users.push(await transport.register(index, sleep));
-    const rampStep = Math.max(1, Math.floor(timings.rampMs / timings.users));
-    for (let index = 0; index < timings.users && !stopped; index += 1) {
+    const startedAt = now();
+    const rampDeadline = startedAt + timings.rampMs;
+    const holdDeadline = rampDeadline + timings.holdMs;
+    const drainDeadline = holdDeadline + timings.drainMs;
+    const retentionDeadline = drainDeadline + timings.retentionMs;
+    const sleepUntil = async (deadline, interval) => {
+      const remaining = deadline - now();
+      if (remaining > 0) await sleep(Math.min(interval, remaining));
+    };
+    for (let index = 0; index < timings.users && !stopped && now() < rampDeadline; index += 1) {
       await submit();
       await sample();
       await poll();
-      if (index + 1 < timings.users) await sleep(rampStep);
+      if (index + 1 < timings.users) {
+        const nextUserAt = startedAt + Math.floor(((index + 1) * timings.rampMs) / timings.users);
+        await sleepUntil(Math.min(nextUserAt, rampDeadline), timings.rampMs);
+      }
     }
-    for (
-      let index = 0, count = Math.max(1, Math.ceil(timings.holdMs / timings.pollMs));
-      index < count && !stopped;
-      index += 1
-    ) {
+    while (now() < holdDeadline && !stopped) {
       await poll();
       await submit();
       await sample();
-      await sleep(timings.pollMs);
+      await sleepUntil(holdDeadline, timings.pollMs);
     }
-    for (
-      let index = 0, count = Math.max(1, Math.ceil(timings.drainMs / timings.pollMs));
-      index < count;
-      index += 1
-    ) {
+    while (now() < drainDeadline) {
       await poll();
       await sample();
       if ([...jobs.values()].every((job) => isTerminal(job.status))) break;
-      await sleep(timings.pollMs);
+      await sleepUntil(drainDeadline, timings.pollMs);
     }
     for (const [id, job] of jobs) if (!isTerminal(job.status)) await transport.cancel(job.user, id);
-    for (
-      let index = 0, count = Math.max(1, Math.ceil(timings.retentionMs / timings.pollMs));
-      index < count;
-      index += 1
-    ) {
+    while (now() < retentionDeadline) {
       await poll();
       await sample();
       if ([...jobs.values()].every((job) => isTerminal(job.status)) && metrics.residueJobs === 0)
         break;
-      await sleep(timings.pollMs);
+      await sleepUntil(retentionDeadline, timings.pollMs);
     }
   } finally {
     const cleanup = await Promise.allSettled(users.map((user) => transport.deleteAccount(user)));
@@ -567,11 +604,7 @@ export async function runTarget({
       liveFailures.add("FIXTURE_CLEANUP");
     }
   }
-  const observed = transport.snapshot?.();
-  if (observed) {
-    metrics.requests = observed.requests;
-    metrics.fiveXx = observed.fiveXx;
-  }
+  observeHttp();
   const evaluated = evaluateLoadSamples(metrics);
   const failures = [...new Set([...liveFailures, ...evaluated.failures])].sort();
   return Object.freeze({

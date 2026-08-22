@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
+import { createReadStream } from "node:fs";
 import { mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -53,6 +54,23 @@ function scanBytes(bytes, markers, root, file, kind) {
     }
   }
   return findings;
+}
+
+export async function scanFile(file, markers, root, kind) {
+  const encoded = markers.map((marker) => ({ ...marker, bytes: Buffer.from(marker.value) }));
+  const overlap = Math.max(...encoded.map((marker) => marker.bytes.length), 1) - 1;
+  const matched = new Set();
+  let tail = Buffer.alloc(0);
+  for await (const chunk of createReadStream(file, { highWaterMark: 64 * 1024 })) {
+    const window = tail.length === 0 ? chunk : Buffer.concat([tail, chunk]);
+    for (const marker of encoded) {
+      if (!matched.has(marker.id) && window.includes(marker.bytes)) matched.add(marker.id);
+    }
+    tail = overlap === 0 ? Buffer.alloc(0) : window.subarray(Math.max(0, window.length - overlap));
+  }
+  return encoded
+    .filter((marker) => matched.has(marker.id))
+    .map((marker) => ({ kind, markerId: marker.id, path: sanitizeRelative(file, root) }));
 }
 
 async function sqliteDump(path) {
@@ -134,13 +152,11 @@ export async function inspectPrivacy({ roots, markers, allowlistedRoots = PRODUC
     }
     for (const file of files) {
       inspectedFiles += 1;
-      let bytes;
       try {
-        bytes = await readFile(file);
+        findings.push(...(await scanFile(file, checkedMarkers, canonicalRoot, root.kind)));
       } catch {
         throw new InspectionError("PAUSE_PRIVACY:FILE_UNREADABLE");
       }
-      findings.push(...scanBytes(bytes, checkedMarkers, canonicalRoot, file, root.kind));
       if (/\.(?:sqlite|sqlite3|db)$/i.test(file)) {
         try {
           findings.push(

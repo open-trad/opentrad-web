@@ -15,6 +15,8 @@ const KEYS = Object.freeze([
   "clamavImage",
   "createdAt",
   "evidenceSha256",
+  "infraSha256",
+  "releaseScriptsSha256",
   "schemaVersion",
   "sourceSha",
   "webSha256",
@@ -36,7 +38,7 @@ export const ReleaseManifestSchema = Object.freeze({
     if (keys.length !== KEYS.length || keys.some((key, index) => key !== KEYS[index])) {
       throw manifestError("keys");
     }
-    if (input.schemaVersion !== 1) throw manifestError("schemaVersion");
+    if (input.schemaVersion !== 2) throw manifestError("schemaVersion");
     if (typeof input.sourceSha !== "string" || !SHA.test(input.sourceSha)) {
       throw manifestError("sourceSha");
     }
@@ -56,11 +58,14 @@ export const ReleaseManifestSchema = Object.freeze({
       throw manifestError("evidenceSha256.keys");
     }
     for (const field of [
+      "infraSha256",
+      "releaseScriptsSha256",
       "webSha256",
       ...expectedEvidenceKeys.map((key) => `evidenceSha256.${key}`),
     ]) {
-      const value =
-        field === "webSha256" ? input.webSha256 : input.evidenceSha256[field.split(".")[1]];
+      const value = field.startsWith("evidenceSha256.")
+        ? input.evidenceSha256[field.split(".")[1]]
+        : input[field];
       if (typeof value !== "string" || !DIGEST.test(value)) {
         throw manifestError(field);
       }
@@ -98,7 +103,9 @@ function parseArguments(argv) {
       [
         "--api-sbom",
         "--emit-compose-env",
+        "--infra",
         "--manifest-bundle",
+        "--release-scripts",
         "--repository",
         "--trivy-api",
         "--trivy-worker",
@@ -113,8 +120,10 @@ function parseArguments(argv) {
       if (!value) fail("PAUSE_RELEASE:ARGUMENT_INVALID", token, 78);
       const key = {
         "--emit-compose-env": "composeEnvPath",
+        "--infra": "infraPath",
         "--api-sbom": "apiSbomPath",
         "--manifest-bundle": "manifestBundlePath",
+        "--release-scripts": "releaseScriptsPath",
         "--repository": "repositoryPath",
         "--trivy-api": "trivyApiPath",
         "--trivy-worker": "trivyWorkerPath",
@@ -219,6 +228,9 @@ export async function verifyManifest(options) {
   const releaseRoot = dirname(options.manifestPath);
   const webPath = options.webPath ?? resolve(releaseRoot, "web.tar");
   const webRootPath = options.webRootPath ?? resolve(releaseRoot, "web");
+  const infraPath = options.infraPath ?? resolve(releaseRoot, "infra");
+  const releaseScriptsPath =
+    options.releaseScriptsPath ?? resolve(releaseRoot, "scripts", "release");
   const evidencePaths = {
     apiSbom: options.apiSbomPath ?? resolve(releaseRoot, "sbom-api.spdx.json"),
     trivyApi: options.trivyApiPath ?? resolve(releaseRoot, "trivy-api.json"),
@@ -233,6 +245,12 @@ export async function verifyManifest(options) {
   const webInfo = await stat(webPath);
   const webHash = webInfo.isDirectory() ? await sha256Tree(webPath) : await sha256File(webPath);
   if (webHash !== manifest.webSha256) fail("PAUSE_RELEASE:WEB_DIGEST_MISMATCH");
+  if ((await sha256Tree(infraPath)) !== manifest.infraSha256) {
+    fail("PAUSE_RELEASE:INFRA_DIGEST_MISMATCH");
+  }
+  if ((await sha256Tree(releaseScriptsPath)) !== manifest.releaseScriptsSha256) {
+    fail("PAUSE_RELEASE:RELEASE_SCRIPTS_DIGEST_MISMATCH");
+  }
   for (const [kind, evidencePath] of Object.entries(evidencePaths)) {
     if ((await sha256File(evidencePath)) !== manifest.evidenceSha256[kind]) {
       fail("PAUSE_RELEASE:EVIDENCE_DIGEST_MISMATCH");

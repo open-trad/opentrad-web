@@ -20,7 +20,9 @@ function argumentsFrom(argv) {
       ![
         "--api-image",
         "--api-sbom",
+        "--infra",
         "--output",
+        "--release-scripts",
         "--trivy-api",
         "--trivy-worker",
         "--web",
@@ -37,6 +39,8 @@ function argumentsFrom(argv) {
   }
   for (const key of [
     "web",
+    "infra",
+    "releaseScripts",
     "webSbom",
     "apiSbom",
     "workerSbom",
@@ -96,11 +100,13 @@ async function main() {
     if (status.trim() !== "") fail("PAUSE_RELEASE:DIRTY_CHECKOUT", undefined, 78);
 
     const manifest = ReleaseManifestSchema.parse({
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceSha,
       webSha256: (await stat(resolve(options.web))).isDirectory()
         ? await sha256Tree(resolve(options.web))
         : await sha256File(resolve(options.web)),
+      infraSha256: await sha256Tree(resolve(options.infra)),
+      releaseScriptsSha256: await sha256Tree(resolve(options.releaseScripts)),
       apiImage: await exactImage(options.apiImage, "ghcr.io/open-trad/opentrad-api"),
       workerImage: await exactImage(options.workerImage, "ghcr.io/open-trad/opentrad-worker"),
       clamavImage: await clamavImage(),

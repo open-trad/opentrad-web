@@ -28,7 +28,7 @@ SQLite restore is separately authorized because it discards account and job meta
 First verify the selected backup and create a recoverable live copy:
 
 ```bash
-opentrad_db_root=$(docker volume inspect opentrad_auth_data --format '{{.Mountpoint}}')
+opentrad_db_root=$(sudo docker volume inspect opentrad_auth_data --format '{{.Mountpoint}}')
 sudo sqlite3 /opt/opentrad/backups/opentrad-0123456789abcdef0123456789abcdef01234567.sqlite 'PRAGMA integrity_check;'
 sudo sqlite3 "$opentrad_db_root/opentrad.sqlite" 'PRAGMA integrity_check;'
 sudo sqlite3 "$opentrad_db_root/opentrad.sqlite" ".backup '/opt/opentrad/backups/pre-restore-live.sqlite'"
@@ -38,10 +38,10 @@ sudo sqlite3 /opt/opentrad/backups/pre-restore-live.sqlite 'PRAGMA integrity_che
 Every integrity result must be exactly `ok`. Then stop only the two application containers, restore, and start only those containers:
 
 ```bash
-docker stop opentrad-api-1 opentrad-worker-1
+sudo docker stop opentrad-api-1 opentrad-worker-1
 sudo sqlite3 "$opentrad_db_root/opentrad.sqlite" ".restore '/opt/opentrad/backups/opentrad-0123456789abcdef0123456789abcdef01234567.sqlite'"
 sudo sqlite3 "$opentrad_db_root/opentrad.sqlite" 'PRAGMA integrity_check;'
-docker start opentrad-api-1 opentrad-worker-1
+sudo docker start opentrad-api-1 opentrad-worker-1
 sudo /usr/local/libexec/opentrad/run-canary.sh 0123456789abcdef0123456789abcdef01234567
 ```
 

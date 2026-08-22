@@ -7,20 +7,23 @@ The sentinel searches for operator-generated marker IDs across OpenTrad logs, SQ
 On a suspected leak, stop new OpenTrad conversion work while preserving evidence:
 
 ```bash
-docker stop opentrad-api-1 opentrad-worker-1
+sudo install -d -o root -g root -m 0700 /run/opentrad/privacy-incident
+sudo docker stop opentrad-api-1 opentrad-worker-1
 sudo find /run/opentrad -xdev -printf '%y %P %s\n'
-sudo journalctl --unit=opentrad-api --unit=opentrad-worker --output=short-iso --since=-1h > /run/opentrad/privacy-incident/journal.log
+sudo sh -c 'docker logs opentrad-api-1 > /run/opentrad/privacy-incident/opentrad-api.log 2>&1'
+sudo sh -c 'docker logs opentrad-worker-1 > /run/opentrad/privacy-incident/opentrad-worker.log 2>&1'
+sudo sh -c 'journalctl --unit=nginx --output=short-iso --since=-1h > /run/opentrad/privacy-incident/nginx-journal.log'
 ```
 
 Do not stop, restart, inspect inside, or copy data from any existing service. Do not run a global Docker, journal, filesystem, or backup export.
 
 ## Run the sentinel without command-line marker disclosure
 
-For the production host, create `privacy-markers.json` as a mode `0600` file on tmpfs. It contains unique marker IDs and values generated for the incident; never place marker values on the command line, in shell history, or in the ticket. The fixed production profile discovers the two OpenTrad volume roots and captures container/Nginx journal output into tmpfs before scanning.
+For the production host, create `privacy-markers.json` as a mode `0600` file on tmpfs. Each filename, body, and metadata marker must be copied exactly from a real fixture uploaded and accepted during this same run. Never use a random or unuploaded marker, because it cannot prove that processed content was erased. Never place marker values on the command line, in shell history, or in the ticket. The fixed production profile discovers the two OpenTrad volume roots and captures container/Nginx journal output into tmpfs before scanning.
 
 ```bash
-chmod 0600 /run/opentrad/privacy-incident/privacy-markers.json
-node /opt/opentrad/current/scripts/release/privacy-sentinel.mjs --remote-profile production --markers-fd 3 3</run/opentrad/privacy-incident/privacy-markers.json
+sudo chmod 0600 /run/opentrad/privacy-incident/privacy-markers.json
+sudo sh -c 'node /opt/opentrad/current/scripts/release/privacy-sentinel.mjs --remote-profile production --markers-fd 3 3</run/opentrad/privacy-incident/privacy-markers.json'
 ```
 
 For a non-production forensic fixture only, the generic FD interface remains available as `OPENTRAD_PRIVACY_ROOTS_FD=3 OPENTRAD_PRIVACY_MARKERS_FD=4 node scripts/release/privacy-sentinel.mjs 3<roots.json 4<markers.json`. Production operators must use the fixed remote profile.
@@ -43,7 +46,7 @@ For every SQLite database, require:
 sqlite3 /path/to/opentrad.sqlite 'PRAGMA integrity_check;'
 ```
 
-For job tmpfs, the sentinel root must set `mustBeEmpty: true` after download, cancellation, failure, timeout, expiry, and the 15-minute retention window. Restart only `opentrad_api` and `opentrad_worker`, wait for the retention window, rerun the same scope, and prove no job is resurrected or replayed to ClamAV.
+For job tmpfs, the sentinel root must set `mustBeEmpty: true` after download, cancellation, failure, timeout, expiry, and the 15-minute retention window. Restart only `opentrad-api-1` and `opentrad-worker-1` with `sudo docker start`, wait for the retention window, rerun the same scope, and prove no job is resurrected or replayed to ClamAV.
 
 ## Evidence and remediation
 

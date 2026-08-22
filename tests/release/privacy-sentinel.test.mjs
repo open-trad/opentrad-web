@@ -91,3 +91,19 @@ test("production remote profile covers logs, SQLite, evidence, backups, journal,
     ],
   );
 });
+
+test("streaming scan detects a marker split across bounded chunks", async () => {
+  const fixture = await mkdtemp(join(tmpdir(), "opentrad-stream-fixture-"));
+  try {
+    const path = join(fixture, "large.log");
+    const marker = "PRIVATE-CROSS-CHUNK-9f176fa1";
+    await writeFile(path, Buffer.concat([Buffer.alloc(65_530, 120), Buffer.from(marker)]));
+    const { scanFile } = await import(
+      new URL("../../scripts/release/privacy-sentinel.mjs", import.meta.url)
+    );
+    const findings = await scanFile(path, [{ id: "body", value: marker }], fixture, "large-log");
+    assert.deepEqual(findings, [{ kind: "large-log", markerId: "body", path: "large.log" }]);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
