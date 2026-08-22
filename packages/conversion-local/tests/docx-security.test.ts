@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { convertDocx, DOCX_LIMITS, dispatchDocxConversion } from "../src/docx/convertDocx.js";
+import {
+  convertDocx,
+  DOCX_LIMITS,
+  dispatchDocxConversion,
+  inspectDocx,
+} from "../src/docx/convertDocx.js";
 import type { LocalConversionRequest } from "../src/protocol.js";
 import { installLocalConversionWorker } from "../src/worker.js";
 
@@ -170,6 +175,32 @@ describe("DOCX ZIP preflight", () => {
     expect(Object.isFrozen(DOCX_LIMITS)).toBe(true);
     expect(Object.getPrototypeOf(DOCX_LIMITS)).toBeNull();
   });
+
+  it.each([
+    ["content types", "not xml", rootRels, documentXml],
+    ["root relationships", contentTypes, "not xml", documentXml],
+    ["document", contentTypes, rootRels, "not xml"],
+    ["mismatched document", contentTypes, rootRels, "<w:document><w:body></w:document>"],
+    ["namespace-less content types", "<Types/>", rootRels, documentXml],
+    ["namespace-less relationships", contentTypes, "<Relationships/>", documentXml],
+    [
+      "wrong document namespace",
+      contentTypes,
+      rootRels,
+      '<w:document xmlns:w="https://example.invalid/not-ooxml"><w:body/></w:document>',
+    ],
+  ])(
+    "rejects malformed %s XML even when the required ZIP paths exist",
+    async (_label, types, rels, document) => {
+      const archive = storedZip([
+        { name: "[Content_Types].xml", data: types },
+        { name: "_rels/.rels", data: rels },
+        { name: "word/document.xml", data: document },
+      ]);
+
+      await expect(inspectDocx(archive)).rejects.toThrow("LOCAL_DOCX_INVALID");
+    },
+  );
 
   it("rejects oversized input and excessive entry counts before Mammoth", async () => {
     await expect(convertDocx(new Uint8Array(25 * MiB + 1), "html")).rejects.toThrow(

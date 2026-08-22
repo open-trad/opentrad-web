@@ -20,5 +20,9 @@ describe("conversion-local package boundary", () => {
       types: "./dist/workerRuntime.d.ts",
       import: "./dist/workerRuntime.js",
     });
+    expect(packageJson.exports?.["./validation"]).toEqual({
+      types: "./dist/output/validateOutput.d.ts",
+      import: "./dist/output/validateOutput.js",
+    });
   });
 });

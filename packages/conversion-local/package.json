@@ -20,6 +20,10 @@
     "./worker-runtime": {
       "types": "./dist/workerRuntime.d.ts",
       "import": "./dist/workerRuntime.js"
+    },
+    "./validation": {
+      "types": "./dist/output/validateOutput.d.ts",
+      "import": "./dist/output/validateOutput.js"
     }
   },
   "files": [
@@ -45,6 +49,7 @@
     "rehype-stringify": "10.0.1",
     "remark-parse": "11.0.0",
     "remark-stringify": "11.0.0",
+    "saxes": "6.0.0",
     "turndown": "7.2.4",
     "unified": "11.0.5"
   },

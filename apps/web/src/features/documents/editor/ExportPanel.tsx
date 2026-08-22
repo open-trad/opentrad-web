@@ -1,4 +1,3 @@
-import { inspectPdf } from "@opentrad/conversion-local/pdf";
 import { v2 } from "@opentrad/document-core";
 import { Download, FileArchive, FileJson, FileText } from "lucide-react";
 import { useId, useMemo, useState } from "react";
@@ -12,15 +11,20 @@ import type { DocumentRevisionSnapshot } from "./useDocumentWorkspace";
 export interface ExportPanelServices {
   readonly renderDocx: typeof renderDocxV2;
   readonly renderPdf: typeof renderPdfV2;
-  readonly inspectPdf: typeof inspectPdf;
+  readonly inspectPdf: typeof import("@opentrad/conversion-local/pdf").inspectPdf;
   readonly exportProject: typeof exportProjectV2Zip;
   readonly download: typeof downloadBlob;
 }
 
+const inspectPdfLazily: ExportPanelServices["inspectPdf"] = async (...args) => {
+  const { inspectPdf } = await import("@opentrad/conversion-local/pdf");
+  return inspectPdf(...args);
+};
+
 const DEFAULT_SERVICES: ExportPanelServices = {
   renderDocx: renderDocxV2,
   renderPdf: renderPdfV2,
-  inspectPdf,
+  inspectPdf: inspectPdfLazily,
   exportProject: exportProjectV2Zip,
   download: downloadBlob,
 };

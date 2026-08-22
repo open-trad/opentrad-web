@@ -1,4 +1,5 @@
 import mammoth from "mammoth";
+import { SaxesParser } from "saxes";
 import type { LocalConversionRequest } from "../protocol.js";
 import { convertSemanticText } from "../text/convertText.js";
 import { normalizeTextSource } from "../text/semanticDocument.js";
@@ -811,10 +812,11 @@ function inspectXml(name: string, source: string): void {
   ) {
     fail("LOCAL_DOCX_SECURITY_VIOLATION");
   }
+  const lowerName = stringToLowerCase(name);
   if (xmlTagsByLocalName(source, "altchunk").length > 0) {
     fail("LOCAL_DOCX_SECURITY_VIOLATION");
   }
-  if (stringToLowerCase(name) === "[content_types].xml") {
+  if (lowerName === "[content_types].xml") {
     const decodedContentTypes = decodeXmlAttribute(source);
     if (
       regExpTest(
@@ -825,7 +827,45 @@ function inspectXml(name: string, source: string): void {
       fail("LOCAL_DOCX_SECURITY_VIOLATION");
     }
   }
-  if (!stringEndsWith(stringToLowerCase(name), ".rels")) return;
+  let rootLocalName = "";
+  let rootNamespace = "";
+  try {
+    const parser = new SaxesParser({ xmlns: true });
+    parser.on("opentag", (tag) => {
+      if (rootLocalName.length === 0) {
+        rootLocalName = stringToLowerCase(tag.local);
+        rootNamespace = stringToLowerCase(tag.uri);
+      }
+    });
+    parser.write(source).close();
+  } catch {
+    fail("LOCAL_DOCX_INVALID");
+  }
+  const expectedRoot =
+    lowerName === "[content_types].xml"
+      ? "types"
+      : lowerName === "_rels/.rels"
+        ? "relationships"
+        : lowerName === "word/document.xml"
+          ? "document"
+          : undefined;
+  if (
+    rootLocalName.length === 0 ||
+    (expectedRoot !== undefined && rootLocalName !== expectedRoot)
+  ) {
+    fail("LOCAL_DOCX_INVALID");
+  }
+  const namespaceAllowed =
+    lowerName === "[content_types].xml"
+      ? rootNamespace === "http://schemas.openxmlformats.org/package/2006/content-types"
+      : lowerName === "_rels/.rels"
+        ? rootNamespace === "http://schemas.openxmlformats.org/package/2006/relationships"
+        : lowerName === "word/document.xml"
+          ? rootNamespace === "http://schemas.openxmlformats.org/wordprocessingml/2006/main" ||
+            rootNamespace === "http://purl.oclc.org/ooxml/wordprocessingml/main"
+          : true;
+  if (!namespaceAllowed) fail("LOCAL_DOCX_INVALID");
+  if (!stringEndsWith(lowerName, ".rels")) return;
   const tags = xmlTagsByLocalName(source, "relationship");
   for (const tag of tags) {
     const attributes = relationshipAttributes(tag);
@@ -951,6 +991,13 @@ export async function convertDocx(
   signal?: AbortSignal,
 ): Promise<Uint8Array<ArrayBuffer>> {
   return docxBoundary(() => convertInternal(bytes, output, signal), signal);
+}
+
+export async function inspectDocx(input: Uint8Array, signal?: AbortSignal): Promise<void> {
+  return docxBoundary(async () => {
+    const bytes = copyInput(input);
+    await preflight(bytes, signal);
+  }, signal);
 }
 
 function mediaType(output: DocxOutput): string {

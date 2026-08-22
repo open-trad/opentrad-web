@@ -4,6 +4,7 @@ import { PRODUCTION_CSP, shouldInjectProductionCsp } from "./src/security/conten
 
 export default defineConfig(({ command }) => ({
   base: process.env.VITE_BASE_PATH ?? "/",
+  worker: { format: "es" },
   plugins: [
     react(),
     ...(shouldInjectProductionCsp(command)

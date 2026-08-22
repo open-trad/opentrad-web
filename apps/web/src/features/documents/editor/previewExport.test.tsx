@@ -1,4 +1,5 @@
 import { Blob as NodeBlob } from "node:buffer";
+import { readFileSync } from "node:fs";
 import { v2 } from "@opentrad/document-core";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -11,6 +12,12 @@ import type { DocumentRevisionSnapshot } from "./useDocumentWorkspace";
 
 const NOW = "2026-08-20T08:00:00.000Z";
 const BID_TEMPLATE_IDS = v2.TEMPLATE_IDS_V2.filter((templateId) => templateId.startsWith("bid."));
+
+it("keeps the default PDF page inspector behind the explicit project-export action", () => {
+  const source = readFileSync("src/features/documents/editor/ExportPanel.tsx", "utf8");
+  expect(source).not.toContain('import { inspectPdf } from "@opentrad/conversion-local/pdf"');
+  expect(source).toContain('await import("@opentrad/conversion-local/pdf")');
+});
 
 function snapshotFor(templateId: string): DocumentRevisionSnapshot {
   const registration = v2.V2_TEMPLATE_REGISTRY.get(templateId, "1.0.0");
