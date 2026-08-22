@@ -3,6 +3,96 @@
   "architecture": "amd64",
   "packages": [
     {
+      "name": "adduser",
+      "version": "3.134",
+      "architecture": "all",
+      "md5ManifestSha256": "44ded2aaecc7bf4d5a052455ed80eb6a1345be4a7d4c1791b55e7684633b1471"
+    },
+    {
+      "name": "apt",
+      "version": "2.6.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "66a1329518d37e5d749b3a7763cac42c4b0393e2e9ad65facef79ca2fe5dcc50"
+    },
+    {
+      "name": "base-files",
+      "version": "12.4+deb12u15",
+      "architecture": "amd64",
+      "md5ManifestSha256": "4a289988bb2d713edc723f8b0388b1409f10eeb700afc352135e1cc48793a643"
+    },
+    {
+      "name": "base-passwd",
+      "version": "3.6.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3c2aaf9073bc10fd09df7cc3822ec6109ff09faf928ddd71d8e6db10f06ec1b8"
+    },
+    {
+      "name": "bash",
+      "version": "5.2.15-2+b13",
+      "architecture": "amd64",
+      "md5ManifestSha256": "fa7cc6983c54c2bb59a537e12f3fe601e83e24bc7bcdf6e77049539d10fbb0eb"
+    },
+    {
+      "name": "bsdutils",
+      "version": "1:2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3339840b157c8eeb23dbee32d979853134ecb303b450d6d3fc521f361cd859f4"
+    },
+    {
+      "name": "coreutils",
+      "version": "9.1-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "1514e790fe53fd303d1007ebf0c5ec7d48b4362f207e07281794c820d5c2fb1d"
+    },
+    {
+      "name": "dash",
+      "version": "0.5.12-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "d2623a88db3840b76bf614afb2035ca45a2a34983e23be0f6a52e5b47c367a03"
+    },
+    {
+      "name": "debconf",
+      "version": "1.5.82",
+      "architecture": "all",
+      "md5ManifestSha256": "0f13063522eed70c90be93fb5ec9f2b9c79c4112f52cb938b40ed19c3e27c9f8"
+    },
+    {
+      "name": "debian-archive-keyring",
+      "version": "2023.3+deb12u2",
+      "architecture": "all",
+      "md5ManifestSha256": "0a3264bd31e27b63c8bfe93f8f9163081c14cb34c3b4db0ea93581ef4cfdee3e"
+    },
+    {
+      "name": "debianutils",
+      "version": "5.7-0.5~deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3db476e077681b295399fefc598ae1c354cb83456cef209200c280f94381bb10"
+    },
+    {
+      "name": "diffutils",
+      "version": "1:3.8-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "02d807dcaa3a4bdbee4c9c3978b66bcb99c7e489831a56375289bf9529f9b281"
+    },
+    {
+      "name": "dpkg",
+      "version": "1.21.23",
+      "architecture": "amd64",
+      "md5ManifestSha256": "05c419bfe5dd63d394527bce04e6cc2cb6c6b32535ddb1f78dc70249f7372e14"
+    },
+    {
+      "name": "e2fsprogs",
+      "version": "1.47.0-2+b2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "ca5854f9ba9bef99ed5b7c5d00a9d07ddf4483af616c0d4e8c8306826746e9cf"
+    },
+    {
+      "name": "findutils",
+      "version": "4.9.0-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "970deab83ab8c63661d548d472a9ffc99ee32623eec3daf7bdebffc1896a6918"
+    },
+    {
       "name": "fontconfig-config",
       "version": "2.14.1-4",
       "architecture": "amd64",
@@ -13,6 +103,78 @@
       "version": "2.37-6",
       "architecture": "all",
       "md5ManifestSha256": "57865bced2775f7c0c606f44c754d3281160ad0261d48cdb877111cddbad2c17"
+    },
+    {
+      "name": "gcc-12-base",
+      "version": "12.2.0-14+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "ec8820d85310f7ca6f64c55c57e11fedc3aec8ba66a7a469d31611d6cd7d9122"
+    },
+    {
+      "name": "gpgv",
+      "version": "2.2.40-1.1+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "000bbe5041d93b2a63565cff81a5d13d303185627b9a53baa02068e5c7ddaca7"
+    },
+    {
+      "name": "grep",
+      "version": "3.8-5",
+      "architecture": "amd64",
+      "md5ManifestSha256": "e3ca7961f459456d2f9e320429a29a956a630902bd02132edd421b684a12ec17"
+    },
+    {
+      "name": "gzip",
+      "version": "1.12-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "5351f77e5fb90d1060b2c812b5a84465e1591f31922edf4b05547a4c30b06199"
+    },
+    {
+      "name": "hostname",
+      "version": "3.23+nmu1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "361b6c64a4f77ae923fbe8926d3200f313047199fd3bfde7e6719c6aab146fa8"
+    },
+    {
+      "name": "init-system-helpers",
+      "version": "1.65.2+deb12u1",
+      "architecture": "all",
+      "md5ManifestSha256": "144b982a1d96546e1d4f60038da44a7a492d7f9d8b5c869003a6379c2c577efa"
+    },
+    {
+      "name": "libacl1",
+      "version": "2.3.1-3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "858820ad4a3ec7598a0accbcf7206af2474f07abe0c67abc492d7f4180f952b3"
+    },
+    {
+      "name": "libapt-pkg6.0",
+      "version": "2.6.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "8ccbf3d4bd4f16752400d0691d49a2511e5efb4f4550f6eca9b98b3faf678d86"
+    },
+    {
+      "name": "libattr1",
+      "version": "1:2.5.1-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3d7bdabe6e742c5c309c66a9706abf18837e52d9d1d37f955e6d158f635f0b3c"
+    },
+    {
+      "name": "libaudit-common",
+      "version": "1:3.0.9-1",
+      "architecture": "all",
+      "md5ManifestSha256": "b4568d64e1bc931cdfc19f590e900ad1acb68060c095eb4d9ebb452866c4ed7d"
+    },
+    {
+      "name": "libaudit1",
+      "version": "1:3.0.9-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "8df44683154dedc27000f970af0e026df7ba251bf1b24dec968e5bc0f948457c"
+    },
+    {
+      "name": "libblkid1",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "365c033f06f173a575b340b57f66d8b126153a94282d8e4abcc56026e357be08"
     },
     {
       "name": "libbrotli1",
@@ -27,16 +189,82 @@
       "md5ManifestSha256": "3080ed7c951125f705eab4e8a5a0a0e1e3232c8cf05f8645b89c834814478e92"
     },
     {
+      "name": "libbz2-1.0",
+      "version": "1.0.8-5+b1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "b53c2e0a59fb40bd903138f9230dabf11dd83540c98b745174469224708bae0e"
+    },
+    {
+      "name": "libc-bin",
+      "version": "2.36-9+deb12u14",
+      "architecture": "amd64",
+      "md5ManifestSha256": "534dad1bdd37252497598238c3eca42cb08c523cab1a8267c95646bcbc5fdef3"
+    },
+    {
+      "name": "libc6",
+      "version": "2.36-9+deb12u14",
+      "architecture": "amd64",
+      "md5ManifestSha256": "5c6fb35e098552710b89b838f813179e3932e170506f01d46d609d99e951c4bc"
+    },
+    {
       "name": "libcairo2",
       "version": "1.16.0-7",
       "architecture": "amd64",
       "md5ManifestSha256": "334bd181419514c68897f64671b6ff10c67af9565c0f5a9949d1166245134234"
     },
     {
+      "name": "libcap-ng0",
+      "version": "0.8.3-1+b3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "d28ee148164994050ac92d82adc39c29ce185bf4cca4676b0d2c34aaf2ce6d4d"
+    },
+    {
+      "name": "libcap2",
+      "version": "1:2.66-4+deb12u3+b1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9d77adf329cc1503b6420abdaa01ac5f922c862e116519cd34638623f93e0d0f"
+    },
+    {
+      "name": "libcom-err2",
+      "version": "1.47.0-2+b2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "0786d56d8a69abd1266fcbe0c9efffd6e4d460a4ec0fedb9debbd5b1f0e2985e"
+    },
+    {
+      "name": "libcrypt1",
+      "version": "1:4.4.33-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "ecc0fdab421535d5f6f53031e7ea8d55433712bb5bc5dbd41c30cc2b49ade1b8"
+    },
+    {
+      "name": "libdb5.3",
+      "version": "5.3.28+dfsg2-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3c2b3e9fc015717032ab26870e32c59d373969b1c304478593249332ae0ebea9"
+    },
+    {
+      "name": "libdebconfclient0",
+      "version": "0.270",
+      "architecture": "amd64",
+      "md5ManifestSha256": "bab8e971932cf4897c35a9ccbd8eb3e0e839bb8a20bcd360fc2491a74d26afec"
+    },
+    {
       "name": "libexpat1",
       "version": "2.5.0-1+deb12u2",
       "architecture": "amd64",
       "md5ManifestSha256": "768235bc0056a52e0fe8f307447d7d2eddb4fc02a20cc1e34016f9416bdb6e2e"
+    },
+    {
+      "name": "libext2fs2",
+      "version": "1.47.0-2+b2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "7cda71410d888f154dccfee2e939876e0b5021d7e136d6f099a336dd5040aae4"
+    },
+    {
+      "name": "libffi8",
+      "version": "3.4.4-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3f37dca21d8dcdfab897cfbb336ab3da4fd36c0552357eadac3d8dadf66abd72"
     },
     {
       "name": "libfontconfig1",
@@ -51,6 +279,78 @@
       "md5ManifestSha256": "8ea473f66793dc8a93b964d41d3f32b42862acff560ff8adc47302ba3a8d4d03"
     },
     {
+      "name": "libgcc-s1",
+      "version": "12.2.0-14+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "f9302ab1aebb988f7e8321d1d1fc395bd1ab6dd387b2316b3c0930b216792418"
+    },
+    {
+      "name": "libgcrypt20",
+      "version": "1.10.1-3+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "55d84ab9878acef9d7b765c6c0f01a6aa078a64ef2e2cdc5ba21fe0e3dcd5b6c"
+    },
+    {
+      "name": "libgmp10",
+      "version": "2:6.2.1+dfsg1-1.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "5284a203f76eecb7db4691517db9a88bf7f0d14def7f61699a4ceab2e02fd5d5"
+    },
+    {
+      "name": "libgnutls30",
+      "version": "3.7.9-2+deb12u7",
+      "architecture": "amd64",
+      "md5ManifestSha256": "2599e81b1688fb734504ec29ae62bd9228ca39a9d5a0dcc35a936db8ed7eb667"
+    },
+    {
+      "name": "libgpg-error0",
+      "version": "1.46-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "e04f316af1d230c4cf545c2a54a7c88d2ef268a243616223cad20027a3deea89"
+    },
+    {
+      "name": "libhogweed6",
+      "version": "3.8.1-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "7ca1ee4cc465d770bdab87f991b18d9e5063a31bc2fdc3982aa8e01111ab08fd"
+    },
+    {
+      "name": "libidn2-0",
+      "version": "2.3.3-1+b1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "31cc01345536c2f05f31411891bc83bbdc463c78412f75626b16168a34fe2b6b"
+    },
+    {
+      "name": "liblz4-1",
+      "version": "1.9.4-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "2769db8cb482ac7f3250507de9dde00b49ff12eaaa5d40e703b8568818b39db3"
+    },
+    {
+      "name": "liblzma5",
+      "version": "5.4.1-1+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "a4187d91192bb26b81a61baf70a874787cad154600896a2ada4ed81ace276cd2"
+    },
+    {
+      "name": "libmd0",
+      "version": "1.0.4-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "81ebcb306cf3600c92b630fbf2405740a24681ea2d26f4bfd796a74bc174f3fe"
+    },
+    {
+      "name": "libmount1",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "336900c2aa170abad89d9c73be2aac349a5330babb316a7c17e9aad9bee28c3a"
+    },
+    {
+      "name": "libnettle8",
+      "version": "3.8.1-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "bc026f4614cb5937ef33a5e72e3e3953a0e1f5c2a71c50e869d61a6afe1a824b"
+    },
+    {
       "name": "libnspr4",
       "version": "2:4.35-1",
       "architecture": "amd64",
@@ -61,6 +361,42 @@
       "version": "2:3.87.1-1+deb12u4",
       "architecture": "amd64",
       "md5ManifestSha256": "8739fa9318bdb84e4a82bfd3213ee5f4ee92a950a4f02f7bd8ce03c349ece5d2"
+    },
+    {
+      "name": "libp11-kit0",
+      "version": "0.24.1-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "318d6e7a4fe36ba613708dd81f0badee850d44fed62bb26981ac427182ede95b"
+    },
+    {
+      "name": "libpam-modules",
+      "version": "1.5.2-6+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "d3c340ee2d7dcb3bdd23d2b445fa42c7763b0d31c4a90495c3cf9cae0c320820"
+    },
+    {
+      "name": "libpam-modules-bin",
+      "version": "1.5.2-6+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "f321a73e327742694e9f3adc861dbc3df954b59e5f1a159e4f83f0972f65f7fa"
+    },
+    {
+      "name": "libpam-runtime",
+      "version": "1.5.2-6+deb12u2",
+      "architecture": "all",
+      "md5ManifestSha256": "296430bf0b9eb63359d152af28b535f121d0b4585a1d49d580be97fb19b09d3d"
+    },
+    {
+      "name": "libpam0g",
+      "version": "1.5.2-6+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "bc09b69e8f791ca90be9facbda9ad9b32d9ce69ee40b48ab9c6b4e9b7d1a7f81"
+    },
+    {
+      "name": "libpcre2-8-0",
+      "version": "10.42-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "f6b831ff3ea0b167d95993fbb364fdfc6ccf31bdc9abd8e79bacefc490da8260"
     },
     {
       "name": "libpixman-1-0",
@@ -75,10 +411,94 @@
       "md5ManifestSha256": "937b5e21bf8a745b041aac84b333eb027a06ef152d6cf6ae117ccc8a7c4e8a78"
     },
     {
+      "name": "libseccomp2",
+      "version": "2.5.4-1+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "c3a416919d90b7dfb6cf32296d9e247cd751d39657f91feb9778c4da350a5e31"
+    },
+    {
+      "name": "libselinux1",
+      "version": "3.4-1+b6",
+      "architecture": "amd64",
+      "md5ManifestSha256": "8d6b46a10c3439dea6fdfa3fa97e8c0195a4f72cc664c5ae536627cc211dee55"
+    },
+    {
+      "name": "libsemanage-common",
+      "version": "3.4-1",
+      "architecture": "all",
+      "md5ManifestSha256": "d0df423b4ab2186b9cc9e1a59b408dd4899e8dad9ac1f4c84616f4156bbba96e"
+    },
+    {
+      "name": "libsemanage2",
+      "version": "3.4-1+b5",
+      "architecture": "amd64",
+      "md5ManifestSha256": "6da05be42d9b83d40688057cc4a4d39a7390762e9384b7f547863984cd4fce09"
+    },
+    {
+      "name": "libsepol2",
+      "version": "3.4-2.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "7f646df130df024106f40496e3c7893af576d4438ab2df4eb0db0e32efde2f4f"
+    },
+    {
+      "name": "libsmartcols1",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "b76a8e2d565364c3c1f567648d297ce3d52af2415b1cc9b721b289093df41e96"
+    },
+    {
       "name": "libsqlite3-0",
       "version": "3.40.1-2+deb12u2",
       "architecture": "amd64",
       "md5ManifestSha256": "e24fdd9ef47aae3ea73ff7986fe8862fa74992da6d28e97a10a4bf9a6f34ef5b"
+    },
+    {
+      "name": "libss2",
+      "version": "1.47.0-2+b2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "0cc7fdd3e61c41e2a08840bf97adc5bd4365cd9971ee2e0eba39cfc41b90eb0b"
+    },
+    {
+      "name": "libstdc++6",
+      "version": "12.2.0-14+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "1405be832cde657e141de53cdd60e37283f674bf3250eeaf81efc3193f6eb4b9"
+    },
+    {
+      "name": "libsystemd0",
+      "version": "252.39-1~deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "98ee204530cff06500bf78a00c2b3c36c36d38fc051d191b723831bcf1c6fa82"
+    },
+    {
+      "name": "libtasn1-6",
+      "version": "4.19.0-2+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "18ecefdfd9bc98a99b650c511bb8e9cd9118116e94019d57805a0a36b83d873a"
+    },
+    {
+      "name": "libtinfo6",
+      "version": "6.4-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "0d4f99c92274628c3030c3ecc437dbe4acfaebe30320bf018eeb423649a6fc7e"
+    },
+    {
+      "name": "libudev1",
+      "version": "252.39-1~deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "65252cd1055b1086be888efc0fa7d80a4275ac30138d6f11a017c918d5c9f109"
+    },
+    {
+      "name": "libunistring2",
+      "version": "1.0-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "1acf3803f89a2a17f4df05b286e4a6efcf10a2fa7469154f68488daf22e852fb"
+    },
+    {
+      "name": "libuuid1",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "badad6b78b455b902c14ec6e2e5a2f26eed8d069d2e9602dabc8d1acd9e1a5f9"
     },
     {
       "name": "libx11-6",
@@ -145,6 +565,114 @@
       "version": "1:0.9.10-1.1",
       "architecture": "amd64",
       "md5ManifestSha256": "9ac0e44eea9932f35cfb3729256523757dc615910a33ee49cc492edc9f627a99"
+    },
+    {
+      "name": "libxxhash0",
+      "version": "0.8.1-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "7ed97be7975ce5de5951e2822ef6599fa244922c263f0ffcb4600a7912955593"
+    },
+    {
+      "name": "libzstd1",
+      "version": "1.5.4+dfsg2-5",
+      "architecture": "amd64",
+      "md5ManifestSha256": "d116472bccd670788648c245850243bfc9354d7ad85ae4cc7b43e76defb12e1f"
+    },
+    {
+      "name": "login",
+      "version": "1:4.13+dfsg1-1+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9add3aa692c19812f3ca00ee47e35fcb6b38ce9d1a84843f7ddbdd0ec180beea"
+    },
+    {
+      "name": "logsave",
+      "version": "1.47.0-2+b2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "480e02dee2cde163f804df51b08356feccf9a7818af4819937f7f04a3e456067"
+    },
+    {
+      "name": "mawk",
+      "version": "1.3.4.20200120-3.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9a6fff0712b52199464c179b1f7e9ec2798ff53faa2ae152ca51160fae5a892c"
+    },
+    {
+      "name": "mount",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "e23223d1b919c9c09ebab35cc07dbce6aa7881ea229311e395c3ca86cadcb8ac"
+    },
+    {
+      "name": "ncurses-base",
+      "version": "6.4-4",
+      "architecture": "all",
+      "md5ManifestSha256": "91864832ef6c264d885b0f9ef16ae884f646db5f055b4a022df89a6ed9590eb5"
+    },
+    {
+      "name": "ncurses-bin",
+      "version": "6.4-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "df15e853fd9420dfc1f4729b19824d1e4be2fedf6ad01c1f75609f6372ed65d3"
+    },
+    {
+      "name": "passwd",
+      "version": "1:4.13+dfsg1-1+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3246031cbf53eeeb624f43f6198e2e94e8bca935dc1853d34d5e167ba4a38ca3"
+    },
+    {
+      "name": "perl-base",
+      "version": "5.36.0-7+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "cf83d8350f5ad446cc674ac1e6b9d8a7c56e0d504c2cdb7eb7596fc7ba38730b"
+    },
+    {
+      "name": "sed",
+      "version": "4.9-1+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "38a186c81889b1a6b870376cb6a9336b437451ff36854d2a5532bb581e824c8c"
+    },
+    {
+      "name": "sysvinit-utils",
+      "version": "3.06-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "053072655fa5e2fe814513a5716c6da9feaaf9faa1bd9c31b404b66debba7b62"
+    },
+    {
+      "name": "tar",
+      "version": "1.34+dfsg-1.2+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "5b1a086e5c04e725b0cff7acf39bad09fd2222bc0d0366ea300b0f525b194d2f"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026b-0+deb12u1",
+      "architecture": "all",
+      "md5ManifestSha256": "3fc3a6e787a4a126668d0570b135b6b0ad1d2b1861b2d44c804ee403706bc0a2"
+    },
+    {
+      "name": "usr-is-merged",
+      "version": "37~deb12u1",
+      "architecture": "all",
+      "md5ManifestSha256": "f177b4f49f9c6108be8a17949df12fd15cb875e854ad0f94c26a57bce3160f63"
+    },
+    {
+      "name": "util-linux",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "cfa26ee3a34344f1001978a1b2845ec0650a4b5ebd1105d20dd7a90d0e1aabda"
+    },
+    {
+      "name": "util-linux-extra",
+      "version": "2.38.1-5+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9b01bd4cfa001fe179d89c558d23af8d706146cf8eac0cc2aeb9fd41f9456f06"
+    },
+    {
+      "name": "zlib1g",
+      "version": "1:1.2.13.dfsg-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "120b99e9d6e41f4bb86c0e0266f768caec5e9c488e498dab1a0ca3b2b6afe2c4"
     }
   ]
 }

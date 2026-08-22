@@ -17,6 +17,16 @@ test("base images are digest pinned", () => {
   }
 });
 
+test("Debian runtime base includes the current Bookworm security point release", () => {
+  const lock = readFileSync(new URL("infra/docker/base-images.lock", root), "utf8");
+  const resolver = readFileSync(new URL("infra/docker/resolve-locks.mjs", root), "utf8");
+  const verifier = readFileSync(new URL("infra/docker/verify-locks.mjs", root), "utf8");
+
+  assert.match(lock, /^DEBIAN_IMAGE=debian:12\.15-slim@sha256:[a-f0-9]{64}$/m);
+  assert.match(resolver, /\["DEBIAN_IMAGE", "debian:12\.15-slim"\]/);
+  assert.match(verifier, /\["DEBIAN_IMAGE", "debian:12\.15-slim"\]/);
+});
+
 test("toolchain versions and checksums are exact", () => {
   const lock = JSON.parse(readFileSync(new URL("infra/docker/toolchain.lock.json", root), "utf8"));
   assert.deepEqual(Object.fromEntries(lock.tools.map((tool) => [tool.id, tool.version])), {
@@ -102,6 +112,21 @@ test("worker exposes the locked OCRmyPDF prefix to Python and the executable pat
     worker,
     /LD_LIBRARY_PATH=\/opt\/opentrad-tools\/lib\/x86_64-linux-gnu:\/opt\/opentrad-tools\/lib:/,
   );
+});
+
+test("worker runtime excludes build-only system setuptools", () => {
+  const worker = readFileSync(new URL("infra/docker/worker.Dockerfile", root), "utf8");
+  const runtime = worker.split(/^FROM \$\{DEBIAN_IMAGE\} AS runtime$/m)[1];
+
+  assert.ok(runtime, "worker runtime stage must exist");
+  for (const path of [
+    "/usr/lib/python3/dist-packages/setuptools",
+    "/usr/lib/python3/dist-packages/setuptools-*.egg-info",
+    "/usr/lib/python3/dist-packages/pkg_resources",
+    "/usr/lib/python3/dist-packages/_distutils_hack",
+  ]) {
+    assert.ok(runtime.includes(path), `worker runtime must remove ${path}`);
+  }
 });
 
 test("worker exposes the absolute tool paths enforced by its runtime policy", () => {
@@ -194,6 +219,22 @@ test("API deployment uses the current package layout and excludes source and tes
   assert.match(dockerfile, /mkdir -p \/run\/opentrad \/var\/lib\/opentrad/);
   assert.match(dockerfile, /chown 10001:10100 \/var\/lib\/opentrad/);
   assert.match(dockerfile, /chmod 0700 \/var\/lib\/opentrad/);
+});
+
+test("API runtime removes build-only package managers and their bundled dependencies", () => {
+  const dockerfile = readFileSync(new URL("infra/docker/api.Dockerfile", root), "utf8");
+  const runtime = dockerfile.split(/^FROM \$\{NODE_IMAGE\} AS runtime$/m)[1];
+
+  assert.ok(runtime, "API runtime stage must exist");
+  for (const path of [
+    "/usr/local/lib/node_modules/npm",
+    "/usr/local/lib/node_modules/corepack",
+    "/usr/local/bin/npm",
+    "/usr/local/bin/npx",
+    "/usr/local/bin/corepack",
+  ]) {
+    assert.ok(runtime.includes(path), `API runtime must remove ${path}`);
+  }
 });
 
 test("worker gets Node 24 only from the digest-locked Node image", () => {
@@ -362,6 +403,22 @@ test("Nginx syntax checks consume only the digest-locked image", () => {
   assert.match(script, /docker image inspect "\$NGINX_IMAGE"/);
   assert.match(script, /docker run --rm --platform linux\/amd64 --pull=never/);
   assert.doesNotMatch(script, /docker (?:pull|run)[^\n]*nginx:1\.22\.1/);
+});
+
+test("release uploads complete Trivy evidence before enforcing the vulnerability gate", () => {
+  const workflow = readFileSync(new URL(".github/workflows/release-images.yml", root), "utf8");
+  const upload = workflow.indexOf("name: Upload Trivy scan evidence");
+  const gate = workflow.indexOf("name: Fail on high or critical findings");
+
+  assert.ok(upload >= 0, "release must upload Trivy evidence");
+  assert.ok(upload < gate, "Trivy evidence must be retained before a failing policy gate");
+  const evidenceStep = workflow.slice(upload, gate);
+  assert.match(evidenceStep, /uses: actions\/upload-artifact@[a-f0-9]{40}/);
+  assert.match(
+    evidenceStep,
+    /path: \|\s+trivy-api\.json\s+trivy-worker\.json\s+trivy-clamav\.json/,
+  );
+  assert.match(evidenceStep, /retention-days: 30/);
 });
 
 test("Poppler's newer CMake input has an independent exact lock", () => {

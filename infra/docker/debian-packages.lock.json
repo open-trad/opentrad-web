@@ -34,9 +34,9 @@
     },
     {
       "name": "base-files",
-      "version": "12.4+deb12u12",
+      "version": "12.4+deb12u15",
       "architecture": "amd64",
-      "md5ManifestSha256": "075141026b9958782f5242999052a9ea2f423c373cf5d28873a30aab1a7fc190"
+      "md5ManifestSha256": "4a289988bb2d713edc723f8b0388b1409f10eeb700afc352135e1cc48793a643"
     },
     {
       "name": "base-passwd",
@@ -46,9 +46,9 @@
     },
     {
       "name": "bash",
-      "version": "5.2.15-2+b9",
+      "version": "5.2.15-2+b13",
       "architecture": "amd64",
-      "md5ManifestSha256": "1aa9e1826d7f1c83cd9dacf39d625270a2b2a0efaa8504f985f6c11371e29949"
+      "md5ManifestSha256": "fa7cc6983c54c2bb59a537e12f3fe601e83e24bc7bcdf6e77049539d10fbb0eb"
     },
     {
       "name": "binutils",
@@ -232,9 +232,9 @@
     },
     {
       "name": "gpgv",
-      "version": "2.2.40-1.1+deb12u1",
+      "version": "2.2.40-1.1+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "2e6f434366f5da7d7044b2164f9eec06f0cb38e73ffca6cbc805382f9f974c92"
+      "md5ManifestSha256": "000bbe5041d93b2a63565cff81a5d13d303185627b9a53baa02068e5c7ddaca7"
     },
     {
       "name": "grep",
@@ -394,9 +394,9 @@
     },
     {
       "name": "libcap2",
-      "version": "1:2.66-4+deb12u2",
+      "version": "1:2.66-4+deb12u3+b1",
       "architecture": "amd64",
-      "md5ManifestSha256": "3d68123543b73d8bd143def7e7a1728c271144611b670c73b9369094e1a31947"
+      "md5ManifestSha256": "9d77adf329cc1503b6420abdaa01ac5f922c862e116519cd34638623f93e0d0f"
     },
     {
       "name": "libcc1-0",
@@ -544,9 +544,9 @@
     },
     {
       "name": "libgcrypt20",
-      "version": "1.10.1-3",
+      "version": "1.10.1-3+deb12u1",
       "architecture": "amd64",
-      "md5ManifestSha256": "e9cbfa8b09298096c8b6157ba262c389c1d9488973fc24a03ae0a4bd00c4b4d6"
+      "md5ManifestSha256": "55d84ab9878acef9d7b765c6c0f01a6aa078a64ef2e2cdc5ba21fe0e3dcd5b6c"
     },
     {
       "name": "libgdbm-compat4",
@@ -604,9 +604,9 @@
     },
     {
       "name": "libgnutls30",
-      "version": "3.7.9-2+deb12u5",
+      "version": "3.7.9-2+deb12u7",
       "architecture": "amd64",
-      "md5ManifestSha256": "cec947def94a4f7aec30c77c47f60fffad255029494d288ca8f55177d9bfa54a"
+      "md5ManifestSha256": "2599e81b1688fb734504ec29ae62bd9228ca39a9d5a0dcc35a936db8ed7eb667"
     },
     {
       "name": "libgomp1",
@@ -916,27 +916,27 @@
     },
     {
       "name": "libpam-modules",
-      "version": "1.5.2-6+deb12u1",
+      "version": "1.5.2-6+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "ef6414f06de74f798f4f955d34bfde2d0bbbf7654781e21ca63022807ed939a9"
+      "md5ManifestSha256": "d3c340ee2d7dcb3bdd23d2b445fa42c7763b0d31c4a90495c3cf9cae0c320820"
     },
     {
       "name": "libpam-modules-bin",
-      "version": "1.5.2-6+deb12u1",
+      "version": "1.5.2-6+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "816b31a27eff933941ff0950ef35a7257477f1020ada1e1285bba5f0d12c8b41"
+      "md5ManifestSha256": "f321a73e327742694e9f3adc861dbc3df954b59e5f1a159e4f83f0972f65f7fa"
     },
     {
       "name": "libpam-runtime",
-      "version": "1.5.2-6+deb12u1",
+      "version": "1.5.2-6+deb12u2",
       "architecture": "all",
-      "md5ManifestSha256": "7ce32e1018371978cabb6a5fd071b1c15ad0d2aad5ef400a1de0d24e1e695647"
+      "md5ManifestSha256": "296430bf0b9eb63359d152af28b535f121d0b4585a1d49d580be97fb19b09d3d"
     },
     {
       "name": "libpam0g",
-      "version": "1.5.2-6+deb12u1",
+      "version": "1.5.2-6+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "e1c31cee0a48f24648a09eed099ae05ef351e722d3a24d627cf2771c818e0849"
+      "md5ManifestSha256": "bc09b69e8f791ca90be9facbda9ad9b32d9ce69ee40b48ab9c6b4e9b7d1a7f81"
     },
     {
       "name": "libpaper1",
@@ -1156,9 +1156,9 @@
     },
     {
       "name": "libsystemd0",
-      "version": "252.39-1~deb12u1",
+      "version": "252.39-1~deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "5e3fd93f85b2c9596f66ec860df62da4a02d9ed01eeb4e9f90190d9dfa342d30"
+      "md5ManifestSha256": "98ee204530cff06500bf78a00c2b3c36c36d38fc051d191b723831bcf1c6fa82"
     },
     {
       "name": "libtasn1-6",
@@ -1228,9 +1228,9 @@
     },
     {
       "name": "libudev1",
-      "version": "252.39-1~deb12u1",
+      "version": "252.39-1~deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "95b15c1cb38c5c457d3089713d6e47c721129b0b3cec01122ead15d576edce09"
+      "md5ManifestSha256": "65252cd1055b1086be888efc0fa7d80a4275ac30138d6f11a017c918d5c9f109"
     },
     {
       "name": "libunistring2",
@@ -1342,9 +1342,9 @@
     },
     {
       "name": "login",
-      "version": "1:4.13+dfsg1-1+deb12u1",
+      "version": "1:4.13+dfsg1-1+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "309193e501bb871def26a585b05b91a756de2a6db722dc34ed8a1c4e733cbd0f"
+      "md5ManifestSha256": "9add3aa692c19812f3ca00ee47e35fcb6b38ce9d1a84843f7ddbdd0ec180beea"
     },
     {
       "name": "logsave",
@@ -1414,9 +1414,9 @@
     },
     {
       "name": "passwd",
-      "version": "1:4.13+dfsg1-1+deb12u1",
+      "version": "1:4.13+dfsg1-1+deb12u2",
       "architecture": "amd64",
-      "md5ManifestSha256": "e2f80a9d4ed7ee240f340b29658d44f1fd4d076bdd51c2a6d4290340df1f68e9"
+      "md5ManifestSha256": "3246031cbf53eeeb624f43f6198e2e94e8bca935dc1853d34d5e167ba4a38ca3"
     },
     {
       "name": "patch",
@@ -1594,9 +1594,9 @@
     },
     {
       "name": "sed",
-      "version": "4.9-1",
+      "version": "4.9-1+deb12u1",
       "architecture": "amd64",
-      "md5ManifestSha256": "34a310dd34ba16c9f031c1ceaffc921a9978188b61960cf9146c7d4d4395c4cd"
+      "md5ManifestSha256": "38a186c81889b1a6b870376cb6a9336b437451ff36854d2a5532bb581e824c8c"
     },
     {
       "name": "sensible-utils",
@@ -1618,9 +1618,9 @@
     },
     {
       "name": "tzdata",
-      "version": "2025b-0+deb12u2",
+      "version": "2026b-0+deb12u1",
       "architecture": "all",
-      "md5ManifestSha256": "0c423f76bcff946efb76612a97a2ff68e82f9b305619bca282f7b35a6738870c"
+      "md5ManifestSha256": "3fc3a6e787a4a126668d0570b135b6b0ad1d2b1861b2d44c804ee403706bc0a2"
     },
     {
       "name": "ucf",

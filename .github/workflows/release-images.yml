@@ -161,6 +161,16 @@ jobs:
           ignore-unfixed: false
           exit-code: "0"
           version: v0.74.0
+      - name: Upload Trivy scan evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: trivy-${{ steps.target.outputs.sha }}
+          path: |
+            trivy-api.json
+            trivy-worker.json
+            trivy-clamav.json
+          if-no-files-found: error
+          retention-days: 30
       - name: Fail on high or critical findings
         run: >-
           jq -s -e '[.[].Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'

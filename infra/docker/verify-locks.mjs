@@ -6,7 +6,7 @@ const directory = new URL("./", import.meta.url);
 const imageLines = readFileSync(new URL("base-images.lock", directory), "utf8").trim().split("\n");
 const expectedImages = [
   ["NODE_IMAGE", "node:24.19.0-bookworm-slim"],
-  ["DEBIAN_IMAGE", "debian:12.12-slim"],
+  ["DEBIAN_IMAGE", "debian:12.15-slim"],
   ["CLAMAV_IMAGE", "clamav/clamav:1.5.4"],
   ["NGINX_IMAGE", "nginx:1.22.1"],
 ];
