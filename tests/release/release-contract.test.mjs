@@ -279,3 +279,17 @@ test("operator runbooks contain exact gates and decision points", async () => {
   );
   assert.match(privacy, /(must not|never).{0,120}(random|unuploaded).{0,120}marker/is);
 });
+
+test("CI installs pnpm before setup-node enables the pnpm cache", async () => {
+  const workflow = await readFile(new URL(".github/workflows/ci.yml", root), "utf8");
+  const jobs = workflow.split(/^ {2}[a-z][a-z-]+:\s*$/m).slice(1);
+  const cachedJobs = jobs.filter((job) => /cache:\s*pnpm/.test(job));
+
+  assert.ok(cachedJobs.length > 0, "expected at least one pnpm-cached CI job");
+  for (const job of cachedJobs) {
+    const pnpmSetup = job.indexOf("pnpm/action-setup@");
+    const nodeSetup = job.indexOf("actions/setup-node@");
+    assert.ok(pnpmSetup >= 0, "cached CI job must install pnpm explicitly");
+    assert.ok(pnpmSetup < nodeSetup, "pnpm must exist before setup-node resolves its cache path");
+  }
+});
