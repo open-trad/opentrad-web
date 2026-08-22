@@ -211,7 +211,8 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   );
   assert.match(apiBuild, /DEBIAN_IMAGE=\$\{\{ steps\.base-images\.outputs\.DEBIAN_IMAGE \}\}/);
   assert.match(apiBuild, /NODE_IMAGE=\$\{\{ steps\.base-images\.outputs\.NODE_IMAGE \}\}/);
-  assert.match(release, /jq -s/);
+  assert.match(release, /scripts\/release\/verify-trivy-policy\.mjs/);
+  assert.match(release, /infra\/docker\/trivy-exceptions\.json/);
   assert.doesNotMatch(release, /\[inputs\.Results/);
   assert.match(release, /cosign/);
   assert.match(release, /attest/);

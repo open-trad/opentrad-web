@@ -178,8 +178,11 @@ jobs:
           retention-days: 30
       - name: Fail on high or critical findings
         run: >-
-          jq -s -e '[.[].Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'
-          trivy-api.json trivy-worker.json trivy-clamav.json
+          node scripts/release/verify-trivy-policy.mjs
+          --policy infra/docker/trivy-exceptions.json
+          --api trivy-api.json
+          --worker trivy-worker.json
+          --clamav trivy-clamav.json
       - name: Create web SPDX SBOM
         uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
         with:
