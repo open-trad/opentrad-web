@@ -9,7 +9,7 @@ const dockerDirectory = dirname(fileURLToPath(import.meta.url));
 
 const images = [
   ["NODE_IMAGE", "node:24.19.0-bookworm-slim"],
-  ["DEBIAN_IMAGE", "debian:12.12-slim"],
+  ["DEBIAN_IMAGE", "debian:12.15-slim"],
   ["CLAMAV_IMAGE", "clamav/clamav:1.5.4"],
   ["NGINX_IMAGE", "nginx:1.22.1"],
 ];

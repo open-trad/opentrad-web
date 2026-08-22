@@ -34,7 +34,10 @@ RUN pnpm --filter @opentrad/api deploy --offline --ignore-scripts --prod /out \
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-RUN groupadd --gid 10001 opentrad-api \
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+ && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/pnpm /usr/local/bin/pnpx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+ && groupadd --gid 10001 opentrad-api \
  && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin opentrad-api \
  && mkdir -p /run/opentrad /var/lib/opentrad \
  && chown 10001:10001 /run/opentrad \

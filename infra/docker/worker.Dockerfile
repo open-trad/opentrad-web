@@ -160,7 +160,11 @@ COPY --from=app-build --chown=10002:10002 /out/node_modules /app/node_modules
 COPY --chown=10002:10002 infra/docker/worker-entrypoint.sh /usr/local/bin/opentrad-worker
 COPY infra/docker/ocrmypdf-wrapper.sh /opt/ocr/bin/ocrmypdf
 COPY infra/docker/soffice-wrapper.sh /usr/bin/soffice
-RUN mkdir -p /opt/ocr/bin \
+RUN rm -rf /usr/lib/python3/dist-packages/setuptools \
+      /usr/lib/python3/dist-packages/setuptools-*.egg-info \
+      /usr/lib/python3/dist-packages/pkg_resources \
+      /usr/lib/python3/dist-packages/_distutils_hack \
+ && mkdir -p /opt/ocr/bin \
  && ln -s /opt/opentrad-tools/bin/pandoc /usr/bin/pandoc \
  && ln -s /opt/opentrad-tools/bin/pdfinfo /usr/bin/pdfinfo \
  && ln -s /opt/opentrad-tools/bin/pdftoppm /usr/bin/pdftoppm \
