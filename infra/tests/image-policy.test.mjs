@@ -409,9 +409,12 @@ test("Nginx syntax checks consume only the digest-locked image", () => {
 test("release uploads complete Trivy evidence before enforcing the vulnerability gate", () => {
   const workflow = readFileSync(new URL(".github/workflows/release-images.yml", root), "utf8");
   const upload = workflow.indexOf("name: Upload Trivy scan evidence");
+  const normalize = workflow.indexOf("name: Normalize Trivy policy inputs");
   const gate = workflow.indexOf("name: Fail on high or critical findings");
 
   assert.ok(upload >= 0, "release must upload Trivy evidence");
+  assert.ok(upload < normalize, "raw Trivy evidence must be retained before normalization");
+  assert.ok(normalize < gate, "policy inputs must be normalized before enforcement");
   assert.ok(upload < gate, "Trivy evidence must be retained before a failing policy gate");
   const evidenceStep = workflow.slice(upload, gate);
   assert.match(evidenceStep, /uses: actions\/upload-artifact@[a-f0-9]{40}/);
@@ -423,6 +426,9 @@ test("release uploads complete Trivy evidence before enforcing the vulnerability
   const policyGate = workflow.slice(gate);
   assert.match(policyGate, /node scripts\/release\/verify-trivy-policy\.mjs/);
   assert.match(policyGate, /--policy infra\/docker\/trivy-exceptions\.json/);
+  assert.match(policyGate, /--api trivy-policy-api\.json/);
+  assert.match(policyGate, /--worker trivy-policy-worker\.json/);
+  assert.match(policyGate, /--clamav trivy-policy-clamav\.json/);
 });
 
 test("release verifies the exact built runtime images before scanning them", () => {

@@ -136,7 +136,8 @@ function parseReport(image, report) {
     report.ArtifactType !== "container_image" ||
     typeof report.ArtifactName !== "string" ||
     !expectedArtifact(image).test(report.ArtifactName) ||
-    !Array.isArray(report.Results)
+    !Array.isArray(report.Results) ||
+    report.Results.length === 0
   ) {
     throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
   }
@@ -145,8 +146,7 @@ function parseReport(image, report) {
     if (result === null || typeof result !== "object" || Array.isArray(result)) {
       throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
     }
-    if (result.Vulnerabilities === null || result.Vulnerabilities === undefined) continue;
-    if (!Array.isArray(result.Vulnerabilities)) {
+    if (!Object.hasOwn(result, "Vulnerabilities") || !Array.isArray(result.Vulnerabilities)) {
       throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
     }
     for (const vulnerability of result.Vulnerabilities) {
@@ -157,21 +157,27 @@ function parseReport(image, report) {
       ) {
         throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
       }
-      if (!SEVERITIES.includes(vulnerability.Severity)) continue;
+      if (
+        !SEVERITIES.includes(vulnerability.Severity) ||
+        typeof vulnerability.VulnerabilityID !== "string" ||
+        !/^CVE-\d{4}-\d{4,}$/.test(vulnerability.VulnerabilityID) ||
+        typeof vulnerability.PkgName !== "string" ||
+        vulnerability.PkgName.length === 0 ||
+        typeof vulnerability.InstalledVersion !== "string" ||
+        vulnerability.InstalledVersion.length === 0 ||
+        typeof vulnerability.Status !== "string" ||
+        !VENDOR_STATUSES.includes(vulnerability.Status) ||
+        (Object.hasOwn(vulnerability, "FixedVersion") &&
+          typeof vulnerability.FixedVersion !== "string")
+      ) {
+        throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
+      }
       if (image === "clamav") throw policyError("PAUSE_RELEASE:TRIVY_CLAMAV_FINDING");
       if (
-        typeof vulnerability.FixedVersion === "string" &&
+        Object.hasOwn(vulnerability, "FixedVersion") &&
         vulnerability.FixedVersion.trim() !== ""
       ) {
         throw policyError("PAUSE_RELEASE:TRIVY_FIXED_VERSION_AVAILABLE");
-      }
-      if (
-        typeof vulnerability.VulnerabilityID !== "string" ||
-        typeof vulnerability.PkgName !== "string" ||
-        typeof vulnerability.InstalledVersion !== "string" ||
-        typeof vulnerability.Status !== "string"
-      ) {
-        throw policyError("PAUSE_RELEASE:TRIVY_REPORT_INVALID");
       }
       findings.push({
         image,

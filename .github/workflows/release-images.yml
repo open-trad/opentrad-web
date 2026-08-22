@@ -176,13 +176,18 @@ jobs:
             trivy-clamav.json
           if-no-files-found: error
           retention-days: 30
+      - name: Normalize Trivy policy inputs
+        run: |
+          node scripts/release/normalize-trivy-report.mjs trivy-api.json trivy-policy-api.json
+          node scripts/release/normalize-trivy-report.mjs trivy-worker.json trivy-policy-worker.json
+          node scripts/release/normalize-trivy-report.mjs trivy-clamav.json trivy-policy-clamav.json
       - name: Fail on high or critical findings
         run: >-
           node scripts/release/verify-trivy-policy.mjs
           --policy infra/docker/trivy-exceptions.json
-          --api trivy-api.json
-          --worker trivy-worker.json
-          --clamav trivy-clamav.json
+          --api trivy-policy-api.json
+          --worker trivy-policy-worker.json
+          --clamav trivy-policy-clamav.json
       - name: Create web SPDX SBOM
         uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
         with:
