@@ -44,12 +44,16 @@ async function fixture() {
   "compose "*" config --quiet") ${logger.replace("$1", "compose-config")} ;;
   "compose "*" --dry-run up -d") ${logger.replace("$1", "compose-dry-run")} ;;
   "compose "*" pull") ${logger.replace("$1", "image-pull")} ;;
+  "image inspect ghcr.io/open-trad/opentrad-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") ${logger.replace("$1", "image-inspect-api")} ;;
+  "image inspect ghcr.io/open-trad/opentrad-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") ${logger.replace("$1", "image-inspect-worker")} ;;
+  "image inspect clamav/clamav@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc") ${logger.replace("$1", "image-inspect-clamav")} ;;
   "volume create opentrad_auth_data") ${logger.replace("$1", "volume-create")} ;;
   "run --rm --network none --user 0:0 --entrypoint /bin/sh --mount type=volume,src=opentrad_auth_data,dst=/var/lib/opentrad "*) ${logger.replace("$1", "volume-init")} ;;
   "volume inspect "*) exit 0 ;;
   "compose "*" run --rm --no-deps api "*" --dry-run") ${logger.replace("$1", "migration-dry-run")} ;;
   "compose "*" run --rm --no-deps api "*" --apply") ${logger.replace("$1", "migration-apply")} ;;
-  "compose "*" up -d --wait --wait-timeout 180") ${logger.replace("$1", "compose-up")} ;;
+  "compose "*" rm --force --stop api worker clamav") ${logger.replace("$1", "compose-remove")} ;;
+  "compose "*" up -d --pull never --wait --wait-timeout 180") ${logger.replace("$1", "compose-up")} ;;
   *) printf "unexpected docker command: %s\\n" "$*" >&2; exit 91 ;;
 esac`,
   );
@@ -77,7 +81,7 @@ fi`,
     `import { appendFileSync, writeFileSync } from "node:fs";
 appendFileSync(process.env.OPENTRAD_COMMAND_LOG, "manifest-verify\\n");
 const index = process.argv.indexOf("--emit-compose-env");
-if (index !== -1) writeFileSync(process.argv[index + 1], "OPENTRAD_API_IMAGE=ghcr.io/open-trad/opentrad-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\nOPENTRAD_WORKER_IMAGE=ghcr.io/open-trad/opentrad-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\n");
+if (index !== -1) writeFileSync(process.argv[index + 1], "OPENTRAD_API_IMAGE=ghcr.io/open-trad/opentrad-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\nOPENTRAD_WORKER_IMAGE=ghcr.io/open-trad/opentrad-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\nOPENTRAD_CLAMAV_IMAGE=clamav/clamav@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\\n");
 `,
   );
   await writeFile(
@@ -116,10 +120,17 @@ test("deploy follows the production operation order", async () => {
     "compose-config",
     "compose-dry-run",
     "image-pull",
+    "image-inspect-api",
+    "image-inspect-worker",
+    "image-inspect-clamav",
     "volume-create",
     "volume-init",
     "migration-dry-run",
     "migration-apply",
+    "image-inspect-api",
+    "image-inspect-worker",
+    "image-inspect-clamav",
+    "compose-remove",
     "compose-up",
     "health-wait",
     "nginx-test",
@@ -190,6 +201,16 @@ test("rollback and cleanup implementations forbid volume deletion and implicit r
   assert.doesNotMatch(cleanup, /docker\s+(?:system|volume)\s+prune/u);
   assert.match(cleanup, /trusted_verifier="\$libexec\/release\/verify-manifest\.mjs"/u);
   assert.doesNotMatch(cleanup, /join\(directory, "scripts\/release\/verify-manifest\.mjs"\)/u);
+});
+
+test("deploy and rollback inspect exact images and create from a clean container set", async () => {
+  for (const script of ["deploy-release.sh", "rollback-release.sh"]) {
+    const source = await readFile(path.join(repositoryRoot, "infra/deploy", script), "utf8");
+    assert.match(source, /docker image inspect "\$image"/u, script);
+    assert.match(source, /rm --force --stop api worker clamav/u, script);
+    assert.match(source, /up -d --pull never --wait --wait-timeout 180/u, script);
+    assert.doesNotMatch(source, /rm --force --stop (?:--volumes|-v)/u, script);
+  }
 });
 
 test("deploy and rollback readiness preserve the public host boundary", async () => {

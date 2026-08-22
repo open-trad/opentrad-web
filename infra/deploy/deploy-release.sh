@@ -103,10 +103,22 @@ compose --dry-run up -d
 deploy_stage=image-pull
 compose pull
 
-deploy_stage=auth-volume-init
 api_image="$(sed -n 's/^OPENTRAD_API_IMAGE=//p' "$release_env")"
-printf '%s' "$api_image" | grep -Eq '^[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$' || \
-  pause API_IMAGE_INVALID
+worker_image="$(sed -n 's/^OPENTRAD_WORKER_IMAGE=//p' "$release_env")"
+clamav_image="$(sed -n 's/^OPENTRAD_CLAMAV_IMAGE=//p' "$release_env")"
+for image in "$api_image" "$worker_image" "$clamav_image"; do
+  printf '%s' "$image" | grep -Eq '^[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$' || \
+    pause IMAGE_INVALID
+done
+verify_local_images() {
+  for image in "$api_image" "$worker_image" "$clamav_image"; do
+    docker image inspect "$image" >/dev/null || pause IMAGE_MISSING_AFTER_PULL
+  done
+}
+deploy_stage=image-inspect
+verify_local_images
+
+deploy_stage=auth-volume-init
 docker volume create opentrad_auth_data >/dev/null
 docker run --rm --network none --user 0:0 --entrypoint /bin/sh \
   --mount type=volume,src=opentrad_auth_data,dst=/var/lib/opentrad \
@@ -129,8 +141,12 @@ deploy_stage=migration-apply
 compose run --rm --no-deps api node /app/dist/db/migrate.js \
   --database /var/lib/opentrad/opentrad.sqlite --apply
 
+deploy_stage=image-recheck
+verify_local_images
+deploy_stage=compose-replace
+compose rm --force --stop api worker clamav
 deploy_stage=compose-up
-compose up -d --wait --wait-timeout 180
+compose up -d --pull never --wait --wait-timeout 180
 deploy_stage=readiness
 curl --fail --silent --show-error --header 'Host: opentrad.dns.army' \
   http://127.0.0.1:13300/api/health/ready >/dev/null
