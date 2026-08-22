@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 
@@ -78,6 +78,28 @@ export function assertRuntimeOmitsUpload(state: E2eStackState, uploaded: Buffer)
 
 export function monitorPrivateLocalNetwork(page: Page, sentinels: readonly string[]): string[] {
   const violations: string[] = [];
+  const staticRoot = join(repositoryRoot, "apps/web/dist");
+  const exactAssets = new Set(
+    listFilesRecursively(staticRoot)
+      .map((path) => `/${relative(staticRoot, path).split(sep).join("/")}`)
+      .filter((path) => path !== "/index.html"),
+  );
+  const encodedSentinels = sentinels.map((sentinel) => {
+    const bytes = Buffer.from(sentinel, "utf8");
+    const percent = encodeURIComponent(sentinel);
+    return new Set([
+      sentinel,
+      encodeURI(sentinel),
+      percent,
+      percent.toLowerCase(),
+      bytes.toString("base64"),
+      bytes.toString("base64url"),
+      bytes.toString("hex"),
+      createHash("sha256").update(bytes).digest("hex"),
+      createHash("sha256").update(bytes).digest("base64"),
+      createHash("sha256").update(bytes).digest("base64url"),
+    ]);
+  });
   page.on("request", (request) => {
     const url = new URL(request.url());
     const headers = request.headers();
@@ -87,13 +109,12 @@ export function monitorPrivateLocalNetwork(page: Page, sentinels: readonly strin
       ...Object.entries(headers).flat(),
       body?.toString("utf8") ?? "",
     ].join("\n");
-    for (const sentinel of sentinels) {
-      if (searchable.includes(sentinel)) violations.push(`private sentinel in ${url.pathname}`);
+    for (const variants of encodedSentinels) {
+      if ([...variants].some((variant) => searchable.includes(variant))) {
+        violations.push(`private sentinel in ${url.pathname}`);
+      }
     }
-    const immutableAsset =
-      url.pathname.startsWith("/assets/") ||
-      url.pathname.startsWith("/brand/") ||
-      url.pathname.startsWith("/fonts/");
+    const immutableAsset = exactAssets.has(url.pathname);
     const publicBootstrapApi =
       url.pathname === "/api/auth/get-session" || url.pathname === "/api/v1/auth-options";
     const allowed =

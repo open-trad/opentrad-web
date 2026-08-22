@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -10,6 +11,27 @@ export default async function teardownStack() {
   if (!existsSync(pointerPath)) return;
   const state = JSON.parse(readFileSync(pointerPath, "utf8"));
   if (state.runId !== runId || !Number.isSafeInteger(state.pid) || state.pid < 1) return;
+  const runtimeRoot = resolve(state.runtimeRoot);
+  if (
+    dirname(runtimeRoot) !== resolve(tmpdir()) ||
+    !basename(runtimeRoot).startsWith("opentrad-e2e-stack-")
+  ) {
+    throw new Error("E2E_RUNTIME_ROOT_INVALID");
+  }
+  let ownedProcess = false;
+  try {
+    const command = execFileSync("ps", ["-p", String(state.pid), "-o", "command="], {
+      encoding: "utf8",
+    }).trim();
+    ownedProcess = command.startsWith(`opentrad-e2e-${runId}`);
+  } catch {
+    // A missing process is a stale run pointer; only its validated files are removed below.
+  }
+  if (!ownedProcess) {
+    rmSync(pointerPath, { force: true });
+    rmSync(runtimeRoot, { force: true, recursive: true });
+    return;
+  }
   try {
     process.kill(state.pid, "SIGTERM");
   } catch (error) {
@@ -19,13 +41,6 @@ export default async function teardownStack() {
     await delay(100);
   }
   if (!existsSync(pointerPath)) return;
-  const runtimeRoot = resolve(state.runtimeRoot);
-  if (
-    dirname(runtimeRoot) !== resolve(tmpdir()) ||
-    !basename(runtimeRoot).startsWith("opentrad-e2e-stack-")
-  ) {
-    throw new Error("E2E_RUNTIME_ROOT_INVALID");
-  }
   rmSync(pointerPath, { force: true });
   rmSync(runtimeRoot, { force: true, recursive: true });
 }
