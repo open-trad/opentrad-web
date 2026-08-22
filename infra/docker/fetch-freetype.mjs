@@ -13,7 +13,8 @@ if (!lockPath || !targetPath) {
 }
 
 const lock = JSON.parse(await readFile(resolve(lockPath), "utf8"));
-const expectedSource = "https://download.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz";
+const expectedSource =
+  "https://download-mirror.savannah.gnu.org/releases/freetype/freetype-2.13.3.tar.xz";
 if (
   lock.schemaVersion !== 1 ||
   lock.id !== "freetype" ||
