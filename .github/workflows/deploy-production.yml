@@ -74,6 +74,7 @@ jobs:
           gh run download "$run_id" --name "release-${RELEASE_SHA}" --dir release-bundle
       - name: Verify hashes, signatures, and attestations before transfer
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ steps.target.outputs.sha }}
         run: |
           test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
