@@ -221,7 +221,6 @@ describe("V2 通用编辑器路由", () => {
 
 describe("格式转换边界", () => {
   test("区分本地处理和服务器增强且服务器能力不会发起请求", async () => {
-    const user = userEvent.setup();
     renderAt("/convert");
 
     expect(screen.getByRole("heading", { name: "本地处理" })).toBeVisible();
@@ -242,10 +241,11 @@ describe("格式转换边界", () => {
     expect(screen.queryByText(/超大文件/)).not.toBeInTheDocument();
 
     expect(screen.getByRole("heading", { name: "服务器增强" })).toBeVisible();
-    const serverButton = screen.getByRole("button", { name: /需登录/ });
-    expect(serverButton).toBeDisabled();
-    await user.click(serverButton);
-    expect(screen.getByText("登录后可用；当前不会上传文件或发起网络请求")).toBeVisible();
+    expect(
+      screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dynv6.net 开放。"),
+    ).toBeVisible();
+    expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();
   });
 
   test("拒绝超过 25 MiB 的文件并接受合法文件", async () => {
