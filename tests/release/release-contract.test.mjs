@@ -218,6 +218,14 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   assert.match(release, /attest/);
 
   const deploy = await readFile(new URL(".github/workflows/deploy-production.yml", root), "utf8");
+  const actionResolver = await readFile(
+    new URL("scripts/release/resolve-actions.mjs", root),
+    "utf8",
+  );
+  const cosignInstallerCommit = "6f9f17788090df1f26f669e9d70d6ae9567deba6";
+  assert.match(release, new RegExp(`sigstore/cosign-installer@${cosignInstallerCommit}`));
+  assert.match(deploy, new RegExp(`sigstore/cosign-installer@${cosignInstallerCommit}`));
+  assert.match(actionResolver, /"sigstore\/cosign-installer": "v4\.1\.2"/);
   assert.doesNotMatch(deploy, /id-token:\s*write/);
   assert.match(deploy, /GITHUB_REF.*refs\/heads\/main|refs\/heads\/main.*GITHUB_REF/s);
   assert.match(deploy, /merge-base --is-ancestor "\$RELEASE_SHA" refs\/remotes\/origin\/main/);

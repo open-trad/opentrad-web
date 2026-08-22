@@ -17,7 +17,7 @@ const allowed = Object.freeze({
   "docker/build-push-action": "v6.18.0",
   "docker/login-action": "v3.4.0",
   "docker/setup-buildx-action": "v3.11.1",
-  "sigstore/cosign-installer": "v3.10.0",
+  "sigstore/cosign-installer": "v4.1.2",
 });
 
 function pause(action) {
