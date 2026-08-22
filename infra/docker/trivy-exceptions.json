@@ -1,0 +1,292 @@
+{
+  "approval": {
+    "approvedAt": null,
+    "approvedBy": null,
+    "expiresAt": null,
+    "rationale": "Trivy run 32580505927 reported no FixedVersion for these exact Debian 12.15 tuples. API and worker run non-root, read-only, without package managers; the worker has no network during tool verification. Any changed, added, fixed, missing, or expired finding fails closed.",
+    "status": "proposed"
+  },
+  "findings": [
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "1:1.2.13.dfsg-1",
+      "package": "zlib1g",
+      "severity": "CRITICAL",
+      "status": "will_not_fix",
+      "vulnerabilityId": "CVE-2023-45853"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "2.5.0-1+deb12u2",
+      "package": "libexpat1",
+      "severity": "HIGH",
+      "status": "will_not_fix",
+      "vulnerabilityId": "CVE-2025-59375"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "6.4-4",
+      "package": "libtinfo6",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2025-69720"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "6.4-4",
+      "package": "ncurses-base",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2025-69720"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "6.4-4",
+      "package": "ncurses-bin",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2025-69720"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "3.40.1-2+deb12u2",
+      "package": "libsqlite3-0",
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2025-7458"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-13221"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "2.5.0-1+deb12u2",
+      "package": "libexpat1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-25210"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "1.12-1",
+      "package": "gzip",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-41992"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "CRITICAL",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-42496"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-42497"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "2.5.0-1+deb12u2",
+      "package": "libexpat1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-45186"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-48962"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "1:2.38.1-5+deb12u3",
+      "package": "bsdutils",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libblkid1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libmount1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libsmartcols1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libuuid1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "mount",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "util-linux",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "util-linux-extra",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53613"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "1:2.38.1-5+deb12u3",
+      "package": "bsdutils",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libblkid1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libmount1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libsmartcols1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "libuuid1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "mount",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "util-linux",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.38.1-5+deb12u3",
+      "package": "util-linux-extra",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-53615"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "2.3.1-3",
+      "package": "libacl1",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-54369"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "2.5.0-1+deb12u2",
+      "package": "libexpat1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-56408"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-57432"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-57433"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-8376"
+    },
+    {
+      "images": ["api", "worker"],
+      "installedVersion": "5.36.0-7+deb12u3",
+      "package": "perl-base",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-9538"
+    }
+  ],
+  "schemaVersion": 1
+}

@@ -420,6 +420,9 @@ test("release uploads complete Trivy evidence before enforcing the vulnerability
     /path: \|\s+trivy-api\.json\s+trivy-worker\.json\s+trivy-clamav\.json/,
   );
   assert.match(evidenceStep, /retention-days: 30/);
+  const policyGate = workflow.slice(gate);
+  assert.match(policyGate, /node scripts\/release\/verify-trivy-policy\.mjs/);
+  assert.match(policyGate, /--policy infra\/docker\/trivy-exceptions\.json/);
 });
 
 test("release verifies the exact built runtime images before scanning them", () => {
@@ -443,7 +446,7 @@ test("release verifies the exact built runtime images before scanning them", () 
 
 test("final worker image verification executes the compiled startup toolchain policy", () => {
   const entrypoint = readFileSync(new URL("infra/docker/worker-entrypoint.sh", root), "utf8");
-  const verifyOnly = entrypoint.indexOf('test "${OPENTRAD_VERIFY_ONLY:-false}" = true');
+  const verifyOnly = entrypoint.search(/test "\$\{OPENTRAD_VERIFY_ONLY:-false\}" = true/);
   const productionStart = entrypoint.indexOf("exec node /app/main.js");
 
   assert.ok(verifyOnly >= 0, "worker entrypoint must retain verify-only mode");
