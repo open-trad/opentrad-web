@@ -124,6 +124,7 @@ test("worker runtime excludes build-only system setuptools", () => {
     "/usr/lib/python3/dist-packages/setuptools-*.egg-info",
     "/usr/lib/python3/dist-packages/pkg_resources",
     "/usr/lib/python3/dist-packages/_distutils_hack",
+    "/usr/lib/python3/dist-packages/distutils-precedence.pth",
   ]) {
     assert.ok(runtime.includes(path), `worker runtime must remove ${path}`);
   }
@@ -419,6 +420,25 @@ test("release uploads complete Trivy evidence before enforcing the vulnerability
     /path: \|\s+trivy-api\.json\s+trivy-worker\.json\s+trivy-clamav\.json/,
   );
   assert.match(evidenceStep, /retention-days: 30/);
+});
+
+test("release verifies the exact built runtime images before scanning them", () => {
+  const workflow = readFileSync(new URL(".github/workflows/release-images.yml", root), "utf8");
+  const verify = workflow.indexOf("name: Verify built runtime images");
+  const scan = workflow.indexOf("name: Scan API runtime image");
+
+  assert.ok(verify >= 0, "release must verify the built runtime images");
+  assert.ok(verify < scan, "runtime verification must complete before vulnerability scans");
+  const verifyStep = workflow.slice(verify, scan);
+  assert.match(
+    verifyStep,
+    /API_IMAGE: \$\{\{ env\.API_REPOSITORY \}\}@\$\{\{ steps\.api\.outputs\.digest \}\}/,
+  );
+  assert.match(
+    verifyStep,
+    /WORKER_IMAGE: \$\{\{ env\.WORKER_REPOSITORY \}\}@\$\{\{ steps\.worker\.outputs\.digest \}\}/,
+  );
+  assert.match(verifyStep, /sh infra\/docker\/verify-images\.sh "\$API_IMAGE" "\$WORKER_IMAGE"/);
 });
 
 test("Poppler's newer CMake input has an independent exact lock", () => {
