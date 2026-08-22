@@ -42,7 +42,7 @@ async function fixture() {
     path.join(binaryDirectory, "docker"),
     `case "$*" in
   "compose "*" config --quiet") ${logger.replace("$1", "compose-config")} ;;
-  "compose "*" --dry-run up -d") ${logger.replace("$1", "compose-dry-run")} ;;
+  "compose "*" --dry-run up -d --pull never") ${logger.replace("$1", "compose-dry-run")} ;;
   "compose "*" pull") ${logger.replace("$1", "image-pull")} ;;
   "image inspect ghcr.io/open-trad/opentrad-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") ${logger.replace("$1", "image-inspect-api")} ;;
   "image inspect ghcr.io/open-trad/opentrad-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") ${logger.replace("$1", "image-inspect-worker")} ;;
@@ -118,7 +118,6 @@ test("deploy follows the production operation order", async () => {
     "baseline-before",
     "manifest-verify",
     "compose-config",
-    "compose-dry-run",
     "image-pull",
     "image-inspect-api",
     "image-inspect-worker",
@@ -131,6 +130,7 @@ test("deploy follows the production operation order", async () => {
     "image-inspect-worker",
     "image-inspect-clamav",
     "compose-remove",
+    "compose-dry-run",
     "compose-up",
     "health-wait",
     "nginx-test",
@@ -211,6 +211,16 @@ test("deploy and rollback inspect exact images and create from a clean container
     assert.match(source, /up -d --pull never --wait --wait-timeout 180/u, script);
     assert.doesNotMatch(source, /rm --force --stop (?:--volumes|-v)/u, script);
   }
+});
+
+test("deploy dry-run validates the clean, locally verified container plan", async () => {
+  const source = await readFile(deployScript, "utf8");
+  const remove = source.indexOf("compose rm --force --stop api worker clamav");
+  const dryRun = source.indexOf("compose --dry-run up -d --pull never");
+  const start = source.indexOf("compose up -d --pull never --wait --wait-timeout 180");
+  assert.ok(remove >= 0);
+  assert.ok(dryRun > remove);
+  assert.ok(start > dryRun);
 });
 
 test("deploy and rollback readiness preserve the public host boundary", async () => {

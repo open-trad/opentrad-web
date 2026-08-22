@@ -99,7 +99,6 @@ compose() {
 
 deploy_stage=compose-render
 compose config --quiet
-compose --dry-run up -d
 deploy_stage=image-pull
 compose pull
 
@@ -145,6 +144,7 @@ deploy_stage=image-recheck
 verify_local_images
 deploy_stage=compose-replace
 compose rm --force --stop api worker clamav
+compose --dry-run up -d --pull never
 deploy_stage=compose-up
 compose up -d --pull never --wait --wait-timeout 180
 deploy_stage=readiness

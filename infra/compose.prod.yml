@@ -60,6 +60,9 @@ services:
     env_file: ./runtime/worker.env.example
     environment:
       OPENTRAD_JOB_ROOT: /jobs
+    depends_on:
+      api:
+        condition: service_healthy
     volumes:
       - job_ram:/jobs
     tmpfs:
@@ -83,7 +86,7 @@ services:
     security_opt: [no-new-privileges:true]
     pids_limit: 128
     cpus: 0.50
-    mem_limit: 1280m
+    mem_limit: 2g
     restart: unless-stopped
     volumes:
       - clam_db:/var/lib/clamav
