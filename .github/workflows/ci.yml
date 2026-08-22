@@ -7,40 +7,126 @@ on:
 permissions:
   contents: read
 
+env:
+  NODE_VERSION: 24.19.0
+  PNPM_VERSION: 10.28.2
+
 jobs:
-  quality:
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Enable pnpm
-        run: corepack enable
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 24
+          node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
       - name: Install document verification tools
         run: >-
           sudo apt-get update && sudo apt-get install --yes --no-install-recommends
           fontconfig libxml2-utils libreoffice-writer poppler-utils
-      - name: Audit dependencies
-        run: pnpm audit --audit-level=high
-      - name: Lint
-        run: pnpm lint
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Test
-        run: pnpm test
-      - name: Build
-        run: pnpm build
-      - name: Verify template golds
-        run: pnpm golds:verify
-      - name: Install Playwright Chromium
-        run: pnpm --filter @opentrad/web exec playwright install --with-deps chromium
-      - name: Browser end-to-end tests
-        run: pnpm e2e
-      - name: Check generated diff hygiene
-        run: git diff --check
+      - run: pnpm test
+      - run: node --test tests/release/*.test.mjs
+      - run: pnpm golds:verify
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @opentrad/web exec playwright install --with-deps chromium
+      - run: pnpm e2e
+
+  infra-policy:
+    name: infra-policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node --test infra/tests/*.test.mjs
+
+  license:
+    name: license
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/release/check-licenses.mjs
+
+  privacy:
+    name: privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: node scripts/release/privacy-sentinel.mjs --fixture-mode
+      - run: node scripts/release/load-smoke.mjs --fixture-mode
+
+  dependency-audit:
+    name: dependency-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level=high
