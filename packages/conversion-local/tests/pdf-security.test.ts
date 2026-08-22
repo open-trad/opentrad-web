@@ -164,6 +164,14 @@ describe("PDF.js security configuration", () => {
     await handle.destroy();
   });
 
+  it("recognizes a browser DedicatedWorker without relying on window", async () => {
+    vi.stubGlobal("window", undefined);
+    vi.stubGlobal("location", { protocol: "https:" });
+    const handle = await loadLocalPdf(minimalPdf);
+    expect(pdfjsMock.GlobalWorkerOptions.workerSrc).toBe("/assets/pdf.worker.min-local.mjs");
+    await handle.destroy();
+  });
+
   it("restores the pinned worker before every load after hostile mutation", async () => {
     pdfjsMock.GlobalWorkerOptions.workerSrc = "https://example.com/private-worker.js";
     const handle = await loadLocalPdf(minimalPdf);

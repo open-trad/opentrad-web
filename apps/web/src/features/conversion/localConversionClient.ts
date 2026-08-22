@@ -486,9 +486,8 @@ function createDefaultRuntime(): LocalConversionRuntime {
       }),
   );
   return Object.freeze({
-    inspectPdf: async (bytes: Uint8Array<ArrayBuffer>, signal: AbortSignal) => {
-      const { inspectPdf } = await import("@opentrad/conversion-local/pdf");
-      return inspectPdf(bytes, { signal });
+    inspectPdf: async () => {
+      throw fixedError("LOCAL_SELECTION_INVALID");
     },
     readFile: async (file: File, signal: AbortSignal) => {
       if (typeof intrinsicArrayBuffer !== "function") throw fixedError("LOCAL_FILE_READ_FAILED");
@@ -502,37 +501,7 @@ function createDefaultRuntime(): LocalConversionRuntime {
       if (signalAborted(signal)) throw fixedError("LOCAL_CONVERSION_CANCELLED");
       return bytes;
     },
-    run: async (request: LocalWorkerRequest, signal: AbortSignal) => {
-      let output: { readonly bytes: Uint8Array; readonly mediaType: string };
-      switch (request.operation) {
-        case "text.semantic":
-          output = await (
-            await import("@opentrad/conversion-local/text")
-          ).dispatchSemanticTextConversion(request, signal);
-          break;
-        case "document.generate":
-          if ("kind" in request) throw fixedError("LOCAL_SELECTION_INVALID");
-          output = await (
-            await import("@opentrad/conversion-local/document")
-          ).dispatchDocumentGeneration(request, signal);
-          break;
-        case "pdf.inspect":
-        case "pdf.organize":
-        case "images.to.pdf":
-          output = await (
-            await import("@opentrad/conversion-local/pdf-transform")
-          ).dispatchPdfConversion(request, signal);
-          break;
-        default:
-          return client.run(request, signal);
-      }
-      return Object.freeze({
-        bytes: output.bytes,
-        id: request.id,
-        mediaType: output.mediaType,
-        ok: true as const,
-      });
-    },
+    run: (request: LocalWorkerRequest, signal: AbortSignal) => client.run(request, signal),
   });
 }
 
@@ -589,27 +558,12 @@ export async function runLocalConversion(
   const id = crypto.randomUUID();
   let request: LocalWorkerRequest;
   if (selected.operation === "pdf.organize") {
-    const pagePlan: { page: number; rotation: 0; source: number }[] = [];
-    for (let source = 0; source < byteInputs.length; source += 1) {
-      const bytes = byteInputs[source];
-      if (!bytes) throw fixedError("LOCAL_SELECTION_INVALID");
-      const inspection = await runtime.inspectPdf(bytes, signal);
-      for (let page = 0; page < inspection.pageCount; page += 1) {
-        pagePlan.push({ page, rotation: 0, source });
-        if (
-          capability.limits.maxPages !== undefined &&
-          pagePlan.length > capability.limits.maxPages
-        ) {
-          throw fixedError("LOCAL_SELECTION_INVALID");
-        }
-      }
-    }
     request = {
       files: byteInputs.map((bytes, index) => ({ bytes, inputFormat: formats[index] as "pdf" })),
       id,
       kind: "aggregate",
       operation: "pdf.organize",
-      options: { pagePlan },
+      options: {},
       outputFormat: "pdf",
     };
   } else if (selected.operation === "images.to.pdf") {

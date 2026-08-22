@@ -156,6 +156,44 @@ describe("real Better Auth username lifecycle", () => {
     expect(absentOauth.json()).toEqual({ error: { code: "INVALID_REQUEST" } });
     expect(`${invalidLogin.body}${absentOauth.body}`).not.toContain("sentinel");
   });
+
+  it("deletes a password account and invalidates its existing session", async () => {
+    const app = await appForTest();
+    const password = "correct-horse-battery-staple";
+    const registration = await app.inject({
+      method: "POST",
+      url: "/api/v1/register",
+      headers: stateChangingHeaders,
+      payload: {
+        acknowledgements: { noPasswordRecovery: true },
+        password,
+        username: "delete_user",
+      },
+    });
+    expect(registration.statusCode).toBe(201);
+    const cookie = cookieHeader(registration);
+
+    const deletion = await app.inject({
+      method: "POST",
+      url: "/api/auth/delete-user",
+      headers: {
+        ...stateChangingHeaders,
+        cookie,
+        "content-type": "application/json",
+      },
+      payload: { password },
+    });
+    expect(deletion.statusCode).toBe(200);
+    expect(deletion.json()).toEqual({ success: true, message: "User deleted" });
+
+    const ended = await app.inject({
+      method: "GET",
+      url: "/api/auth/get-session",
+      headers: { host: "opentrad.example", cookie },
+    });
+    expect(ended.statusCode).toBe(200);
+    expect(ended.json()).toBeNull();
+  });
 });
 
 describe("byte-exact Better Auth bridge", () => {

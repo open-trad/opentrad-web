@@ -23,8 +23,9 @@ export async function dispatchLocalConversion(
       return (await import("./docx/convertDocx.js")).dispatchDocxConversion(request, signal);
     case "pdf.inspect":
     case "pdf.organize":
-    case "images.to.pdf":
       return (await import("./pdf/transformPdf.js")).dispatchPdfConversion(request, signal);
+    case "images.to.pdf":
+      return (await import("./pdf/imagePdf.js")).dispatchImagesToPdfConversion(request, signal);
     case "image.convert":
       if ("kind" in request) break;
       return (await import("./image/convertImage.js")).dispatchImageConversion(request, signal);

@@ -50,8 +50,16 @@ describe("Web local conversion orchestration", () => {
       /^import[\s\S]*?from\s+["']@opentrad\/conversion-local\/(pdf|validation)["']/mu,
     );
     expect(source).not.toMatch(/^import\s+["']@opentrad\/conversion-local\/(pdf|validation)["']/mu);
-    expect(source).toContain('await import("@opentrad/conversion-local/pdf")');
     expect(source).toContain('await import("@opentrad/conversion-local/validation")');
+  });
+
+  it("routes every conversion operation through the disposable worker client", () => {
+    const source = readFileSync("src/features/conversion/localConversionClient.ts", "utf8");
+    expect(source).not.toContain('import("@opentrad/conversion-local/text")');
+    expect(source).not.toContain('import("@opentrad/conversion-local/document")');
+    expect(source).not.toContain('import("@opentrad/conversion-local/pdf-transform")');
+    expect(source).not.toContain('import("@opentrad/conversion-local/pdf")');
+    expect(source).toMatch(/run:\s*\(request[^=]*=>\s*client\.run\(request, signal\)/u);
   });
 
   it("keeps local orchestration and its worker free of network primitives", () => {
@@ -101,7 +109,7 @@ describe("Web local conversion orchestration", () => {
     expect(validationCall?.[2]).toBe(controller.signal);
   });
 
-  it("inspects every PDF locally and creates a complete aggregate page plan", async () => {
+  it("delegates complete PDF merge planning to the disposable worker", async () => {
     const services = runtime(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]));
     const files = [
       localFile("one.pdf", new Uint8Array([1])),
@@ -114,7 +122,7 @@ describe("Web local conversion orchestration", () => {
       new AbortController().signal,
     );
 
-    expect(services.inspectPdf).toHaveBeenCalledTimes(2);
+    expect(services.inspectPdf).not.toHaveBeenCalled();
     expect(services.run).toHaveBeenCalledWith(
       expect.objectContaining({
         files: [
@@ -123,14 +131,7 @@ describe("Web local conversion orchestration", () => {
         ],
         kind: "aggregate",
         operation: "pdf.organize",
-        options: {
-          pagePlan: [
-            { page: 0, rotation: 0, source: 0 },
-            { page: 1, rotation: 0, source: 0 },
-            { page: 0, rotation: 0, source: 1 },
-            { page: 1, rotation: 0, source: 1 },
-          ],
-        },
+        options: {},
       }),
       expect.any(AbortSignal),
     );

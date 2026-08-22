@@ -1,7 +1,4 @@
-import rehypeParse from "rehype-parse";
-import rehypeSanitize, { type Options as SanitizeSchema } from "rehype-sanitize";
-import rehypeStringify from "rehype-stringify";
-import { unified } from "unified";
+import type { Options as SanitizeSchema } from "rehype-sanitize";
 
 const MiB = 1024 * 1024;
 const IntrinsicError = Error;
@@ -261,6 +258,17 @@ export function assertSyntaxTreeBudget(tree: unknown, signal?: AbortSignal): voi
 export async function sanitizeHtmlInternal(value: string, signal?: AbortSignal): Promise<string> {
   const source = normalizeTextSource(value, signal);
   await textCheckpoint(signal);
+  const [
+    { default: rehypeParse },
+    { default: rehypeSanitize },
+    { default: rehypeStringify },
+    { unified },
+  ] = await Promise.all([
+    import("rehype-parse"),
+    import("rehype-sanitize"),
+    import("rehype-stringify"),
+    import("unified"),
+  ]);
   const parser = unified().use(rehypeParse, { fragment: true });
   const parsed = parser.parse(source);
   assertSyntaxTreeBudget(parsed, signal);

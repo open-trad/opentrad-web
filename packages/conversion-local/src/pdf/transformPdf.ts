@@ -736,14 +736,15 @@ async function dispatchAggregate(
 ): Promise<LocalWorkerOutput> {
   if (request.operation === "pdf.organize") {
     const plan = request.options.pagePlan;
-    if (!plan) throw failure("PDF_PLAN_INVALID");
     const sources: Uint8Array<ArrayBuffer>[] = [];
     for (let index = 0; index < request.files.length; index += 1) {
       const file = request.files[index];
       if (!file || file.inputFormat !== "pdf") throw failure("PDF_INPUT_INVALID");
       sources[index] = file.bytes;
     }
-    const bytes = await organizePdf(sources, plan, signal);
+    const bytes = plan
+      ? await organizePdf(sources, plan, signal)
+      : await mergePdfs(sources, signal);
     return workerOutput(bytes, "application/pdf");
   }
   if (request.operation === "images.to.pdf") {

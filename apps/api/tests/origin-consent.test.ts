@@ -355,6 +355,26 @@ describe("minimal deterministic HTTP behavior", () => {
     expect(head.body).toBe("");
   });
 
+  it("serves readiness only after a successful SQLite probe", async () => {
+    const { app } = await appForTest();
+    const get = await app.inject({
+      method: "GET",
+      url: "/api/health/ready",
+      headers: { host: "opentrad.example" },
+    });
+    const head = await app.inject({
+      method: "HEAD",
+      url: "/api/health/ready",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(get.statusCode).toBe(200);
+    expect(get.json()).toEqual({ status: "ready" });
+    expect(get.body).not.toContain("sqlite");
+    expect(head.statusCode).toBe(200);
+    expect(head.body).toBe("");
+  });
+
   it("accepts only same-origin preflight for known routes and sends no CORS grant", async () => {
     const { app } = await appForTest();
     const accepted = await app.inject({

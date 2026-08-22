@@ -191,6 +191,7 @@ function routePath(request: FastifyRequest): string {
 function knownPath(path: string): boolean {
   return (
     path === "/api/health" ||
+    path === "/api/health/ready" ||
     path === "/api/v1/auth-options" ||
     path === "/api/v1/capabilities" ||
     path === "/api/v1/jobs" ||
@@ -347,6 +348,19 @@ export async function buildServer(
     auth = dependencies.auth ?? (createAuth(config) as unknown as ServerAuthRuntime);
     ownedDatabase = ownsAuth ? auth.options?.database : undefined;
     const database = auth.options?.database;
+    const readinessProbe =
+      database && "prepare" in database
+        ? () => {
+            try {
+              const result = (database as { prepare(sql: string): { get(): unknown } })
+                .prepare("SELECT 1 AS ready")
+                .get() as { ready?: unknown } | undefined;
+              return result?.ready === 1;
+            } catch {
+              return false;
+            }
+          }
+        : () => false;
     const currentGid = typeof process.getgid === "function" ? process.getgid() : 0;
     const currentGroups = typeof process.getgroups === "function" ? process.getgroups() : [];
     const productionWorkerReady = currentGid === 10_100 || currentGroups.includes(10_100);
@@ -421,6 +435,14 @@ export async function buildServer(
 
     app.head("/api/health", async (_request, reply) => reply.status(200).send());
     app.get("/api/health", async () => ({ status: "ok" }));
+    app.head("/api/health/ready", async (_request, reply) =>
+      readinessProbe() ? reply.status(200).send() : reply.status(503).send(),
+    );
+    app.get("/api/health/ready", async (_request, reply) =>
+      readinessProbe()
+        ? reply.status(200).send({ status: "ready" })
+        : reply.status(503).send({ status: "unavailable" }),
+    );
     app.options("/api/v1/register", async (_request, reply) => reply.status(204).send());
     app.options("/api/auth/*", async (_request, reply) => reply.status(204).send());
 

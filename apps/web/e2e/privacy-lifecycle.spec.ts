@@ -3,11 +3,13 @@ import { expect, test } from "@playwright/test";
 import { strToU8, unzipSync, zipSync } from "fflate";
 import {
   assertRuntimeOmits,
+  assertRuntimeOmitsUpload,
   expectJobFilesRemoved,
   monitorRuntimeErrors,
   readStackState,
   registerUsernameUser,
   repositoryRoot,
+  uniqueUsername,
 } from "./helpers";
 
 const privateFilename = "PRIVATE_FILENAME_SENTINEL.xlsx";
@@ -32,13 +34,14 @@ test("cancelled upload leaves metadata only and omits private names and content"
   page,
 }, testInfo) => {
   const runtimeErrors = monitorRuntimeErrors(page);
-  const username = `privacy_${testInfo.project.name.replaceAll("-", "_")}`;
+  const username = uniqueUsername("privacy", testInfo);
   await registerUsernameUser(page, username);
   const state = readStackState();
 
   await page.getByLabel("服务器转换类型").selectOption("spreadsheet.to.csv");
+  const uploaded = privateSpreadsheet();
   await page.getByLabel("选择服务器处理文件").setInputFiles({
-    buffer: privateSpreadsheet(),
+    buffer: uploaded,
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     name: privateFilename,
   });
@@ -50,5 +53,6 @@ test("cancelled upload leaves metadata only and omits private names and content"
 
   await expectJobFilesRemoved(state.jobRoot);
   assertRuntimeOmits(state, [privateFilename, privateBody]);
+  assertRuntimeOmitsUpload(state, uploaded);
   expect(runtimeErrors).toEqual([]);
 });

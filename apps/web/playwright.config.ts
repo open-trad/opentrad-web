@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
 const webDirectory = fileURLToPath(new URL(".", import.meta.url));
 const repositoryRoot = resolve(webDirectory, "../..");
+const runId = process.env.OPENTRAD_E2E_RUN_ID ?? randomUUID();
+process.env.OPENTRAD_E2E_RUN_ID = runId;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -15,6 +18,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [["line"]],
   outputDir: resolve(repositoryRoot, "output/playwright/test-results"),
+  globalTeardown: resolve(repositoryRoot, "scripts/e2e/teardown-stack.mjs"),
   use: {
     ...devices["Desktop Chrome"],
     acceptDownloads: true,
@@ -29,8 +33,10 @@ export default defineConfig({
     command: "pnpm e2e:serve",
     cwd: repositoryRoot,
     ignoreHTTPSErrors: true,
+    env: { ...process.env, OPENTRAD_E2E_RUN_ID: runId },
+    gracefulShutdown: { signal: "SIGTERM", timeout: 10_000 },
     url: "https://127.0.0.1:4173/api/health",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
   projects: [

@@ -27,7 +27,9 @@ import { createWorkerClaimRuntimeForTesting, runClaim } from "../../apps/worker/
 import { WorkerQueue } from "../../apps/worker/dist/queue.js";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const pointerPath = join(tmpdir(), "opentrad-e2e-stack-state.json");
+const runId = process.env.OPENTRAD_E2E_RUN_ID;
+if (!runId || !/^[0-9a-f-]{36}$/u.test(runId)) throw new Error("E2E_RUN_ID_INVALID");
+const pointerPath = join(tmpdir(), `opentrad-e2e-stack-state-${runId}.json`);
 const runtimeRoot = mkdtempSync(join(tmpdir(), "opentrad-e2e-stack-"));
 const databasePath = join(runtimeRoot, "opentrad.sqlite");
 const jobRoot = join(runtimeRoot, "jobs");
@@ -38,7 +40,6 @@ const staticRoot = resolve(repositoryRoot, "apps/web/dist");
 const publicOrigin = "https://opentrad.dynv6.net:4173";
 const publicHost = "opentrad.dynv6.net:4173";
 
-rmSync(pointerPath, { force: true });
 execFileSync(
   "openssl",
   [
@@ -164,9 +165,19 @@ function serveStatic(request, response, pathname) {
 }
 
 function proxyApi(request, response) {
+  const upstreamHeaders = { ...request.headers };
+  for (const name of ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto"]) {
+    delete upstreamHeaders[name];
+  }
+  Object.assign(upstreamHeaders, {
+    host: publicHost,
+    "x-forwarded-for": "127.0.0.1",
+    "x-forwarded-host": publicHost,
+    "x-forwarded-proto": "https",
+  });
   const upstream = httpRequest(
     {
-      headers: { ...request.headers, host: publicHost },
+      headers: upstreamHeaders,
       host: "127.0.0.1",
       method: request.method,
       path: request.url,
@@ -215,9 +226,11 @@ await new Promise((resolvePromise, rejectPromise) => {
   tlsServer.listen(4_173, "127.0.0.1", resolvePromise);
 });
 
-writeFileSync(pointerPath, `${JSON.stringify({ databasePath, jobRoot, logPath, runtimeRoot })}\n`, {
-  mode: 0o600,
-});
+writeFileSync(
+  pointerPath,
+  `${JSON.stringify({ databasePath, jobRoot, logPath, pid: process.pid, runId, runtimeRoot })}\n`,
+  { mode: 0o600 },
+);
 process.stdout.write("E2E_STACK_READY\n");
 
 let closing = false;

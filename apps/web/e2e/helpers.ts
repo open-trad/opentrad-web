@@ -1,8 +1,9 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
 
 export const repositoryRoot = resolve(fileURLToPath(new URL("../../..", import.meta.url)));
 
@@ -14,8 +15,10 @@ export interface E2eStackState {
 }
 
 export function readStackState(): E2eStackState {
+  const runId = process.env.OPENTRAD_E2E_RUN_ID;
+  if (!runId) throw new Error("E2E_RUN_ID_UNAVAILABLE");
   return JSON.parse(
-    readFileSync(join(tmpdir(), "opentrad-e2e-stack-state.json"), "utf8"),
+    readFileSync(join(tmpdir(), `opentrad-e2e-stack-state-${runId}.json`), "utf8"),
   ) as E2eStackState;
 }
 
@@ -42,10 +45,65 @@ export async function expectJobFilesRemoved(jobRoot: string): Promise<void> {
 }
 
 export function assertRuntimeOmits(state: E2eStackState, forbidden: readonly string[]): void {
-  for (const path of [state.databasePath, state.logPath]) {
-    const text = readFileSync(path).toString("utf8");
+  for (const filePath of [
+    state.databasePath,
+    `${state.databasePath}-wal`,
+    `${state.databasePath}-shm`,
+    state.logPath,
+  ]) {
+    if (!existsSync(filePath)) continue;
+    const text = readFileSync(filePath).toString("utf8");
     for (const value of forbidden) expect(text).not.toContain(value);
   }
+}
+
+export function assertRuntimeOmitsUpload(state: E2eStackState, uploaded: Buffer): void {
+  const digests = [
+    createHash("sha256").update(uploaded).digest("hex"),
+    createHash("sha256").update(uploaded).digest("base64"),
+  ];
+  for (const filePath of [
+    state.databasePath,
+    `${state.databasePath}-wal`,
+    `${state.databasePath}-shm`,
+    state.logPath,
+  ]) {
+    if (!existsSync(filePath)) continue;
+    const bytes = readFileSync(filePath);
+    expect(bytes.indexOf(uploaded), `${filePath} retained the exact upload`).toBe(-1);
+    const text = bytes.toString("utf8");
+    for (const digest of digests) expect(text).not.toContain(digest);
+  }
+}
+
+export function monitorPrivateLocalNetwork(page: Page, sentinels: readonly string[]): string[] {
+  const violations: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const headers = request.headers();
+    const body = request.postDataBuffer();
+    const searchable = [
+      request.url(),
+      ...Object.entries(headers).flat(),
+      body?.toString("utf8") ?? "",
+    ].join("\n");
+    for (const sentinel of sentinels) {
+      if (searchable.includes(sentinel)) violations.push(`private sentinel in ${url.pathname}`);
+    }
+    const immutableAsset =
+      url.pathname.startsWith("/assets/") ||
+      url.pathname.startsWith("/brand/") ||
+      url.pathname.startsWith("/fonts/");
+    const publicBootstrapApi =
+      url.pathname === "/api/auth/get-session" || url.pathname === "/api/v1/auth-options";
+    const allowed =
+      url.origin === "https://opentrad.dynv6.net:4173" &&
+      url.search === "" &&
+      (request.method() === "GET" || request.method() === "HEAD") &&
+      (url.pathname === "/convert" || immutableAsset || publicBootstrapApi);
+    if (!allowed) violations.push(`${request.method()} ${request.url()}`);
+  });
+  return violations;
 }
 
 export function monitorRuntimeErrors(page: Page): string[] {
@@ -70,6 +128,12 @@ export async function registerUsernameUser(
   await page.getByRole("button", { name: "创建账户" }).click();
   await expect(page.getByText("当前账户")).toBeVisible();
   await expect(page.getByRole("heading", { level: 2, name: username })).toBeVisible();
+}
+
+export function uniqueUsername(prefix: string, testInfo: TestInfo): string {
+  const project = testInfo.project.name.includes("mobile") ? "m" : "d";
+  const entropy = randomUUID().replaceAll("-", "").slice(0, 8);
+  return `${prefix}_${project}_w${testInfo.workerIndex}r${testInfo.retry}_${entropy}`;
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {

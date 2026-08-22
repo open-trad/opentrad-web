@@ -10,6 +10,7 @@ import {
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_TIMEOUT_MS = 300_000;
 const IntrinsicError = Error;
+const IntrinsicMessageChannel = MessageChannel;
 const intrinsicClearTimeout = globalThis.clearTimeout;
 const intrinsicGetPrototypeOf = Object.getPrototypeOf;
 const intrinsicReflectApply = Reflect.apply;
@@ -68,8 +69,10 @@ export class LocalConversionClient {
   run(input: unknown, signal: AbortSignal): Promise<LocalConversionSuccess> {
     const request = parseLocalConversionRequest(input);
     let worker: Worker;
+    let channel: MessageChannel;
     try {
       worker = this.createWorker();
+      channel = new IntrinsicMessageChannel();
     } catch {
       throw fixedError("LOCAL_WORKER_ERROR");
     }
@@ -81,9 +84,11 @@ export class LocalConversionClient {
       const cleanup = () => {
         if (timer !== undefined) intrinsicClearTimeout(timer);
         tryCleanup(() => signal.removeEventListener("abort", onAbort));
-        tryCleanup(() => worker.removeEventListener("message", onMessage));
         tryCleanup(() => worker.removeEventListener("error", onError));
         tryCleanup(() => worker.removeEventListener("messageerror", onMessageError));
+        tryCleanup(() => channel.port1.removeEventListener("message", onMessage));
+        tryCleanup(() => channel.port1.removeEventListener("messageerror", onMessageError));
+        tryCleanup(() => channel.port1.close());
         tryCleanup(() => worker.terminate());
       };
 
@@ -129,7 +134,11 @@ export class LocalConversionClient {
       };
 
       try {
-        worker.addEventListener("message", onMessage);
+        channel.port1.addEventListener("message", onMessage);
+        if (settled) return;
+        channel.port1.addEventListener("messageerror", onMessageError);
+        if (settled) return;
+        channel.port1.start();
         if (settled) return;
         worker.addEventListener("error", onError);
         if (settled) return;
@@ -149,7 +158,7 @@ export class LocalConversionClient {
 
       timer = intrinsicSetTimeout(() => fail("LOCAL_CONVERSION_TIMEOUT"), this.timeoutMs);
       try {
-        worker.postMessage(request, transferBuffers(request));
+        worker.postMessage(request, [...transferBuffers(request), channel.port2]);
       } catch {
         fail("LOCAL_PROTOCOL_ERROR");
       }

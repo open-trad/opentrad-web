@@ -52,6 +52,7 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
     secret: config.betterAuthSecret,
     session: { expiresIn: 604_800, updateAge: 86_400 },
     trustedOrigins: [config.publicOrigin],
+    user: { deleteUser: { enabled: true } },
   };
   if (config.githubClientId !== null && config.githubClientSecret !== null) {
     options.socialProviders = {

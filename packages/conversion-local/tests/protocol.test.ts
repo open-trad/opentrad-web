@@ -8,6 +8,7 @@ interface FakePost {
   readonly exactTransfer: boolean;
   readonly message: unknown;
   readonly transferredBuffer?: ArrayBuffer;
+  readonly responsePort?: MessagePort;
 }
 
 type Listener = EventListenerOrEventListenerObject;
@@ -34,11 +35,19 @@ class FakeWorker {
       message !== null && typeof message === "object"
         ? (message as { readonly bytes?: Uint8Array }).bytes
         : undefined;
-    const transferredBuffer = transfer[0] instanceof ArrayBuffer ? transfer[0] : undefined;
+    const transferredBuffer = transfer.find((item) => item instanceof ArrayBuffer) as
+      | ArrayBuffer
+      | undefined;
+    const responsePort = transfer.find((item) => item instanceof MessagePort) as
+      | MessagePort
+      | undefined;
+    const bufferTransfers = transfer.filter((item) => item instanceof ArrayBuffer);
     const exactTransfer =
-      transfer.length === 1 && bytes instanceof Uint8Array && transferredBuffer === bytes.buffer;
-    const cloned = structuredClone(message, { transfer });
-    this.posts.push({ exactTransfer, message: cloned, transferredBuffer });
+      bufferTransfers.length === 1 &&
+      bytes instanceof Uint8Array &&
+      transferredBuffer === bytes.buffer;
+    const cloned = structuredClone(message, { transfer: bufferTransfers });
+    this.posts.push({ exactTransfer, message: cloned, responsePort, transferredBuffer });
   });
 
   asWorker(): Worker {
@@ -51,7 +60,9 @@ class FakeWorker {
   }
 
   emitMessage(data: unknown): void {
-    this.emit("message", { data } as MessageEvent);
+    const responsePort = this.posts.at(-1)?.responsePort;
+    if (!responsePort) throw new Error("missing response port");
+    responsePort.postMessage(data);
   }
 
   firstListener(type: string): Listener | undefined {
@@ -156,7 +167,7 @@ function parseRequest(input: unknown): Record<string, unknown> {
 function expectCleaned(worker: FakeWorker): void {
   expect(worker.terminate).toHaveBeenCalledOnce();
   expect(worker.listenerCount()).toBe(0);
-  expect(worker.removeEventListener).toHaveBeenCalledTimes(3);
+  expect(worker.removeEventListener).toHaveBeenCalledTimes(2);
 }
 
 describe("local conversion protocol", () => {
@@ -443,6 +454,13 @@ describe("local conversion protocol", () => {
     }
   });
 
+  it("accepts an empty PDF organize plan for a worker-owned full merge", () => {
+    const parsed = parseRequest(aggregateRequest({ options: {} }));
+    expect(parsed.options).toEqual({});
+    expect(Object.getPrototypeOf(parsed.options as object)).toBeNull();
+    expect(Object.isFrozen(parsed.options)).toBe(true);
+  });
+
   it("admits mixed aggregate images while preserving the single-file 25 MiB boundary", () => {
     const parsed = parseRequest(
       aggregateRequest({
@@ -574,10 +592,10 @@ describe("local conversion client lifecycle", () => {
     const posted = worker.posts[0]?.message as {
       readonly files: readonly { readonly bytes: Uint8Array }[];
     };
-    expect(transfer).toHaveLength(2);
-    expect(transfer.every((item) => item instanceof ArrayBuffer && item.byteLength === 0)).toBe(
-      true,
-    );
+    const buffers = transfer.filter((item) => item instanceof ArrayBuffer) as ArrayBuffer[];
+    expect(buffers).toHaveLength(2);
+    expect(buffers.every((item) => item.byteLength === 0)).toBe(true);
+    expect(transfer.filter((item) => item instanceof MessagePort)).toHaveLength(1);
     expect(posted.files.map((file) => file.bytes)).toEqual(originals);
     expect(input.files.map((file) => file.bytes)).toEqual(originals);
 
@@ -649,12 +667,12 @@ describe("local conversion client lifecycle", () => {
     const worker = new FakeWorker();
     const input = request();
     const pending = client(worker).run(input, new AbortController().signal);
-    const saved = worker.firstListener("message");
+    const saved = worker.posts.at(-1)?.responsePort;
     worker.emitMessage(success(input.id));
     worker.emitMessage({ id: input.id, ok: false, code: "LOCAL_CONVERSION_FAILED" });
     await expect(pending).resolves.toMatchObject({ ok: true });
     expectCleaned(worker);
-    if (saved) invoke(saved, { data: success(input.id) } as MessageEvent);
+    saved?.postMessage(success(input.id));
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
 
@@ -663,10 +681,10 @@ describe("local conversion client lifecycle", () => {
     const controller = new AbortController();
     const input = request();
     const pending = client(worker).run(input, controller.signal);
-    const saved = worker.firstListener("message");
+    const saved = worker.posts.at(-1)?.responsePort;
     controller.abort();
     await expect(pending).rejects.toThrow("LOCAL_CONVERSION_CANCELLED");
-    if (saved) invoke(saved, { data: success(input.id) } as MessageEvent);
+    saved?.postMessage(success(input.id));
     expectCleaned(worker);
   });
 
@@ -738,18 +756,16 @@ describe("local conversion client lifecycle", () => {
   it("stops setup when a hostile listener registration settles synchronously", async () => {
     const worker = new FakeWorker();
     const input = request();
-    worker.addEventListener.mockImplementation((type, listener) => {
-      const listeners = worker.listeners.get(type) ?? new Set<Listener>();
-      listeners.add(listener);
-      worker.listeners.set(type, listeners);
-      if (type === "message") invoke(listener, { data: success(input.id) } as MessageEvent);
+    worker.postMessage.mockImplementation((message, transfer = []) => {
+      const responsePort = transfer.find((item) => item instanceof MessagePort) as MessagePort;
+      worker.posts.push({ exactTransfer: true, message, responsePort });
+      responsePort.postMessage(success(input.id));
     });
 
     await expect(client(worker).run(input, new AbortController().signal)).resolves.toMatchObject({
       ok: true,
     });
-    expect(worker.addEventListener).toHaveBeenCalledOnce();
-    expect(worker.postMessage).not.toHaveBeenCalled();
+    expect(worker.postMessage).toHaveBeenCalledOnce();
     expectCleaned(worker);
   });
 

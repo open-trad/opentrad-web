@@ -1,12 +1,14 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import {
+  assertRuntimeOmitsUpload,
   expectJobFilesRemoved,
   expectNoHorizontalOverflow,
   monitorRuntimeErrors,
   readStackState,
   registerUsernameUser,
   repositoryRoot,
+  uniqueUsername,
 } from "./helpers";
 
 const spreadsheet = Buffer.from(
@@ -20,7 +22,7 @@ const officeDocument = `${repositoryRoot}/tests/golds/templates-v2/artifacts/con
 
 test("real account can complete, download, and cancel server jobs", async ({ page }, testInfo) => {
   const runtimeErrors = monitorRuntimeErrors(page);
-  const username = `jobs_${testInfo.project.name.replaceAll("-", "_")}`;
+  const username = uniqueUsername("jobs", testInfo);
   await registerUsernameUser(page, username);
 
   await page.getByLabel("服务器转换类型").selectOption("spreadsheet.to.csv");
@@ -50,6 +52,7 @@ test("real account can complete, download, and cancel server jobs", async ({ pag
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   expect(new TextDecoder().decode(bytes.subarray(3))).toBe("首页\r\n3\r\n");
   await expectJobFilesRemoved(readStackState().jobRoot);
+  assertRuntimeOmitsUpload(readStackState(), spreadsheet);
 
   await page.getByLabel("服务器转换类型").selectOption("office.to.pdf");
   await page.getByLabel("选择服务器处理文件").setInputFiles(officeDocument);

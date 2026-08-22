@@ -1,7 +1,3 @@
-import remarkParse from "remark-parse";
-import remarkStringify from "remark-stringify";
-import TurndownService from "turndown";
-import { unified } from "unified";
 import type { LocalConversionRequest } from "../protocol.js";
 import type { LocalWorkerOutput } from "../worker.js";
 import {
@@ -50,7 +46,6 @@ const intrinsicTypedArrayByteLength = intrinsicReflectGetOwnPropertyDescriptor(
   "byteLength",
 )?.get;
 const intrinsicUint8ArraySet = IntrinsicUint8Array.prototype.set;
-const intrinsicTurndown = TurndownService.prototype.turndown;
 
 interface MarkdownNode {
   readonly alt?: unknown;
@@ -237,8 +232,18 @@ function safeMarkdownNode(node: MarkdownNode, depth: number): MarkdownNode[] {
   }
 }
 
-function parseSafeMarkdown(source: string, signal?: AbortSignal): MarkdownNode {
+async function markdownRuntime() {
+  const [{ default: remarkParse }, { default: remarkStringify }, { unified }] = await Promise.all([
+    import("remark-parse"),
+    import("remark-stringify"),
+    import("unified"),
+  ]);
+  return { remarkParse, remarkStringify, unified };
+}
+
+async function parseSafeMarkdown(source: string, signal?: AbortSignal): Promise<MarkdownNode> {
   checkTextAbort(signal);
+  const { remarkParse, unified } = await markdownRuntime();
   const parsed = unified().use(remarkParse).parse(source) as MarkdownNode;
   assertSyntaxTreeBudget(parsed, signal);
   const cleaned = safeMarkdownNode(parsed, 0)[0];
@@ -247,22 +252,23 @@ function parseSafeMarkdown(source: string, signal?: AbortSignal): MarkdownNode {
   return cleaned;
 }
 
-function stringifyMarkdown(tree: MarkdownNode, signal?: AbortSignal): string {
+async function stringifyMarkdown(tree: MarkdownNode, signal?: AbortSignal): Promise<string> {
   checkTextAbort(signal);
+  const { remarkStringify, unified } = await markdownRuntime();
   return unified()
     .use(remarkStringify, MARKDOWN_OPTIONS)
     .stringify(tree as never);
 }
 
-function canonicalMarkdown(
+async function canonicalMarkdown(
   source: string,
   signal?: AbortSignal,
-): {
+): Promise<{
   readonly markdown: string;
   readonly tree: MarkdownNode;
-} {
-  const tree = parseSafeMarkdown(source, signal);
-  return { markdown: stringifyMarkdown(tree, signal), tree };
+}> {
+  const tree = await parseSafeMarkdown(source, signal);
+  return { markdown: await stringifyMarkdown(tree, signal), tree };
 }
 
 function renderChildren(node: MarkdownNode, separator: string, signal?: AbortSignal): string {
@@ -350,7 +356,7 @@ function renderPlainNode(node: MarkdownNode, signal?: AbortSignal): string {
   }
 }
 
-function markdownFromPlainText(value: string, signal?: AbortSignal): string {
+async function markdownFromPlainText(value: string, signal?: AbortSignal): Promise<string> {
   const tree: MarkdownNode = {
     type: "root",
     children:
@@ -360,7 +366,8 @@ function markdownFromPlainText(value: string, signal?: AbortSignal): string {
   return stringifyMarkdown(tree, signal);
 }
 
-function turndownHtml(value: string): string {
+async function turndownHtml(value: string): Promise<string> {
+  const { default: TurndownService } = await import("turndown");
   const service = new TurndownService({
     bulletListMarker: "-",
     codeBlockStyle: "fenced",
@@ -369,6 +376,7 @@ function turndownHtml(value: string): string {
     hr: "---",
     strongDelimiter: "**",
   });
+  const intrinsicTurndown = TurndownService.prototype.turndown;
   return intrinsicReflectApply(intrinsicTurndown, service, [value]) as string;
 }
 
@@ -391,10 +399,10 @@ async function convertInternal(
   let result: string;
   if (input === "txt") {
     if (output === "txt") result = source;
-    else if (output === "md") result = markdownFromPlainText(source, signal);
+    else if (output === "md") result = await markdownFromPlainText(source, signal);
     else result = `<pre>${escapeHtml(source)}</pre>`;
   } else if (input === "md") {
-    const markdown = canonicalMarkdown(source, signal);
+    const markdown = await canonicalMarkdown(source, signal);
     if (output === "md") result = markdown.markdown;
     else if (output === "html") result = renderHtmlNode(markdown.tree, signal);
     else result = renderPlainNode(markdown.tree, signal);
@@ -402,7 +410,7 @@ async function convertInternal(
     const html = await sanitizeHtmlInternal(source, signal);
     if (output === "html") result = html;
     else {
-      const markdown = canonicalMarkdown(turndownHtml(html), signal);
+      const markdown = await canonicalMarkdown(await turndownHtml(html), signal);
       result = output === "md" ? markdown.markdown : renderPlainNode(markdown.tree, signal);
     }
   }

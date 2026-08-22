@@ -459,15 +459,18 @@ function parseAggregateRequest(input: unknown): LocalAggregateConversionRequest 
 
   const rawOptions = ownData(source, "options");
   const optionKeys = operation === "pdf.organize" ? (["pagePlan"] as const) : ([] as const);
-  const optionsSource = exactObject(rawOptions, optionKeys, optionKeys);
+  const optionsSource = exactObject(rawOptions, optionKeys, []);
   const options = intrinsicObjectCreate(null) as Record<string, unknown>;
   if (operation === "pdf.organize") {
     if (limits.maxPages === undefined) invalid();
-    defineData(
-      options,
-      "pagePlan",
-      parsePagePlan(ownData(optionsSource, "pagePlan"), rawFiles.length, limits.maxPages),
-    );
+    const pagePlan = intrinsicReflectGetOwnPropertyDescriptor(optionsSource, "pagePlan");
+    if (pagePlan) {
+      defineData(
+        options,
+        "pagePlan",
+        parsePagePlan(ownData(optionsSource, "pagePlan"), rawFiles.length, limits.maxPages),
+      );
+    }
   }
   intrinsicFreeze(options);
 

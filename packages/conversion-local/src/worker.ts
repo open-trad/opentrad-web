@@ -32,13 +32,17 @@ export interface LocalWorkerScope {
   postMessage(message: unknown, transfer?: Transferable[]): void;
 }
 
+interface LocalWorkerTarget {
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+}
+
 function postFailure(
-  scope: LocalWorkerScope,
+  target: LocalWorkerTarget,
   id: string,
   code: "LOCAL_CONVERSION_FAILED" | "LOCAL_PROTOCOL_ERROR",
 ): void {
   try {
-    scope.postMessage({ id, ok: false, code });
+    target.postMessage({ id, ok: false, code });
   } catch {
     // A dead worker scope has no observable consumer; never log uploaded data.
   }
@@ -57,12 +61,16 @@ export function installLocalConversionWorker<TRequest extends LocalWorkerRequest
   const onMessage = async (event: MessageEvent<unknown>) => {
     if (claimed) return;
     claimed = true;
+    scope.removeEventListener("message", onMessage);
+    const target: LocalWorkerTarget =
+      event.ports?.length === 1 && event.ports[0] ? event.ports[0] : scope;
+    if (!target) return;
     const messageId = readLocalMessageId(event.data);
     let request: LocalWorkerRequest;
     try {
       request = parseLocalConversionRequest(event.data);
     } catch {
-      if (messageId) postFailure(scope, messageId, "LOCAL_PROTOCOL_ERROR");
+      if (messageId) postFailure(target, messageId, "LOCAL_PROTOCOL_ERROR");
       return;
     }
 
@@ -75,12 +83,12 @@ export function installLocalConversionWorker<TRequest extends LocalWorkerRequest
         mediaType: output.mediaType,
       });
       if (!response.ok || !mediaTypeMatchesOutput(request.outputFormat, response.mediaType)) {
-        postFailure(scope, request.id, "LOCAL_CONVERSION_FAILED");
+        postFailure(target, request.id, "LOCAL_CONVERSION_FAILED");
         return;
       }
-      scope.postMessage(response, [transferBuffer(response.bytes)]);
+      target.postMessage(response, [transferBuffer(response.bytes)]);
     } catch {
-      postFailure(scope, request.id, "LOCAL_CONVERSION_FAILED");
+      postFailure(target, request.id, "LOCAL_CONVERSION_FAILED");
     }
   };
 

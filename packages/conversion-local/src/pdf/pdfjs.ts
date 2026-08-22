@@ -200,7 +200,11 @@ let browserWorkerUrl: string | undefined;
 
 async function configurePdfWorker(): Promise<void> {
   try {
-    if (typeof window === "undefined") {
+    const browserRuntime =
+      typeof window !== "undefined" ||
+      (typeof location !== "undefined" &&
+        (location.protocol === "http:" || location.protocol === "https:"));
+    if (!browserRuntime) {
       if (isRemoteWorkerUrl(nodeWorkerUrl)) fail("PDF_LOAD_FAILED");
       GlobalWorkerOptions.workerSrc = nodeWorkerUrl;
       return;
