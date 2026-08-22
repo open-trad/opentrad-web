@@ -97,9 +97,15 @@ compose() {
     -f "$release_dir/infra/compose.prod.yml" "$@"
 }
 
+preflight_compose() {
+  docker compose --project-name opentrad-preflight \
+    --project-directory "$release_dir/infra" \
+    --env-file "$release_env" \
+    -f "$release_dir/infra/compose.prod.yml" "$@"
+}
+
 deploy_stage=compose-render
 compose config --quiet
-compose --dry-run up -d
 deploy_stage=image-pull
 compose pull
 
@@ -117,6 +123,7 @@ verify_local_images() {
 }
 deploy_stage=image-inspect
 verify_local_images
+preflight_compose --dry-run up -d --pull never
 
 deploy_stage=auth-volume-init
 docker volume create opentrad_auth_data >/dev/null
@@ -145,6 +152,7 @@ deploy_stage=image-recheck
 verify_local_images
 deploy_stage=compose-replace
 compose rm --force --stop api worker clamav
+compose --dry-run up -d --pull never
 deploy_stage=compose-up
 compose up -d --pull never --wait --wait-timeout 180
 deploy_stage=readiness

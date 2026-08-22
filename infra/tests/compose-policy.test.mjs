@@ -95,6 +95,7 @@ test("ClamAV uses the vendor unprivileged startup contract without Linux capabil
   assert.deepEqual(clamav.cap_drop, ["ALL"]);
   assert.equal(clamav.cap_add, undefined);
   assert.deepEqual(clamav.security_opt, ["no-new-privileges:true"]);
+  assert.equal(Number(clamav.mem_limit), 2 * 1024 * 1024 * 1024);
   assert.deepEqual(
     clamav.tmpfs.slice().sort(),
     [
@@ -157,6 +158,12 @@ test("release images and readiness use the verified production contracts", () =>
   assert.match(JSON.stringify(services.api.healthcheck.test), /\/api\/health\/ready/);
   assert.match(JSON.stringify(services.api.healthcheck.test), /OPENTRAD_PUBLIC_ORIGIN/);
   assert.match(JSON.stringify(services.api.healthcheck.test), /node:http/);
+  assert.deepEqual(services.worker.depends_on, {
+    api: {
+      condition: "service_healthy",
+      required: true,
+    },
+  });
   const workerHealth = JSON.stringify(services.worker.healthcheck.test);
   assert.match(workerHealth, /test -x \/jobs/);
   for (const directory of ["queued", "running", "outbox"]) {
