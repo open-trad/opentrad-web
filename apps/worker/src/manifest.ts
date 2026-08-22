@@ -45,7 +45,8 @@ function snapshot(value: unknown, depth = 0): unknown {
   }
   if (typeof value !== "object" || intrinsicArrayIsArray(value)) throw new Error("type");
   if (isProxy(value)) throw new Error("proxy");
-  if (intrinsicGetPrototypeOf(value) !== intrinsicObjectPrototype) throw new Error("prototype");
+  const prototype = intrinsicGetPrototypeOf(value);
+  if (prototype !== intrinsicObjectPrototype && prototype !== null) throw new Error("prototype");
 
   const keys = intrinsicReflectOwnKeys(value);
   if (keys.length > MAX_SNAPSHOT_KEYS) throw new Error("keys");

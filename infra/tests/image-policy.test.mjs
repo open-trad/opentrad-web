@@ -86,8 +86,11 @@ test("image definitions preserve the read-only runtime boundary", () => {
 
 test("worker verifies every runtime tool before starting its current entry point", () => {
   const entrypoint = readFileSync(new URL("infra/docker/worker-entrypoint.sh", root), "utf8");
+  const restrictiveUmask = entrypoint.indexOf("umask 0027");
   const scratchSetup = entrypoint.indexOf("install -d -m 0700 /work/home /work/tmp");
   const firstProbe = entrypoint.indexOf("/usr/bin/soffice --version");
+  assert.ok(restrictiveUmask >= 0, "worker must restrict external tool output permissions");
+  assert.ok(restrictiveUmask < scratchSetup, "worker umask must precede runtime writes");
   assert.ok(scratchSetup >= 0, "worker must create private scratch directories in the tmpfs");
   assert.ok(scratchSetup < firstProbe, "scratch directories must exist before tool verification");
   for (const probe of [
