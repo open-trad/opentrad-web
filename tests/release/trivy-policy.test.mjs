@@ -226,11 +226,18 @@ test("Trivy policy rejects malformed reports and duplicate policy entries", () =
   );
 });
 
-test("versioned draft exactly represents the retained release evidence", async () => {
+test("approved policy exactly represents the retained release evidence", async () => {
   const draft = JSON.parse(
     await readFile(new URL("infra/docker/trivy-exceptions.json", root), "utf8"),
   );
-  assert.equal(draft.approval.status, "proposed");
+  assert.deepEqual(draft.approval, {
+    approvedAt: "2026-08-22T16:28:27.000Z",
+    approvedBy: "yrjmdqmmx",
+    expiresAt: "2026-09-05T16:28:27.000Z",
+    rationale:
+      "Trivy run 32580505927 reported no FixedVersion for these exact Debian 12.15 tuples. API and worker run non-root, read-only, without package managers; the worker has no network during tool verification. Any changed, added, fixed, missing, or expired finding fails closed.",
+    status: "approved",
+  });
   assert.equal(draft.findings.length, 35);
   const reports = {
     api: { ...report("api"), Results: [{ Target: "debian 12.15", Vulnerabilities: [] }] },
@@ -252,18 +259,15 @@ test("versioned draft exactly represents the retained release evidence", async (
       });
     }
   }
-  const approved = {
-    ...draft,
-    approval: {
-      ...draft.approval,
-      approvedAt: policy.approval.approvedAt,
-      approvedBy: policy.approval.approvedBy,
-      expiresAt: policy.approval.expiresAt,
-      status: "approved",
+  assert.deepEqual(
+    verifyTrivyPolicy({
+      now: new Date("2026-08-22T16:28:27.001Z"),
+      policy: draft,
+      reports,
+    }),
+    {
+      acceptedFindings: 65,
+      policyExpiresAt: draft.approval.expiresAt,
     },
-  };
-  assert.deepEqual(verifyTrivyPolicy({ now, policy: approved, reports }), {
-    acceptedFindings: 65,
-    policyExpiresAt: policy.approval.expiresAt,
-  });
+  );
 });
