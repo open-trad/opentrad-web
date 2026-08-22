@@ -41,6 +41,18 @@ test("release manifest schema is strict and content addressed", async () => {
   assert.throws(() => ReleaseManifestSchema.parse({ ...validManifest, unreviewed: true }));
 });
 
+test("attestation verification uses one compatible signer identity policy", async () => {
+  const verifier = await readFile(new URL("scripts/release/verify-manifest.mjs", root), "utf8");
+  const verifyAttestation = verifier.slice(
+    verifier.indexOf("async function verifyAttestation"),
+    verifier.indexOf("async function verifyWebArchive"),
+  );
+
+  assert.match(verifyAttestation, /"--cert-identity-regex",\s*RELEASE_CERT_IDENTITY/);
+  assert.match(verifyAttestation, /"--deny-self-hosted-runners"/);
+  assert.doesNotMatch(verifyAttestation, /--signer-workflow/);
+});
+
 test("fixture verification emits compose env only after all local digests pass", async () => {
   const fixture = await mkdtemp(join(tmpdir(), "opentrad-manifest-fixture-"));
   try {
