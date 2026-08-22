@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { normalizeTrivyReport } from "../../scripts/release/normalize-trivy-report.mjs";
 import { verifyTrivyPolicy } from "../../scripts/release/verify-trivy-policy.mjs";
 
 const root = new URL("../../", import.meta.url);
@@ -50,18 +51,37 @@ function report(image, overrides = {}) {
 const cleanClamav = Object.freeze({
   ArtifactName: `clamav/clamav@sha256:${"b".repeat(64)}`,
   ArtifactType: "container_image",
-  Results: [{ Target: "debian 13", Vulnerabilities: null }],
+  Results: [{ Class: "os-pkgs", Packages: [{}], Target: "debian 13", Type: "alpine" }],
   SchemaVersion: 2,
 });
 
+const normalizedCleanClamav = Object.freeze(normalizeTrivyReport(cleanClamav));
+
 const now = new Date("2026-08-22T16:00:00.000Z");
+
+test("Trivy normalizer makes native clean results explicit and rejects incomplete scans", () => {
+  assert.deepEqual(normalizedCleanClamav.Results[0].Vulnerabilities, []);
+  for (const input of [
+    { ...cleanClamav, Results: [] },
+    { ...cleanClamav, Results: [{}] },
+    { ...cleanClamav, Results: [{ ...cleanClamav.Results[0], Packages: [] }] },
+    {
+      ...cleanClamav,
+      Results: [{ ...cleanClamav.Results[0], Vulnerabilities: null }],
+    },
+  ]) {
+    assert.throws(() => normalizeTrivyReport(input), {
+      code: "PAUSE_RELEASE:TRIVY_REPORT_INVALID",
+    });
+  }
+});
 
 test("Trivy policy accepts only the exact approved residual set", () => {
   assert.deepEqual(
     verifyTrivyPolicy({
       now,
       policy,
-      reports: { api: report("api"), clamav: cleanClamav, worker: report("worker") },
+      reports: { api: report("api"), clamav: normalizedCleanClamav, worker: report("worker") },
     }),
     { acceptedFindings: 2, policyExpiresAt: policy.approval.expiresAt },
   );
@@ -73,7 +93,11 @@ test("Trivy policy rejects unapproved, expired, or overlong approvals", () => {
       verifyTrivyPolicy({
         now,
         policy: { ...policy, approval: { ...policy.approval, status: "proposed" } },
-        reports: { api: report("api"), clamav: cleanClamav, worker: report("worker") },
+        reports: {
+          api: report("api"),
+          clamav: normalizedCleanClamav,
+          worker: report("worker"),
+        },
       }),
     { code: "PAUSE_RELEASE:TRIVY_POLICY_UNAPPROVED" },
   );
@@ -82,7 +106,11 @@ test("Trivy policy rejects unapproved, expired, or overlong approvals", () => {
       verifyTrivyPolicy({
         now: new Date(policy.approval.expiresAt),
         policy,
-        reports: { api: report("api"), clamav: cleanClamav, worker: report("worker") },
+        reports: {
+          api: report("api"),
+          clamav: normalizedCleanClamav,
+          worker: report("worker"),
+        },
       }),
     { code: "PAUSE_RELEASE:TRIVY_POLICY_EXPIRED" },
   );
@@ -94,7 +122,11 @@ test("Trivy policy rejects unapproved, expired, or overlong approvals", () => {
           ...policy,
           approval: { ...policy.approval, expiresAt: "2026-09-06T15:30:00.001Z" },
         },
-        reports: { api: report("api"), clamav: cleanClamav, worker: report("worker") },
+        reports: {
+          api: report("api"),
+          clamav: normalizedCleanClamav,
+          worker: report("worker"),
+        },
       }),
     { code: "PAUSE_RELEASE:TRIVY_POLICY_WINDOW_INVALID" },
   );
@@ -106,7 +138,7 @@ test("Trivy policy rejects fixed, unlisted, changed, or missing findings", () =>
       code: "PAUSE_RELEASE:TRIVY_FIXED_VERSION_AVAILABLE",
       reports: {
         api: report("api", { FixedVersion: "1:1.2.13.dfsg-2" }),
-        clamav: cleanClamav,
+        clamav: normalizedCleanClamav,
         worker: report("worker"),
       },
     },
@@ -114,7 +146,7 @@ test("Trivy policy rejects fixed, unlisted, changed, or missing findings", () =>
       code: "PAUSE_RELEASE:TRIVY_FINDING_UNREVIEWED",
       reports: {
         api: report("api", { VulnerabilityID: "CVE-2099-0001" }),
-        clamav: cleanClamav,
+        clamav: normalizedCleanClamav,
         worker: report("worker"),
       },
     },
@@ -122,15 +154,18 @@ test("Trivy policy rejects fixed, unlisted, changed, or missing findings", () =>
       code: "PAUSE_RELEASE:TRIVY_FINDING_UNREVIEWED",
       reports: {
         api: report("api", { Status: "fix_deferred" }),
-        clamav: cleanClamav,
+        clamav: normalizedCleanClamav,
         worker: report("worker"),
       },
     },
     {
       code: "PAUSE_RELEASE:TRIVY_POLICY_STALE",
       reports: {
-        api: { ...report("api"), Results: [] },
-        clamav: cleanClamav,
+        api: {
+          ...report("api"),
+          Results: [{ Target: "debian 12.15", Vulnerabilities: [] }],
+        },
+        clamav: normalizedCleanClamav,
         worker: report("worker"),
       },
     },
@@ -147,21 +182,37 @@ test("Trivy policy rejects fixed, unlisted, changed, or missing findings", () =>
 });
 
 test("Trivy policy rejects malformed reports and duplicate policy entries", () => {
-  assert.throws(
-    () =>
-      verifyTrivyPolicy({
-        now,
-        policy,
-        reports: { api: { Results: [] }, clamav: cleanClamav, worker: report("worker") },
-      }),
-    { code: "PAUSE_RELEASE:TRIVY_REPORT_INVALID" },
-  );
+  const malformed = [
+    { ...report("api"), Results: [] },
+    {
+      ...report("api"),
+      Results: [{ Class: "os-pkgs", Packages: [{}], Target: "x", Type: "debian" }],
+    },
+    report("api", { Severity: undefined }),
+    report("api", { Severity: "UNKNOWN" }),
+    report("api", { FixedVersion: 7 }),
+  ];
+  for (const api of malformed) {
+    assert.throws(
+      () =>
+        verifyTrivyPolicy({
+          now,
+          policy,
+          reports: { api, clamav: normalizedCleanClamav, worker: report("worker") },
+        }),
+      { code: "PAUSE_RELEASE:TRIVY_REPORT_INVALID" },
+    );
+  }
   assert.throws(
     () =>
       verifyTrivyPolicy({
         now,
         policy: { ...policy, findings: [finding, finding] },
-        reports: { api: report("api"), clamav: cleanClamav, worker: report("worker") },
+        reports: {
+          api: report("api"),
+          clamav: normalizedCleanClamav,
+          worker: report("worker"),
+        },
       }),
     { code: "PAUSE_RELEASE:TRIVY_POLICY_DUPLICATE" },
   );
@@ -175,7 +226,7 @@ test("versioned draft exactly represents the retained release evidence", async (
   assert.equal(draft.findings.length, 35);
   const reports = {
     api: { ...report("api"), Results: [{ Target: "debian 12.15", Vulnerabilities: [] }] },
-    clamav: cleanClamav,
+    clamav: normalizedCleanClamav,
     worker: {
       ...report("worker"),
       Results: [{ Target: "debian 12.15", Vulnerabilities: [] }],
