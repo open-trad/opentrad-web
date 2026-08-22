@@ -54,6 +54,7 @@ interface IdempotencyRow {
 export interface JobRepositoryOptions {
   readonly idempotencySecret: string;
   readonly now?: () => number;
+  readonly requireOwnerExists?: boolean;
 }
 
 export interface ReserveAdmissionInput {
@@ -162,6 +163,7 @@ function jobSelect(): string {
 
 export class JobRepository {
   readonly #database: Database.Database;
+  readonly #requireOwnerExists: boolean;
   readonly #secret: string;
   readonly #now: () => number;
 
@@ -174,27 +176,32 @@ export class JobRepository {
     if (
       (prototype !== intrinsicObjectPrototype && prototype !== null) ||
       keys.length < 1 ||
-      keys.length > 2
+      keys.length > 3
     ) {
       throw new Error("JOB_REPOSITORY_INVALID");
     }
     for (const key of keys) {
-      if (key !== "idempotencySecret" && key !== "now") {
+      if (key !== "idempotencySecret" && key !== "now" && key !== "requireOwnerExists") {
         throw new Error("JOB_REPOSITORY_INVALID");
       }
     }
     const secretDescriptor = intrinsicReflectGetOwnPropertyDescriptor(options, "idempotencySecret");
     const nowDescriptor = intrinsicReflectGetOwnPropertyDescriptor(options, "now");
+    const ownerDescriptor = intrinsicReflectGetOwnPropertyDescriptor(options, "requireOwnerExists");
     if (
       !secretDescriptor ||
       !("value" in secretDescriptor) ||
       typeof secretDescriptor.value !== "string" ||
       (nowDescriptor !== undefined &&
-        (!("value" in nowDescriptor) || typeof nowDescriptor.value !== "function"))
+        (!("value" in nowDescriptor) || typeof nowDescriptor.value !== "function")) ||
+      (ownerDescriptor !== undefined &&
+        (!("value" in ownerDescriptor) || typeof ownerDescriptor.value !== "boolean"))
     ) {
       throw new Error("JOB_REPOSITORY_INVALID");
     }
     this.#database = database;
+    this.#requireOwnerExists =
+      ownerDescriptor !== undefined && "value" in ownerDescriptor && ownerDescriptor.value === true;
     this.#secret = secretDescriptor.value;
     const clock = nowDescriptor && "value" in nowDescriptor ? nowDescriptor.value : Date.now;
     this.#now = () => intrinsicReflectApply(clock as () => number, undefined, []);
@@ -209,6 +216,12 @@ export class JobRepository {
     const day = utcDay(now);
     this.#database.exec("BEGIN IMMEDIATE");
     try {
+      if (
+        this.#requireOwnerExists &&
+        this.#database.prepare("SELECT 1 FROM user WHERE id = ?").get(input.ownerId) === undefined
+      ) {
+        throw new JobAdmissionError("AUTH_REQUIRED");
+      }
       const existing = this.#database
         .prepare(
           "SELECT job_id, request_shape FROM idempotency WHERE owner_id = ? AND key_hmac = ?",
@@ -328,6 +341,32 @@ export class JobRepository {
         .run(ownerId, day);
       this.#database.exec("COMMIT");
       return true;
+    } catch (error) {
+      if (this.#database.inTransaction) this.#database.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
+  ownerJobIds(ownerId: string): readonly string[] {
+    const rows = this.#database
+      .prepare("SELECT id FROM jobs WHERE owner_id = ? ORDER BY created_at, id")
+      .all(ownerId) as Array<{ readonly id: string }>;
+    const ids: string[] = [];
+    for (let index = 0; index < rows.length; index += 1) {
+      const id = rows[index]?.id;
+      if (typeof id !== "string") throw new Error("JOB_REPOSITORY_STATE_INVALID");
+      intrinsicReflectApply(intrinsicArrayPush, ids, [id]);
+    }
+    return Object.freeze(ids);
+  }
+
+  deleteOwnerData(ownerId: string): void {
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      this.#database.prepare("DELETE FROM idempotency WHERE owner_id = ?").run(ownerId);
+      this.#database.prepare("DELETE FROM jobs WHERE owner_id = ?").run(ownerId);
+      this.#database.prepare("DELETE FROM daily_usage WHERE owner_id = ?").run(ownerId);
+      this.#database.exec("COMMIT");
     } catch (error) {
       if (this.#database.inTransaction) this.#database.exec("ROLLBACK");
       throw error;

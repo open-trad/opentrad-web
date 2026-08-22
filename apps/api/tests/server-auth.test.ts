@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -195,9 +195,9 @@ describe("real Better Auth username lifecycle", () => {
       .prepare(
         `INSERT INTO jobs
           (id, owner_id, operation, input_format, output_format, quality, status, input_bytes,
-           created_at, expires_at, queue_position, progress_phase, progress_completed, progress_total)
-         VALUES (?, ?, 'structured.convert', 'md', 'docx', 'B', 'queued', 64,
-           1, 2, 0, 'queued', 0, 1)`,
+           created_at, expires_at, result_media_type, result_bytes)
+         VALUES (?, ?, 'structured.convert', 'md', 'docx', 'B', 'succeeded', 64,
+           1, 2, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 3)`,
       )
       .run(jobId, userId);
     inspection
@@ -208,6 +208,9 @@ describe("real Better Auth username lifecycle", () => {
          VALUES (?, ?, 'structured.convert', 'md', 'docx', 64, ?, 2, '{}')`,
       )
       .run(userId, "a".repeat(43), jobId);
+    const resultDirectory = join(config.jobRoot, "done", jobId);
+    mkdirSync(resultDirectory, { mode: 0o700 });
+    writeFileSync(join(resultDirectory, "result.bin"), "PK\n", { mode: 0o600 });
 
     const deletion = await app.inject({
       method: "POST",
@@ -233,6 +236,7 @@ describe("real Better Auth username lifecycle", () => {
       idempotency: { count: 0 },
       jobs: { count: 0 },
     });
+    expect(existsSync(resultDirectory)).toBe(false);
 
     const ended = await app.inject({
       method: "GET",
