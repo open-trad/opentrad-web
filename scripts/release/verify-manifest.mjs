@@ -202,8 +202,6 @@ async function verifyAttestation(subject, repository) {
     repository,
     "--cert-identity-regex",
     RELEASE_CERT_IDENTITY,
-    "--signer-workflow",
-    "open-trad/opentrad-web/.github/workflows/release-images.yml",
     "--deny-self-hosted-runners",
   ]);
 }
