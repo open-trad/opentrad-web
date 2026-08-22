@@ -293,3 +293,12 @@ test("CI installs pnpm before setup-node enables the pnpm cache", async () => {
     assert.ok(pnpmSetup < nodeSetup, "pnpm must exist before setup-node resolves its cache path");
   }
 });
+
+test("release installs pnpm before setup-node enables the pnpm cache", async () => {
+  const workflow = await readFile(new URL(".github/workflows/release-images.yml", root), "utf8");
+  const pnpmSetup = workflow.indexOf("pnpm/action-setup@");
+  const nodeSetup = workflow.indexOf("actions/setup-node@");
+
+  assert.ok(pnpmSetup >= 0, "release must install pnpm explicitly");
+  assert.ok(pnpmSetup < nodeSetup, "pnpm must exist before setup-node resolves its cache path");
+});
