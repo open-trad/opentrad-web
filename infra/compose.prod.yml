@@ -75,6 +75,8 @@ services:
 
   clamav:
     image: ${OPENTRAD_CLAMAV_IMAGE:?OPENTRAD_CLAMAV_IMAGE is required}
+    user: "100:101"
+    entrypoint: [/init-unprivileged]
     read_only: true
     init: true
     cap_drop: [ALL]
@@ -87,8 +89,8 @@ services:
       - clam_db:/var/lib/clamav
       - ./docker/clamd.conf:/etc/clamav/clamd.conf:ro
     tmpfs:
-      - /run/clamav:rw,nodev,nosuid,noexec,size=16m
-      - /tmp:rw,nodev,nosuid,noexec,size=64m
+      - /tmp:rw,nodev,nosuid,noexec,size=64m,uid=100,gid=101,mode=1777
+      - /var/log/clamav:rw,nodev,nosuid,noexec,size=16m,uid=100,gid=101,mode=0755
     networks: [egress, scan]
     healthcheck:
       test: [CMD-SHELL, "clamdscan --ping 1"]

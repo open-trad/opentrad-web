@@ -86,6 +86,27 @@ test("API and worker use numeric identities and hard resource boundaries", () =>
   assert.equal(services.worker.network_mode, "none");
 });
 
+test("ClamAV uses the vendor unprivileged startup contract without Linux capabilities", () => {
+  const { services } = renderCompose();
+  const clamav = services.clamav;
+  assert.equal(clamav.user, "100:101");
+  assert.deepEqual(clamav.entrypoint, ["/init-unprivileged"]);
+  assert.equal(clamav.read_only, true);
+  assert.deepEqual(clamav.cap_drop, ["ALL"]);
+  assert.equal(clamav.cap_add, undefined);
+  assert.deepEqual(clamav.security_opt, ["no-new-privileges:true"]);
+  assert.deepEqual(
+    clamav.tmpfs.slice().sort(),
+    [
+      "/tmp:rw,nodev,nosuid,noexec,size=64m,uid=100,gid=101,mode=1777",
+      "/var/log/clamav:rw,nodev,nosuid,noexec,size=16m,uid=100,gid=101,mode=0755",
+    ].sort(),
+  );
+
+  const clamdConfig = readFileSync(join(root, "infra/docker/clamd.conf"), "utf8");
+  assert.match(clamdConfig, /^LocalSocket \/tmp\/clamd\.sock$/m);
+});
+
 test("jobs are shared only through a bounded noexec tmpfs volume", () => {
   const rendered = renderCompose();
   const options = rendered.volumes.job_ram.driver_opts;
