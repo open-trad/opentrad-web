@@ -10,9 +10,13 @@ const DIGEST = /^[a-f0-9]{64}$/;
 const API_IMAGE = /^ghcr\.io\/open-trad\/opentrad-api@sha256:[a-f0-9]{64}$/;
 const WORKER_IMAGE = /^ghcr\.io\/open-trad\/opentrad-worker@sha256:[a-f0-9]{64}$/;
 const CLAMAV_IMAGE = /^(?:docker\.io\/)?clamav\/clamav@sha256:[a-f0-9]{64}$/;
+const CLAMAV_SIGNATURE_POLICY = "upstream-unsigned-digest-pinned-trivy-gated";
+const RELEASE_CERT_IDENTITY =
+  "^https://github.com/open-trad/opentrad-web/.github/workflows/release-images.yml@refs/(heads/main|tags/v1\\.0\\.0)$";
 const KEYS = Object.freeze([
   "apiImage",
   "clamavImage",
+  "clamavSignaturePolicy",
   "createdAt",
   "evidenceSha256",
   "infraSha256",
@@ -38,7 +42,7 @@ export const ReleaseManifestSchema = Object.freeze({
     if (keys.length !== KEYS.length || keys.some((key, index) => key !== KEYS[index])) {
       throw manifestError("keys");
     }
-    if (input.schemaVersion !== 2) throw manifestError("schemaVersion");
+    if (input.schemaVersion !== 3) throw manifestError("schemaVersion");
     if (typeof input.sourceSha !== "string" || !SHA.test(input.sourceSha)) {
       throw manifestError("sourceSha");
     }
@@ -50,7 +54,15 @@ export const ReleaseManifestSchema = Object.freeze({
       throw manifestError("evidenceSha256");
     }
     const evidenceKeys = Object.keys(input.evidenceSha256).sort();
-    const expectedEvidenceKeys = ["apiSbom", "trivyApi", "trivyWorker", "webSbom", "workerSbom"];
+    const expectedEvidenceKeys = [
+      "apiSbom",
+      "clamavSbom",
+      "trivyApi",
+      "trivyClamav",
+      "trivyWorker",
+      "webSbom",
+      "workerSbom",
+    ];
     if (
       evidenceKeys.length !== expectedEvidenceKeys.length ||
       evidenceKeys.some((key, index) => key !== expectedEvidenceKeys[index])
@@ -79,6 +91,9 @@ export const ReleaseManifestSchema = Object.freeze({
     if (typeof input.clamavImage !== "string" || !CLAMAV_IMAGE.test(input.clamavImage)) {
       throw manifestError("clamavImage");
     }
+    if (input.clamavSignaturePolicy !== CLAMAV_SIGNATURE_POLICY) {
+      throw manifestError("clamavSignaturePolicy");
+    }
     if (
       typeof input.createdAt !== "string" ||
       !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(input.createdAt) ||
@@ -102,12 +117,14 @@ function parseArguments(argv) {
     else if (
       [
         "--api-sbom",
+        "--clamav-sbom",
         "--emit-compose-env",
         "--infra",
         "--manifest-bundle",
         "--release-scripts",
         "--repository",
         "--trivy-api",
+        "--trivy-clamav",
         "--trivy-worker",
         "--web",
         "--web-bundle",
@@ -122,10 +139,12 @@ function parseArguments(argv) {
         "--emit-compose-env": "composeEnvPath",
         "--infra": "infraPath",
         "--api-sbom": "apiSbomPath",
+        "--clamav-sbom": "clamavSbomPath",
         "--manifest-bundle": "manifestBundlePath",
         "--release-scripts": "releaseScriptsPath",
         "--repository": "repositoryPath",
         "--trivy-api": "trivyApiPath",
+        "--trivy-clamav": "trivyClamavPath",
         "--trivy-worker": "trivyWorkerPath",
         "--web": "webPath",
         "--web-bundle": "webBundlePath",
@@ -154,7 +173,7 @@ async function verifyCosign(image) {
   await execFileAsync("cosign", [
     "verify",
     "--certificate-identity-regexp",
-    "^https://github.com/open-trad/opentrad-web/.github/workflows/release-images.yml@refs/(tags|heads)/",
+    RELEASE_CERT_IDENTITY,
     "--certificate-oidc-issuer",
     "https://token.actions.githubusercontent.com",
     image,
@@ -167,7 +186,7 @@ async function verifyBlob(subject, bundle) {
     "--bundle",
     bundle,
     "--certificate-identity-regexp",
-    "^https://github.com/open-trad/opentrad-web/.github/workflows/release-images.yml@refs/(tags|heads)/",
+    RELEASE_CERT_IDENTITY,
     "--certificate-oidc-issuer",
     "https://token.actions.githubusercontent.com",
     subject,
@@ -182,7 +201,7 @@ async function verifyAttestation(subject, repository) {
     "--repo",
     repository,
     "--cert-identity-regex",
-    "^https://github.com/open-trad/opentrad-web/.github/workflows/release-images.yml@refs/(tags|heads)/",
+    RELEASE_CERT_IDENTITY,
     "--signer-workflow",
     "open-trad/opentrad-web/.github/workflows/release-images.yml",
     "--deny-self-hosted-runners",
@@ -233,7 +252,9 @@ export async function verifyManifest(options) {
     options.releaseScriptsPath ?? resolve(releaseRoot, "scripts", "release");
   const evidencePaths = {
     apiSbom: options.apiSbomPath ?? resolve(releaseRoot, "sbom-api.spdx.json"),
+    clamavSbom: options.clamavSbomPath ?? resolve(releaseRoot, "sbom-clamav.spdx.json"),
     trivyApi: options.trivyApiPath ?? resolve(releaseRoot, "trivy-api.json"),
+    trivyClamav: options.trivyClamavPath ?? resolve(releaseRoot, "trivy-clamav.json"),
     trivyWorker: options.trivyWorkerPath ?? resolve(releaseRoot, "trivy-worker.json"),
     webSbom: options.webSbomPath ?? resolve(releaseRoot, "sbom-web.spdx.json"),
     workerSbom: options.workerSbomPath ?? resolve(releaseRoot, "sbom-worker.spdx.json"),

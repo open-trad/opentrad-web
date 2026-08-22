@@ -21,7 +21,7 @@ async function fixture() {
   const releaseDirectory = path.join(root, "releases", releaseSha);
   const log = path.join(root, "commands.log");
   await mkdir(path.join(releaseDirectory, "infra"), { recursive: true });
-  await mkdir(path.join(releaseDirectory, "scripts/release"), { recursive: true });
+  await mkdir(path.join(libexec, "release"), { recursive: true });
   await mkdir(path.join(root, "baselines"), { recursive: true });
   await mkdir(binaryDirectory, { recursive: true });
   await mkdir(libexec, { recursive: true });
@@ -32,7 +32,7 @@ async function fixture() {
     'server { set $opentrad_release "REPLACE_WITH_EXACT_RELEASE_SHA"; }\n',
   );
   await writeFile(
-    path.join(releaseDirectory, "infra/nginx/security-headers.conf"),
+    path.join(releaseDirectory, "infra/nginx/opentrad-security-headers.conf"),
     "add_header X-Content-Type-Options nosniff always;\n",
   );
   await writeFile(path.join(releaseDirectory, "release-manifest.json"), "{}\n");
@@ -44,6 +44,8 @@ async function fixture() {
   "compose "*" config --quiet") ${logger.replace("$1", "compose-config")} ;;
   "compose "*" --dry-run up -d") ${logger.replace("$1", "compose-dry-run")} ;;
   "compose "*" pull") ${logger.replace("$1", "image-pull")} ;;
+  "volume create opentrad_auth_data") ${logger.replace("$1", "volume-create")} ;;
+  "run --rm --network none --user 0:0 --entrypoint /bin/sh --mount type=volume,src=opentrad_auth_data,dst=/var/lib/opentrad "*) ${logger.replace("$1", "volume-init")} ;;
   "volume inspect "*) exit 0 ;;
   "compose "*" run --rm --no-deps api "*" --dry-run") ${logger.replace("$1", "migration-dry-run")} ;;
   "compose "*" run --rm --no-deps api "*" --apply") ${logger.replace("$1", "migration-apply")} ;;
@@ -71,11 +73,11 @@ fi`,
   await executable(path.join(libexec, "run-canary.sh"), logger.replace("$1", "canary"));
   await executable(path.join(libexec, "cleanup-releases.sh"), logger.replace("$1", "cleanup"));
   await writeFile(
-    path.join(releaseDirectory, "scripts/release/verify-manifest.mjs"),
+    path.join(libexec, "release/verify-manifest.mjs"),
     `import { appendFileSync, writeFileSync } from "node:fs";
 appendFileSync(process.env.OPENTRAD_COMMAND_LOG, "manifest-verify\\n");
 const index = process.argv.indexOf("--emit-compose-env");
-if (index !== -1) writeFileSync(process.argv[index + 1], "API_IMAGE=x@sha256:a\\nWORKER_IMAGE=x@sha256:b\\n");
+if (index !== -1) writeFileSync(process.argv[index + 1], "OPENTRAD_API_IMAGE=ghcr.io/open-trad/opentrad-api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\nOPENTRAD_WORKER_IMAGE=ghcr.io/open-trad/opentrad-worker@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\\n");
 `,
   );
   await writeFile(
@@ -114,6 +116,8 @@ test("deploy follows the production operation order", async () => {
     "compose-config",
     "compose-dry-run",
     "image-pull",
+    "volume-create",
+    "volume-init",
     "migration-dry-run",
     "migration-apply",
     "compose-up",
@@ -130,7 +134,7 @@ test("deploy follows the production operation order", async () => {
   );
   assert.equal(
     JSON.parse(await readFile(path.join(context.root, "reports", `${releaseSha}.json`), "utf8"))
-      .accepted,
+      .deployed,
     true,
   );
 });
@@ -169,7 +173,7 @@ test("a failed canary prevents baseline comparison and cleanup", async () => {
   const report = JSON.parse(
     await readFile(path.join(context.root, "reports", `${releaseSha}.json`), "utf8"),
   );
-  assert.equal(report.accepted, false);
+  assert.equal(report.deployed, false);
   assert.equal(report.failedStage, "canary");
 });
 
@@ -184,4 +188,6 @@ test("rollback and cleanup implementations forbid volume deletion and implicit r
   );
   assert.doesNotMatch(rollback, /down\s+-v|volume\s+(?:rm|prune)|\.restore/u);
   assert.doesNotMatch(cleanup, /docker\s+(?:system|volume)\s+prune/u);
+  assert.match(cleanup, /trusted_verifier="\$libexec\/release\/verify-manifest\.mjs"/u);
+  assert.doesNotMatch(cleanup, /join\(directory, "scripts\/release\/verify-manifest\.mjs"\)/u);
 });

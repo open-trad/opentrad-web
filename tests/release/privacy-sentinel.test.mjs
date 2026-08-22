@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import test from "node:test";
 
 test("privacy sentinel detects text and binary leaks without disclosing marker values", async () => {
@@ -106,4 +107,51 @@ test("streaming scan detects a marker split across bounded chunks", async () => 
   } finally {
     await rm(fixture, { recursive: true, force: true });
   }
+});
+
+test("SQLite dump scanning is streaming and detects cross-chunk markers", async () => {
+  const marker = "PRIVATE-SQLITE-STREAM-0f835f64";
+  const { scanReadable } = await import(
+    new URL("../../scripts/release/privacy-sentinel.mjs", import.meta.url)
+  );
+  const findings = await scanReadable(
+    Readable.from([Buffer.from("prefix PRIVATE-SQLITE-"), Buffer.from("STREAM-0f835f64 suffix")]),
+    [{ id: "sqlite", value: marker }],
+    "database.sqlite",
+    "auth-dump",
+  );
+  assert.deepEqual(findings, [{ kind: "auth-dump", markerId: "sqlite", path: "database.sqlite" }]);
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../../scripts/release/privacy-sentinel.mjs", import.meta.url), "utf8"),
+  );
+  assert.doesNotMatch(source, /execFileAsync\("sqlite3", \[path, "\.dump"\]\)/);
+});
+
+test("formal acceptance report rejects any missing gate", async () => {
+  const { verifyAcceptanceReport, verifyDeploymentReport } = await import(
+    new URL("../../scripts/release/post-deploy-report.mjs", import.meta.url)
+  );
+  const sha = "a".repeat(40);
+  const valid = {
+    accepted: true,
+    createdAt: "2026-08-22T00:00:00.000Z",
+    gates: { baseline: true, canary: true, load: true, privacy: true },
+    schemaVersion: 1,
+    sourceSha: sha,
+  };
+  assert.equal(verifyAcceptanceReport(valid, sha).accepted, true);
+  assert.throws(() =>
+    verifyAcceptanceReport({ ...valid, gates: { ...valid.gates, load: false } }, sha),
+  );
+  const { createdAt: _createdAt, ...withoutTimestamp } = valid;
+  assert.throws(() => verifyAcceptanceReport(withoutTimestamp, sha));
+  const deployed = {
+    createdAt: "2026-08-22T00:00:00.000Z",
+    deployed: true,
+    failedStage: null,
+    schemaVersion: 1,
+    sourceSha: sha,
+  };
+  assert.equal(verifyDeploymentReport(deployed, sha).deployed, true);
+  assert.throws(() => verifyDeploymentReport({ ...deployed, accepted: true }, sha));
 });

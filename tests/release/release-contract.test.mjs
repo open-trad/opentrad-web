@@ -11,7 +11,7 @@ const root = new URL("../../", import.meta.url);
 const execFileAsync = promisify(execFile);
 
 const validManifest = Object.freeze({
-  schemaVersion: 2,
+  schemaVersion: 3,
   sourceSha: "a".repeat(40),
   webSha256: "b".repeat(64),
   infraSha256: "6".repeat(64),
@@ -19,9 +19,12 @@ const validManifest = Object.freeze({
   apiImage: `ghcr.io/open-trad/opentrad-api@sha256:${"c".repeat(64)}`,
   workerImage: `ghcr.io/open-trad/opentrad-worker@sha256:${"d".repeat(64)}`,
   clamavImage: `clamav/clamav@sha256:${"e".repeat(64)}`,
+  clamavSignaturePolicy: "upstream-unsigned-digest-pinned-trivy-gated",
   evidenceSha256: {
     apiSbom: "f".repeat(64),
+    clamavSbom: "8".repeat(64),
     trivyApi: "1".repeat(64),
+    trivyClamav: "9".repeat(64),
     trivyWorker: "2".repeat(64),
     webSbom: "3".repeat(64),
     workerSbom: "4".repeat(64),
@@ -46,7 +49,9 @@ test("fixture verification emits compose env only after all local digests pass",
     const releaseScripts = join(fixture, "scripts", "release");
     const evidence = {
       apiSbom: join(fixture, "sbom-api.spdx.json"),
+      clamavSbom: join(fixture, "sbom-clamav.spdx.json"),
       trivyApi: join(fixture, "trivy-api.json"),
+      trivyClamav: join(fixture, "trivy-clamav.json"),
       trivyWorker: join(fixture, "trivy-worker.json"),
       webSbom: join(fixture, "sbom-web.spdx.json"),
       workerSbom: join(fixture, "sbom-worker.spdx.json"),
@@ -85,8 +90,12 @@ test("fixture verification emits compose env only after all local digests pass",
       releaseScripts,
       "--api-sbom",
       evidence.apiSbom,
+      "--clamav-sbom",
+      evidence.clamavSbom,
       "--trivy-api",
       evidence.trivyApi,
+      "--trivy-clamav",
+      evidence.trivyClamav,
       "--trivy-worker",
       evidence.trivyWorker,
       "--web-sbom",
@@ -113,8 +122,12 @@ test("fixture verification emits compose env only after all local digests pass",
         releaseScripts,
         "--api-sbom",
         evidence.apiSbom,
+        "--clamav-sbom",
+        evidence.clamavSbom,
         "--trivy-api",
         evidence.trivyApi,
+        "--trivy-clamav",
+        evidence.trivyClamav,
         "--trivy-worker",
         evidence.trivyWorker,
         "--web-sbom",
@@ -141,8 +154,12 @@ test("fixture verification emits compose env only after all local digests pass",
         releaseScripts,
         "--api-sbom",
         evidence.apiSbom,
+        "--clamav-sbom",
+        evidence.clamavSbom,
         "--trivy-api",
         evidence.trivyApi,
+        "--trivy-clamav",
+        evidence.trivyClamav,
         "--trivy-worker",
         evidence.trivyWorker,
         "--web-sbom",
@@ -185,18 +202,33 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   assert.match(release, /release_sha/);
   assert.match(release, /REQUESTED_SHA.*GITHUB_SHA|GITHUB_SHA.*REQUESTED_SHA/s);
   assert.match(release, /merge-base --is-ancestor "\$REQUESTED_SHA" refs\/remotes\/origin\/main/);
+  assert.match(release, /refs\/heads\/main/);
+  assert.match(release, /trivy-clamav\.json/);
+  assert.match(release, /sbom-clamav\.spdx\.json/);
+  const apiBuild = release.slice(
+    release.indexOf("Build and push API by source SHA"),
+    release.indexOf("Build and push worker by source SHA"),
+  );
+  assert.match(apiBuild, /DEBIAN_IMAGE=\$\{\{ steps\.base-images\.outputs\.DEBIAN_IMAGE \}\}/);
+  assert.match(apiBuild, /NODE_IMAGE=\$\{\{ steps\.base-images\.outputs\.NODE_IMAGE \}\}/);
   assert.match(release, /jq -s/);
   assert.doesNotMatch(release, /\[inputs\.Results/);
   assert.match(release, /cosign/);
   assert.match(release, /attest/);
 
   const deploy = await readFile(new URL(".github/workflows/deploy-production.yml", root), "utf8");
+  assert.doesNotMatch(deploy, /id-token:\s*write/);
+  assert.match(deploy, /GITHUB_REF.*refs\/heads\/main|refs\/heads\/main.*GITHUB_REF/s);
+  assert.match(deploy, /merge-base --is-ancestor "\$RELEASE_SHA" refs\/remotes\/origin\/main/);
   assert.match(deploy, /environment:\s*\n\s+name:\s*production/);
   assert.match(deploy, /\^\[a-f0-9\]\{40\}\$/);
   assert.doesNotMatch(deploy, /git\s+checkout\s+(main|master)/);
   assert.match(deploy, /\.incoming-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}/);
-  assert.match(deploy, /test ! -e \\"\\\$\{final_dir\}\\"/);
-  assert.match(deploy, /mv -- \\"\\\$\{staging_dir\}\\" \\"\\\$\{final_dir\}\\"/);
+  assert.match(deploy, /seal-release\.sh/);
+  assert.match(deploy, /cleanup-incoming-release\.sh/);
+  assert.match(deploy, /run-acceptance\.sh/);
+  assert.match(deploy, /post-deploy-report\.mjs --verify-deployment/);
+  assert.match(deploy, /post-deploy-report\.mjs --verify/);
   assert.doesNotMatch(deploy, /continue-on-error:\s*true/);
   assert.doesNotMatch(deploy, /\|\|\s*true/);
   assert.match(deploy, /if-no-files-found:\s*error/);
@@ -225,6 +257,7 @@ test("operator runbooks contain exact gates and decision points", async () => {
     "branch protection",
     "install-host-tools.sh infra/deploy/host-tools.lock",
     "/opt/opentrad/secrets",
+    "four required files",
     "opentrad-api-1",
     "opentrad-worker-1",
     "--target https://opentrad.dynv6.net --profile-fd 3",

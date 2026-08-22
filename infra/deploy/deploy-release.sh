@@ -31,17 +31,17 @@ fi
 release_dir="$opentrad_root/releases/$release_sha"
 test -d "$release_dir" || pause ARTIFACT_MISSING
 manifest="$release_dir/release-manifest.json"
-verifier="$release_dir/scripts/release/verify-manifest.mjs"
+verifier="$libexec/release/verify-manifest.mjs"
 test -f "$manifest" && test -f "$verifier" || pause MANIFEST_MISSING
 test -f "$release_dir/infra/nginx/opentrad.conf" \
-  && test -f "$release_dir/infra/nginx/security-headers.conf" || pause NGINX_ARTIFACT_MISSING
+  && test -f "$release_dir/infra/nginx/opentrad-security-headers.conf" || pause NGINX_ARTIFACT_MISSING
 
 release_env="/run/opentrad-release-$release_sha.env"
 if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
   release_env="$opentrad_root/release-$release_sha.env"
 fi
 deploy_stage=external-gates
-deploy_accepted=false
+deploy_completed=false
 report_directory="$opentrad_root/reports"
 if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
   install -d -m 0750 "$report_directory"
@@ -49,13 +49,13 @@ else
   install -d -o root -g opentrad-deploy -m 0750 "$report_directory"
 fi
 write_deploy_report() {
-  REPORT_ACCEPTED="$deploy_accepted" REPORT_FILE="$report_directory/$release_sha.json" \
+  REPORT_DEPLOYED="$deploy_completed" REPORT_FILE="$report_directory/$release_sha.json" \
     REPORT_SHA="$release_sha" REPORT_STAGE="$deploy_stage" node --input-type=module - <<'NODE'
 import { chmodSync, renameSync, writeFileSync } from "node:fs";
 const report = {
-  accepted: process.env.REPORT_ACCEPTED === "true",
   createdAt: new Date().toISOString(),
-  failedStage: process.env.REPORT_ACCEPTED === "true" ? null : process.env.REPORT_STAGE,
+  deployed: process.env.REPORT_DEPLOYED === "true",
+  failedStage: process.env.REPORT_DEPLOYED === "true" ? null : process.env.REPORT_STAGE,
   schemaVersion: 1,
   sourceSha: process.env.REPORT_SHA,
 };
@@ -103,6 +103,15 @@ compose --dry-run up -d
 deploy_stage=image-pull
 compose pull
 
+deploy_stage=auth-volume-init
+api_image="$(sed -n 's/^OPENTRAD_API_IMAGE=//p' "$release_env")"
+printf '%s' "$api_image" | grep -Eq '^[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$' || \
+  pause API_IMAGE_INVALID
+docker volume create opentrad_auth_data >/dev/null
+docker run --rm --network none --user 0:0 --entrypoint /bin/sh \
+  --mount type=volume,src=opentrad_auth_data,dst=/var/lib/opentrad \
+  "$api_image" -c 'install -d -o 10001 -g 10100 -m 0700 /var/lib/opentrad'
+
 database_volume=$(docker volume inspect opentrad_auth_data --format '{{.Mountpoint}}' 2>/dev/null || true)
 if test -n "$database_volume" && test -f "$database_volume/opentrad.sqlite"; then
   deploy_stage=database-backup
@@ -114,10 +123,10 @@ if test -n "$database_volume" && test -f "$database_volume/opentrad.sqlite"; the
 fi
 
 deploy_stage=migration-dry-run
-compose run --rm --no-deps api node apps/api/dist/db/migrate.js \
+compose run --rm --no-deps api node /app/dist/db/migrate.js \
   --database /var/lib/opentrad/opentrad.sqlite --dry-run
 deploy_stage=migration-apply
-compose run --rm --no-deps api node apps/api/dist/db/migrate.js \
+compose run --rm --no-deps api node /app/dist/db/migrate.js \
   --database /var/lib/opentrad/opentrad.sqlite --apply
 
 deploy_stage=compose-up
@@ -138,7 +147,7 @@ grep -Fq "$release_sha" "$rendered_nginx" || pause NGINX_RENDER_FAILED
 for target_directory in sites-available sites-enabled snippets; do
   install_root_directory 0755 "$nginx_root/$target_directory"
 done
-install_root_file 0644 "$release_dir/infra/nginx/security-headers.conf" \
+install_root_file 0644 "$release_dir/infra/nginx/opentrad-security-headers.conf" \
   "$nginx_root/snippets/opentrad-security-headers.conf"
 install_root_file 0644 "$rendered_nginx" "$nginx_root/sites-available/opentrad.conf"
 ln -sfn "$nginx_root/sites-available/opentrad.conf" \
@@ -158,6 +167,6 @@ node "$libexec/compare-baseline.mjs" \
 deploy_stage=cleanup
 "$libexec/cleanup-releases.sh" "$release_sha"
 
-deploy_stage=accepted
-deploy_accepted=true
-printf '%s\n' "RELEASE_OK:$release_sha"
+deploy_stage=deployed
+deploy_completed=true
+printf '%s\n' "DEPLOY_OK:$release_sha"

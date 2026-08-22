@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -373,6 +373,58 @@ describe("minimal deterministic HTTP behavior", () => {
     expect(get.body).not.toContain("sqlite");
     expect(head.statusCode).toBe(200);
     expect(head.body).toBe("");
+  });
+
+  it("fails readiness closed when the expected persistent schema is missing", async () => {
+    const { app, config } = await appForTest();
+    const database = new Database(config.databasePath);
+    database.exec("DROP TABLE schema_migrations");
+    database.close();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health/ready",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ status: "unavailable" });
+  });
+
+  it("fails readiness closed when the persistent SQLite path becomes unavailable", async () => {
+    const { app, config } = await appForTest();
+    renameSync(config.databasePath, `${config.databasePath}.unavailable`);
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/health/ready",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ status: "unavailable" });
+  });
+
+  it("fails readiness closed when persistent SQLite loses write permission", async () => {
+    const { app, config } = await appForTest();
+    const persistentFiles = [
+      config.databasePath,
+      `${config.databasePath}-wal`,
+      `${config.databasePath}-shm`,
+    ].filter(existsSync);
+    for (const file of persistentFiles) chmodSync(file, 0o400);
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/health/ready",
+        headers: { host: "opentrad.example" },
+      });
+
+      expect(response.statusCode).toBe(503);
+      expect(response.json()).toEqual({ status: "unavailable" });
+    } finally {
+      for (const file of persistentFiles) chmodSync(file, 0o600);
+    }
   });
 
   it("accepts only same-origin preflight for known routes and sends no CORS grant", async () => {

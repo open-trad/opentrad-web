@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -46,22 +46,12 @@ async function regularFiles(root) {
   return files;
 }
 
-function scanBytes(bytes, markers, root, file, kind) {
-  const findings = [];
-  for (const marker of markers) {
-    if (bytes.includes(Buffer.from(marker.value))) {
-      findings.push({ kind, markerId: marker.id, path: sanitizeRelative(file, root) });
-    }
-  }
-  return findings;
-}
-
-export async function scanFile(file, markers, root, kind) {
+export async function scanReadable(readable, markers, path, kind) {
   const encoded = markers.map((marker) => ({ ...marker, bytes: Buffer.from(marker.value) }));
   const overlap = Math.max(...encoded.map((marker) => marker.bytes.length), 1) - 1;
   const matched = new Set();
   let tail = Buffer.alloc(0);
-  for await (const chunk of createReadStream(file, { highWaterMark: 64 * 1024 })) {
+  for await (const chunk of readable) {
     const window = tail.length === 0 ? chunk : Buffer.concat([tail, chunk]);
     for (const marker of encoded) {
       if (!matched.has(marker.id) && window.includes(marker.bytes)) matched.add(marker.id);
@@ -70,15 +60,45 @@ export async function scanFile(file, markers, root, kind) {
   }
   return encoded
     .filter((marker) => matched.has(marker.id))
-    .map((marker) => ({ kind, markerId: marker.id, path: sanitizeRelative(file, root) }));
+    .map((marker) => ({ kind, markerId: marker.id, path }));
 }
 
-async function sqliteDump(path) {
+export async function scanFile(file, markers, root, kind) {
+  return scanReadable(
+    createReadStream(file, { highWaterMark: 64 * 1024 }),
+    markers,
+    sanitizeRelative(file, root),
+    kind,
+  );
+}
+
+async function scanSqliteDump(path, markers, root, kind) {
   const integrity = await execFileAsync("sqlite3", [path, "PRAGMA integrity_check;"]);
   if (integrity.stdout.trim() !== "ok") {
     throw new InspectionError("PAUSE_PRIVACY:SQLITE_INTEGRITY_FAILED");
   }
-  return Buffer.from((await execFileAsync("sqlite3", [path, ".dump"])).stdout);
+  const child = spawn("sqlite3", [path, ".dump"], {
+    killSignal: "SIGKILL",
+    stdio: ["ignore", "pipe", "ignore"],
+    timeout: 120_000,
+  });
+  const completion = new Promise((resolveCompletion, rejectCompletion) => {
+    child.once("error", rejectCompletion);
+    child.once("close", (code) => {
+      if (code === 0) resolveCompletion();
+      else rejectCompletion(new Error("sqlite dump failed"));
+    });
+  });
+  try {
+    const [findings] = await Promise.all([
+      scanReadable(child.stdout, markers, sanitizeRelative(path, root), `${kind}-sqlite-dump`),
+      completion,
+    ]);
+    return findings;
+  } catch (error) {
+    child.kill("SIGKILL");
+    throw error;
+  }
 }
 
 function validateMarkers(markers) {
@@ -159,15 +179,7 @@ export async function inspectPrivacy({ roots, markers, allowlistedRoots = PRODUC
       }
       if (/\.(?:sqlite|sqlite3|db)$/i.test(file)) {
         try {
-          findings.push(
-            ...scanBytes(
-              await sqliteDump(file),
-              checkedMarkers,
-              canonicalRoot,
-              file,
-              `${root.kind}-sqlite-dump`,
-            ),
-          );
+          findings.push(...(await scanSqliteDump(file, checkedMarkers, canonicalRoot, root.kind)));
         } catch (error) {
           if (error instanceof InspectionError) throw error;
           throw new InspectionError("PAUSE_PRIVACY:SQLITE_UNINSPECTABLE");

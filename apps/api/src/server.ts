@@ -1,7 +1,10 @@
+import { accessSync, constants as fsConstants } from "node:fs";
 import { BlockList } from "node:net";
+import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
+import Database from "better-sqlite3";
 import fastify, {
   type FastifyInstance,
   type FastifyRequest,
@@ -12,6 +15,7 @@ import { createAuth } from "./auth/auth.js";
 import { type AuthHandlerRuntime, mountAuthHandler } from "./auth/fastifyHandler.js";
 import type { SessionAuthRuntime } from "./auth/sessionGuard.js";
 import { type ApiConfig, assertApiConfig, canonicalizeIpAddress, loadConfig } from "./config.js";
+import { MIGRATION_IDS } from "./db/migrate.js";
 import { ClamdClient } from "./jobs/clamdClient.js";
 import { type JobCleanupController, startJobCleanup } from "./jobs/jobCleanup.js";
 import { JobFiles } from "./jobs/jobFiles.js";
@@ -42,6 +46,59 @@ const intrinsicStringSlice = String.prototype.slice;
 const intrinsicStringStartsWith = String.prototype.startsWith;
 const intrinsicReflectApply = Reflect.apply;
 const IntrinsicBlockList = BlockList;
+const READINESS_TABLES = Object.freeze([
+  "account",
+  "daily_usage",
+  "idempotency",
+  "jobs",
+  "schema_migrations",
+  "session",
+  "user",
+  "verification",
+] as const);
+
+function persistentDatabaseReady(databasePath: string): boolean {
+  let database: Database.Database | undefined;
+  try {
+    accessSync(databasePath, fsConstants.R_OK | fsConstants.W_OK);
+    accessSync(dirname(databasePath), fsConstants.R_OK | fsConstants.W_OK | fsConstants.X_OK);
+    database = new Database(databasePath, { fileMustExist: true });
+    const migrations = database
+      .prepare("SELECT id FROM schema_migrations ORDER BY rowid")
+      .all() as Array<{ readonly id?: unknown }>;
+    if (migrations.length !== MIGRATION_IDS.length) return false;
+    for (let index = 0; index < MIGRATION_IDS.length; index += 1) {
+      if (migrations[index]?.id !== MIGRATION_IDS[index]) return false;
+    }
+
+    const tables = database
+      .prepare("SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name")
+      .all() as Array<{ readonly name?: unknown }>;
+    const present = new Set(tables.map((row) => row.name));
+    for (let index = 0; index < READINESS_TABLES.length; index += 1) {
+      if (!present.has(READINESS_TABLES[index])) return false;
+    }
+
+    database.exec("BEGIN IMMEDIATE");
+    database.exec("ROLLBACK");
+    return true;
+  } catch {
+    if (database?.inTransaction) {
+      try {
+        database.exec("ROLLBACK");
+      } catch {
+        // The readiness result remains fail-closed when rollback also fails.
+      }
+    }
+    return false;
+  } finally {
+    try {
+      database?.close();
+    } catch {
+      // Closing a failed probe must not turn a 503 into an exception response.
+    }
+  }
+}
 
 export interface ServerAuthRuntime extends AuthHandlerRuntime {
   readonly api: RegistrationAuthRuntime["api"] & SessionAuthRuntime["api"];
@@ -350,16 +407,7 @@ export async function buildServer(
     const database = auth.options?.database;
     const readinessProbe =
       database && "prepare" in database
-        ? () => {
-            try {
-              const result = (database as { prepare(sql: string): { get(): unknown } })
-                .prepare("SELECT 1 AS ready")
-                .get() as { ready?: unknown } | undefined;
-              return result?.ready === 1;
-            } catch {
-              return false;
-            }
-          }
+        ? () => persistentDatabaseReady(config.databasePath)
         : () => false;
     const currentGid = typeof process.getgid === "function" ? process.getgid() : 0;
     const currentGroups = typeof process.getgroups === "function" ? process.getgroups() : [];

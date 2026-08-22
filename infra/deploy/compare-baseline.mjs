@@ -119,7 +119,7 @@ function main(argv) {
   const differences = compareExisting(loadSnapshot(argv[0]), loadSnapshot(argv[1]));
   const serialized = `${JSON.stringify(differences)}\n`;
   if (argv[2]) {
-    const match = /(?:^|\/)diff-([a-f0-9]{40})\.json$/u.exec(argv[2]);
+    const match = /(?:^|\/)(?:rollback-)?diff-([a-f0-9]{40})\.json$/u.exec(argv[2]);
     if (!match) throw new Error("BASELINE_DIFF_PATH_INVALID");
     const temporary = `${argv[2]}.tmp-${process.pid}`;
     writeFileSync(temporary, serialized, { mode: 0o600 });

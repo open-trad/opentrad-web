@@ -4,7 +4,7 @@ set -eu
 phase=${1:-}
 release_sha=${2:-}
 case "$phase" in
-  before | after)
+  before | after | rollback-before | rollback-after)
     printf '%s' "$release_sha" | grep -Eq '^[a-f0-9]{40}$' || {
       printf '%s\n' "PAUSE_BASELINE:INVALID_SHA" >&2
       exit 78
@@ -33,7 +33,7 @@ if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
   install -d -m 0750 "$baseline_root"
 elif test "$(id -u)" -eq 0; then
   baseline_root=/opt/opentrad/baselines
-  install -d -o opentrad-deploy -g opentrad-deploy -m 0750 "$baseline_root"
+  install -d -o root -g opentrad-deploy -m 0750 "$baseline_root"
 else
   printf '%s\n' "PAUSE_BASELINE:ROOT_REQUIRED" >&2
   exit 78
@@ -57,6 +57,7 @@ ss -lntp >"$capture_root/listeners.txt"
 docker stats --no-stream --format '{{json .}}' >"$capture_root/stats.jsonl"
 df -Pk / /opt/opentrad >"$capture_root/disk.txt"
 free -b >"$capture_root/memory.txt"
+"$(dirname "$0")/capture-latency.mjs" >"$capture_root/latency.json"
 
 CAPTURE_PHASE="$phase" CAPTURE_ROOT="$capture_root" CAPTURE_OUTPUT="$baseline_root/$baseline_name" node --input-type=module - <<'NODE'
 import { chmodSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -72,14 +73,15 @@ const jsonLines = (name) =>
     .filter(Boolean)
     .map((line) => JSON.parse(line));
 const existingProjects = new Set(["openvac-production", "paperbanana-hk", "tensor-auto"]);
+const includesOpenTrad = phase === "after" || phase === "rollback-after" || phase === "acceptance";
 const inspected = JSON.parse(read("inspect.json"));
 const containers = {};
 for (const value of inspected) {
   const project = value?.Config?.Labels?.["com.docker.compose.project"];
   const name = String(value.Name ?? "").replace(/^\//u, "");
   const openTrad = project === "opentrad" && name.startsWith("opentrad-");
-  if (!existingProjects.has(project) && !(phase === "after" && openTrad)) continue;
-  if (!name || (phase !== "after" && openTrad)) continue;
+  if (!existingProjects.has(project) && !(includesOpenTrad && openTrad)) continue;
+  if (!name || (!includesOpenTrad && openTrad)) continue;
   const publishedPorts = [];
   for (const [target, bindings] of Object.entries(value?.NetworkSettings?.Ports ?? {})) {
     if (!Array.isArray(bindings)) continue;
@@ -110,7 +112,7 @@ const networks = jsonLines("networks.jsonl")
   .map((entry) => entry.Name)
   .filter(
     (name) =>
-      typeof name === "string" && (phase === "after" || !name.startsWith("opentrad_")),
+      typeof name === "string" && (includesOpenTrad || !name.startsWith("opentrad_")),
   )
   .sort();
 const composeProjects = JSON.parse(read("compose.json"))
@@ -131,7 +133,7 @@ const snapshot = {
   composeProjects,
   containers: sortedContainers,
   disk: read("disk.txt").trim().split("\n"),
-  latencyP95: {},
+  latencyP95: JSON.parse(read("latency.json")),
   listeners,
   memory: read("memory.txt").trim().split("\n"),
   networks,

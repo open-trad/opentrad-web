@@ -39,7 +39,8 @@ test "$dns_ip" = "$public_ip" || pause "PAUSE_DNS:OPENTRAD_RECORD_NOT_READY"
 for secret_name in better_auth_secret github_client_id github_client_secret; do
   secret_file="$runtime_root/secrets/$secret_name"
   test -s "$secret_file" || pause "PAUSE_OAUTH:GITHUB_APP_NOT_CONFIGURED"
-  test "$(stat -c '%a' "$secret_file")" = 400 || pause "PAUSE_SECRETS:UNSAFE_MODE"
+  test "$(stat -c '%a' "$secret_file")" = 440 || pause "PAUSE_SECRETS:UNSAFE_MODE"
+  test "$(stat -c '%g' "$secret_file")" = 10100 || pause "PAUSE_SECRETS:UNSAFE_GROUP"
 done
 acme_file="$runtime_root/secrets/acme_email"
 test -s "$acme_file" || pause "PAUSE_TLS:ACME_EMAIL_NOT_CONFIGURED"
@@ -50,6 +51,14 @@ case "$available_kib" in
   '' | *[!0-9]*) pause "PAUSE_HOST:INSUFFICIENT_DISK" ;;
 esac
 test "$available_kib" -ge 12582912 || pause "PAUSE_HOST:INSUFFICIENT_DISK"
+
+meminfo=/proc/meminfo
+if test "${OPENTRAD_TEST_MODE:-0}" = 1; then meminfo="$runtime_root/meminfo"; fi
+available_memory_kib="$(awk '/^MemAvailable:/ { print $2; exit }' "$meminfo" 2>/dev/null || true)"
+case "$available_memory_kib" in
+  '' | *[!0-9]*) pause "PAUSE_HOST:INSUFFICIENT_MEMORY" ;;
+esac
+test "$available_memory_kib" -ge 10485760 || pause "PAUSE_HOST:INSUFFICIENT_MEMORY"
 
 docker_version="$(docker version --format '{{.Server.Version}}')" ||
   pause "PAUSE_HOST:RUNTIME_VERSION"

@@ -12,13 +12,17 @@ function executable(path, body) {
   writeFileSync(path, `#!/bin/sh\nset -eu\n${body}\n`, { mode: 0o755 });
 }
 
-function fixture() {
+function fixture(overrides = {}) {
   const root = mkdtempSync(join(tmpdir(), "opentrad-external-gates-"));
   const binaryRoot = join(root, "bin");
   const runtimeRoot = join(root, "opentrad");
   const secrets = join(runtimeRoot, "secrets");
   mkdirSync(binaryRoot, { recursive: true });
   mkdirSync(secrets, { recursive: true });
+  writeFileSync(
+    join(runtimeRoot, "meminfo"),
+    `MemAvailable: ${overrides.FAKE_AVAILABLE_MEMORY_KIB ?? "12000000"} kB\n`,
+  );
   for (const name of [
     "better_auth_secret",
     "github_client_id",
@@ -38,7 +42,15 @@ esac`,
   executable(
     join(binaryRoot, "stat"),
     `test "$1" = "-c"
-printf '%s\n' "\${FAKE_SECRET_MODE:-400}"`,
+case "$2" in
+  %a)
+    case "$3" in
+      */acme_email) printf '%s\n' "\${FAKE_SECRET_MODE:-400}" ;;
+      *) printf '%s\n' "\${FAKE_SECRET_MODE:-440}" ;;
+    esac ;;
+  %g) printf '%s\n' "\${FAKE_SECRET_GID:-10100}" ;;
+  *) exit 1 ;;
+esac`,
   );
   executable(
     join(binaryRoot, "df"),
@@ -75,7 +87,7 @@ fi`,
 }
 
 function run(overrides = {}, removeSecret) {
-  const current = fixture();
+  const current = fixture(overrides);
   if (removeSecret) rmSync(join(current.runtimeRoot, "secrets", removeSecret));
   const result = spawnSync("/bin/sh", [gateScript], {
     cwd: repositoryRoot,
@@ -97,7 +109,9 @@ test("external gates fail closed with stable codes and no secret output", () => 
     [{ FAKE_DNS_IP: "203.0.113.11" }, undefined, "PAUSE_DNS:OPENTRAD_RECORD_NOT_READY"],
     [{}, "github_client_id", "PAUSE_OAUTH:GITHUB_APP_NOT_CONFIGURED"],
     [{ FAKE_SECRET_MODE: "644" }, undefined, "PAUSE_SECRETS:UNSAFE_MODE"],
+    [{ FAKE_SECRET_GID: "100" }, undefined, "PAUSE_SECRETS:UNSAFE_GROUP"],
     [{ FAKE_AVAILABLE_KIB: "100" }, undefined, "PAUSE_HOST:INSUFFICIENT_DISK"],
+    [{ FAKE_AVAILABLE_MEMORY_KIB: "100" }, undefined, "PAUSE_HOST:INSUFFICIENT_MEMORY"],
     [{ FAKE_DOCKER_VERSION: "28.9.0" }, undefined, "PAUSE_HOST:RUNTIME_VERSION"],
     [{ FAKE_COMPOSE_VERSION: "5.2.9" }, undefined, "PAUSE_HOST:RUNTIME_VERSION"],
     [{ FAKE_NODE_VERSION: "v22.0.0" }, undefined, "PAUSE_HOST:TOOL_VERSION"],

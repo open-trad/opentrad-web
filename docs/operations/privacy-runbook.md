@@ -1,6 +1,6 @@
 # OpenTrad privacy incident runbook
 
-The sentinel searches for operator-generated marker IDs across OpenTrad logs, SQLite main/WAL/SHM and controlled dump, release evidence, backups, job tmpfs, Nginx logs, and relevant host journal exports. It reports only artifact kind, sanitized relative path, and marker ID. It must never print matched bytes.
+The sentinel searches for operator-generated marker IDs across OpenTrad logs, SQLite main/WAL/SHM and a timeout-bounded streaming dump, release evidence, backups, job tmpfs, Nginx logs, and relevant host journal exports. It reports only artifact kind, sanitized relative path, and marker ID. It must never print matched bytes or buffer a complete SQLite dump in memory.
 
 ## Freeze
 

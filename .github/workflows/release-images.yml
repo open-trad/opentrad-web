@@ -9,7 +9,7 @@ on:
         type: string
   push:
     tags:
-      - "v[0-9]*.[0-9]*.[0-9]*"
+      - "v1.0.0"
 
 permissions:
   contents: read
@@ -35,8 +35,12 @@ jobs:
         env:
           REQUESTED_SHA: ${{ inputs.release_sha || github.sha }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = push ] && ! printf '%s' "$GITHUB_REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" != refs/tags/v1.0.0 ]; then
             echo 'PAUSE_RELEASE:INVALID_TAG' >&2
+            exit 78
+          fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo 'PAUSE_RELEASE:DISPATCH_MUST_RUN_ON_MAIN' >&2
             exit 78
           fi
           if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
@@ -110,7 +114,9 @@ jobs:
           file: infra/docker/api.Dockerfile
           push: true
           tags: ${{ env.API_REPOSITORY }}:${{ steps.target.outputs.sha }}
-          build-args: NODE_IMAGE=${{ steps.base-images.outputs.NODE_IMAGE }}
+          build-args: |
+            DEBIAN_IMAGE=${{ steps.base-images.outputs.DEBIAN_IMAGE }}
+            NODE_IMAGE=${{ steps.base-images.outputs.NODE_IMAGE }}
       - name: Build and push worker by source SHA
         id: worker
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
@@ -142,10 +148,20 @@ jobs:
           ignore-unfixed: false
           exit-code: "0"
           version: v0.74.0
+      - name: Scan digest-pinned ClamAV runtime image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ steps.base-images.outputs.CLAMAV_IMAGE }}
+          format: json
+          output: trivy-clamav.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: "0"
+          version: v0.74.0
       - name: Fail on high or critical findings
         run: >-
           jq -s -e '[.[].Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'
-          trivy-api.json trivy-worker.json
+          trivy-api.json trivy-worker.json trivy-clamav.json
       - name: Create web SPDX SBOM
         uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
         with:
@@ -168,6 +184,14 @@ jobs:
           image: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
           artifact-name: sbom-worker.spdx.json
           output-file: sbom-worker.spdx.json
+          format: spdx-json
+          upload-artifact: false
+      - name: Create digest-pinned ClamAV SPDX SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
+        with:
+          image: ${{ steps.base-images.outputs.CLAMAV_IMAGE }}
+          artifact-name: sbom-clamav.spdx.json
+          output-file: sbom-clamav.spdx.json
           format: spdx-json
           upload-artifact: false
       - uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62
@@ -199,8 +223,10 @@ jobs:
             --release-scripts release-bundle/scripts/release \
             --web-sbom release-bundle/sbom-web.spdx.json \
             --api-sbom release-bundle/sbom-api.spdx.json \
+            --clamav-sbom release-bundle/sbom-clamav.spdx.json \
             --worker-sbom release-bundle/sbom-worker.spdx.json \
             --trivy-api release-bundle/trivy-api.json \
+            --trivy-clamav release-bundle/trivy-clamav.json \
             --trivy-worker release-bundle/trivy-worker.json \
             --api-image "$API_IMAGE" \
             --worker-image "$WORKER_IMAGE" \

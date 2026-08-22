@@ -41,8 +41,17 @@ write_secret() {
   }
   secret_temp="$(mktemp "$secrets_dir/.${target_name}.XXXXXX")"
   printf '%s' "$target_value" >"$secret_temp"
-  chown root:root "$secret_temp"
-  chmod 0400 "$secret_temp"
+  if test "$target_name" = acme_email; then
+    chown root:root "$secret_temp"
+    chmod 0400 "$secret_temp"
+  else
+    getent group opentrad-runtime >/dev/null 2>&1 || {
+      printf '%s\n' "PAUSE_SECRETS:RUNTIME_GROUP_MISSING" >&2
+      exit 78
+    }
+    chown root:opentrad-runtime "$secret_temp"
+    chmod 0440 "$secret_temp"
+  fi
   mv -f "$secret_temp" "$secrets_dir/$target_name"
   printf '%s\n' "INSTALLED_SECRET:$target_name"
 }

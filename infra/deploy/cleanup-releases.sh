@@ -9,10 +9,12 @@ pause() {
 release_sha=${1:-}
 printf '%s' "$release_sha" | grep -Eq '^[a-f0-9]{40}$' || pause INVALID_SHA
 if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
-  test -n "${OPENTRAD_ROOT:-}" || pause TEST_ROOT_MISSING
+  test -n "${OPENTRAD_ROOT:-}" && test -n "${OPENTRAD_LIBEXEC:-}" || pause TEST_ROOT_MISSING
   opentrad_root=$OPENTRAD_ROOT
+  libexec=$OPENTRAD_LIBEXEC
 elif test "$(id -u)" -eq 0; then
   opentrad_root=/opt/opentrad
+  libexec=/usr/local/libexec/opentrad
 else
   pause ROOT_REQUIRED
 fi
@@ -28,12 +30,15 @@ case "$current" in
 esac
 test "$(basename "$current")" = "$release_sha" || pause CURRENT_SHA_MISMATCH
 
-node - "$releases_root" "$current" <<'NODE'
+trusted_verifier="$libexec/release/verify-manifest.mjs"
+test -f "$trusted_verifier" || pause VERIFIER_MISSING
+node - "$releases_root" "$current" "$trusted_verifier" <<'NODE'
 const { readdirSync, rmSync, statSync } = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const { join, resolve } = require("node:path");
 const root = resolve(process.argv[2]);
 const current = resolve(process.argv[3]);
+const verifier = resolve(process.argv[4]);
 const sha = /^[a-f0-9]{40}$/u;
 const candidates = readdirSync(root, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && sha.test(entry.name))
@@ -45,7 +50,6 @@ const candidates = readdirSync(root, { withFileTypes: true })
 const verified = candidates.filter(({ directory }) => {
   try {
     const manifest = join(directory, "release-manifest.json");
-    const verifier = join(directory, "scripts/release/verify-manifest.mjs");
     const result = spawnSync(process.execPath, [verifier, manifest], {
       env: { PATH: process.env.PATH },
       stdio: "ignore",

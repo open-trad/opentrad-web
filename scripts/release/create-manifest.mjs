@@ -20,10 +20,12 @@ function argumentsFrom(argv) {
       ![
         "--api-image",
         "--api-sbom",
+        "--clamav-sbom",
         "--infra",
         "--output",
         "--release-scripts",
         "--trivy-api",
+        "--trivy-clamav",
         "--trivy-worker",
         "--web",
         "--web-sbom",
@@ -43,8 +45,10 @@ function argumentsFrom(argv) {
     "releaseScripts",
     "webSbom",
     "apiSbom",
+    "clamavSbom",
     "workerSbom",
     "trivyApi",
+    "trivyClamav",
     "trivyWorker",
     "apiImage",
     "workerImage",
@@ -100,7 +104,7 @@ async function main() {
     if (status.trim() !== "") fail("PAUSE_RELEASE:DIRTY_CHECKOUT", undefined, 78);
 
     const manifest = ReleaseManifestSchema.parse({
-      schemaVersion: 2,
+      schemaVersion: 3,
       sourceSha,
       webSha256: (await stat(resolve(options.web))).isDirectory()
         ? await sha256Tree(resolve(options.web))
@@ -110,9 +114,12 @@ async function main() {
       apiImage: await exactImage(options.apiImage, "ghcr.io/open-trad/opentrad-api"),
       workerImage: await exactImage(options.workerImage, "ghcr.io/open-trad/opentrad-worker"),
       clamavImage: await clamavImage(),
+      clamavSignaturePolicy: "upstream-unsigned-digest-pinned-trivy-gated",
       evidenceSha256: {
         apiSbom: await sha256File(resolve(options.apiSbom)),
+        clamavSbom: await sha256File(resolve(options.clamavSbom)),
         trivyApi: await sha256File(resolve(options.trivyApi)),
+        trivyClamav: await sha256File(resolve(options.trivyClamav)),
         trivyWorker: await sha256File(resolve(options.trivyWorker)),
         webSbom: await sha256File(resolve(options.webSbom)),
         workerSbom: await sha256File(resolve(options.workerSbom)),

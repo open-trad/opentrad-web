@@ -36,7 +36,7 @@ Perform each write once, then run the read-only check directly below it.
    sudo find /opt/opentrad/secrets -maxdepth 1 -type f -printf '%f %m %u:%g\n'
    ```
 
-   The three required files must be root-owned mode `0400`; the verification prints names and metadata only. Missing or unsafe files are `PAUSE_SECRETS:*`.
+   The four required files are `better_auth_secret`, `github_client_id`, `github_client_secret`, and `acme_email`. The first three must be owned by `root:opentrad-runtime` with mode `0440`; `acme_email` must be owned by `root:root` with mode `0400`. The directory remains `root:root` mode `0700`. The verification prints names and metadata only. Missing or unsafe files are `PAUSE_SECRETS:*`.
 
 4. In repository settings, create the GitHub environment `production`, add a required reviewer, and enable self-review prevention. Environment secrets are limited to the dedicated host, user, SSH key, and known-hosts entries referenced by `deploy-production.yml`.
 
@@ -76,6 +76,28 @@ sudo docker compose --project-name opentrad -f infra/compose.prod.yml --dry-run 
 
 `install-host-tools.sh infra/deploy/host-tools.lock` must run before bootstrap and before external gates. It installs the checksum-locked Node and Cosign versions plus `sqlite3`; stop on any `PAUSE_HOST_TOOLS:*` result. Bootstrap repeats that installation idempotently, but it is not a substitute for the explicit preflight.
 
+After DNS is correct and before the first application deployment, enable only the HTTP challenge site, obtain the certificate with the host's existing Certbot installation, and then leave the final HTTPS-site switch to the reviewed deploy state machine. Never enable both OpenTrad site files together.
+
+```bash
+sudo install -o root -g root -m 0644 infra/nginx/opentrad-http.conf /etc/nginx/sites-available/opentrad-http.conf
+sudo ln -sfn /etc/nginx/sites-available/opentrad-http.conf /etc/nginx/sites-enabled/opentrad-http.conf
+sudo rm -f /etc/nginx/sites-enabled/opentrad.conf
+sudo nginx -t
+sudo systemctl reload nginx
+sudo install -d -o root -g root -m 0700 /run/opentrad
+sudo sh -c 'set -eu; trap "rm -f /run/opentrad/certbot.ini" EXIT HUP INT TERM; umask 077; printf "email = %s\n" "$(cat /opt/opentrad/secrets/acme_email)" > /run/opentrad/certbot.ini; certbot --config /run/opentrad/certbot.ini certonly --webroot --webroot-path /var/www/letsencrypt --domain opentrad.dynv6.net --non-interactive --agree-tos'
+sudo test -s /etc/letsencrypt/live/opentrad.dynv6.net/fullchain.pem
+sudo test -s /etc/letsencrypt/live/opentrad.dynv6.net/privkey.pem
+sudo certbot renew --dry-run
+```
+
+Any missing certificate, failed `nginx -t`, reload failure, or renewal dry-run failure is `PAUSE_TLS:*`. After deployment, require TLS 1.2 and 1.3 to connect and reject older protocol versions; inspect the certificate hostname and expiry without printing key material.
+
+```bash
+openssl s_client -connect opentrad.dynv6.net:443 -servername opentrad.dynv6.net -tls1_2 </dev/null
+openssl s_client -connect opentrad.dynv6.net:443 -servername opentrad.dynv6.net -tls1_3 </dev/null
+```
+
 Read-only host checks:
 
 ```bash
@@ -89,7 +111,9 @@ The dry run may reference only project `opentrad` and listener `127.0.0.1:13300`
 
 ## Exact release and deploy
 
-Release and deployment accept a 40-character commit, never a branch or floating tag. The release workflow builds production mode with `VITE_DEPLOYMENT_MODE=production` and `VITE_SERVER_API_ENABLED=true`, then signs both image digests and attests the image and web subjects. The protected deployment job verifies all evidence before transfer.
+Release and deployment accept a 40-character commit, never a branch or floating tag. Manual release and deploy dispatches must run from `refs/heads/main`; the only tag identity permitted by the verifier is the explicit `v1.0.0` tag, and its commit must also be reachable from protected `origin/main`. The release workflow builds production mode with `VITE_DEPLOYMENT_MODE=production` and `VITE_SERVER_API_ENABLED=true`, then signs both OpenTrad image digests and attests the image and web subjects. The upstream ClamAV image has no repository-verifiable signing identity in this release contract, so it fails closed unless its locked digest, Trivy report, and SPDX SBOM all verify and the manifest records `upstream-unsigned-digest-pinned-trivy-gated`. The protected deployment job independently proves main ancestry and verifies all hashes, signatures, and attestations before transfer.
+
+CI uploads only to `/opt/opentrad/incoming/<SHA>.incoming-<run-id>-<attempt>`. It seals through the fixed root-owned `seal-release.sh` sudo interface. On every failed upload or seal, it invokes only the fixed `cleanup-incoming-release.sh` sudo interface; operators and CI must never directly remove `.incoming` paths.
 
 After the protected workflow stages the release, the only privileged deployment entry point is:
 
@@ -105,22 +129,24 @@ node /opt/opentrad/releases/0123456789abcdef0123456789abcdef01234567/scripts/rel
 
 ## Acceptance and stop decisions
 
-Capture the post-deploy baseline and run the bounded gates:
+Deployment success and formal acceptance are separate records. A deployment report may state that the release switched and canary passed, but it must not set formal `accepted: true`. Invoke the fixed wrapper only after the deploy state machine has written the SHA-bound deployment, canary, and privacy-marker evidence. The wrapper builds its load profile from the pre-deploy baseline and uses the marker file produced by that canary's one real accepted upload; it never accepts an operator-supplied random marker. It creates `/opt/opentrad/reports/acceptance-<SHA>.json` only after baseline, canary, load, and privacy all pass:
 
 ```bash
 sudo /usr/local/libexec/opentrad/capture-baseline.sh acceptance
 sudo install -d -o root -g root -m 0700 /opt/opentrad/reports
-sudo sh -c 'node /opt/opentrad/current/scripts/release/load-smoke.mjs --target https://opentrad.dynv6.net --profile-fd 3 3</run/opentrad/load-profile.json'
-sudo sh -c 'node /opt/opentrad/current/scripts/release/privacy-sentinel.mjs --remote-profile production --markers-fd 3 3</run/opentrad/privacy-markers.json'
+sudo /usr/local/libexec/opentrad/run-acceptance.sh 0123456789abcdef0123456789abcdef01234567
+node /opt/opentrad/current/scripts/release/post-deploy-report.mjs --verify 0123456789abcdef0123456789abcdef01234567 /opt/opentrad/reports/acceptance-0123456789abcdef0123456789abcdef01234567.json
 ```
 
-`/run/opentrad/load-profile.json` is a root-owned mode-`0600` object with exactly three `existingServices` entries. Each entry contains a non-secret ID, the observed container name, its HTTPS health URL, and the measured pre-release `baselineP95Ms`. Do not commit or guess these production values. The runner creates 12 temporary accounts and 1 KiB fixtures internally, respects registration rate limits, runs a 60-second ramp, five-minute hold, 60-second drain, and up-to-15-minute retention check, then attempts deletion of every temporary account. It stops submissions immediately on a threshold breach and emits only numeric metrics and stable failure codes.
+The root-owned wrapper opens the two profile files by descriptor and internally runs `load-smoke.mjs --target https://opentrad.dynv6.net --profile-fd 3` followed by `privacy-sentinel.mjs --remote-profile production --markers-fd 3`. These exact commands belong in the trusted wrapper, not in an operator shell where credential-bearing profile contents could be expanded or logged.
 
-`/run/opentrad/privacy-markers.json` is root-owned mode `0600`. Every marker value must be copied exactly from the one real acceptance fixture uploaded in this run: one unique token embedded in its filename, one in its body, and one in metadata that the upload contract preserves. Confirm the upload was accepted before running the sentinel. Never use a random or otherwise unuploaded marker: absence of a value the service never processed proves nothing. The production profile discovers the `opentrad_auth_data` and `opentrad_job_ram` volume mountpoints, captures logs into `/run`, and scans all required evidence without placing marker values on the command line.
+The wrapper's temporary load profile is root-only and contains exactly three `existingServices` entries derived from the recorded baseline. Each entry contains a non-secret ID, the observed container name, its HTTPS health URL, and the measured pre-release `baselineP95Ms`. Do not commit, edit, or guess these production values. The runner creates 12 temporary accounts and 1 KiB fixtures internally, respects registration rate limits, runs a 60-second ramp, five-minute hold, 60-second drain, and up-to-15-minute retention check, then attempts deletion of every temporary account. It stops submissions immediately on a threshold breach and emits only numeric metrics and stable failure codes.
+
+`/opt/opentrad/reports/markers-<SHA>.json` is created root-only by the authenticated canary after its upload is accepted. Its three values are the unique token embedded in that fixture's filename, the token in its body, and the preserved metadata value. The acceptance wrapper requires the matching SHA-bound marker report and passes it only by file descriptor. Never replace it with a random or otherwise unuploaded marker: absence of a value the service never processed proves nothing. The production profile discovers the `opentrad_auth_data` and `opentrad_job_ram` volume mountpoints, captures logs into `/run`, and scans all required evidence without placing marker values on the command line.
 
 - If canary fails, stop and pause traffic changes. Preserve sanitized numeric/status evidence, then have the operator choose rollback; never auto-restore the database.
 - If load fails, stop new submissions and pause. Record only numeric metrics and opaque job IDs, compare the before/after baseline, and let the operator choose rollback.
 - If privacy fails, stop and pause immediately, follow the privacy incident runbook, and do not copy any matched content into evidence.
-- A green local build, preview Page, or release workflow is not production acceptance. Acceptance additionally requires the protected deployment, canary, privacy, load, and unchanged-existing-services results.
+- A green local build, preview Page, release workflow, or deployment report is not production acceptance. Acceptance additionally requires the protected deployment plus a verified formal report whose baseline, canary, privacy, and load gates are all exactly `true`; a missing report or missing/false gate fails the workflow.
 
 Cleanup may retain the current release and two verified predecessors. It must never run Docker system or volume prune.
