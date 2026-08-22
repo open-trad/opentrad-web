@@ -402,7 +402,22 @@ export async function buildServer(
   let databaseClosed = false;
 
   try {
-    auth = dependencies.auth ?? (createAuth(config) as unknown as ServerAuthRuntime);
+    const purgeOwnerFiles = async (ownerId: string): Promise<void> => {
+      if (!jobs) throw new Error("JOB_RUNTIME_UNAVAILABLE");
+      const jobIds = jobs.repository.ownerJobIds(ownerId);
+      for (let index = 0; index < jobIds.length; index += 1) {
+        const jobId = jobIds[index];
+        if (jobId === undefined) throw new Error("JOB_RUNTIME_INVALID");
+        await jobs.files.destroy(jobId);
+      }
+    };
+    auth =
+      dependencies.auth ??
+      (createAuth(config, async (ownerId) => {
+        await purgeOwnerFiles(ownerId);
+        if (!jobs) throw new Error("JOB_RUNTIME_UNAVAILABLE");
+        jobs.repository.deleteOwnerData(ownerId);
+      }) as unknown as ServerAuthRuntime);
     ownedDatabase = ownsAuth ? auth.options?.database : undefined;
     const database = auth.options?.database;
     const readinessProbe =
@@ -424,6 +439,7 @@ export async function buildServer(
             }),
             repository: new JobRepository(database as never, {
               idempotencySecret: config.betterAuthSecret,
+              requireOwnerExists: true,
             }),
             scanner: new ClamdClient({ host: config.clamdHost, port: config.clamdPort }),
           }

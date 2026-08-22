@@ -425,4 +425,25 @@ describe("transactional admission quotas", () => {
     });
     expect(() => new JobRepository(db, hostile as never)).toThrow("JOB_REPOSITORY_INVALID");
   });
+
+  it("rejects admission when the authenticated owner was concurrently deleted", () => {
+    const db = database();
+    const ownerId = randomUUID();
+    db.prepare(
+      `INSERT INTO user
+        (id, name, email, emailVerified, createdAt, updatedAt, username)
+       VALUES (?, 'owner', ?, 0, 1, 1, 'deleted_owner')`,
+    ).run(ownerId, `${ownerId}@users.opentrad.invalid`);
+    const repo = new JobRepository(db, {
+      idempotencySecret: secret,
+      now: () => start,
+      requireOwnerExists: true,
+    });
+    db.prepare("DELETE FROM user WHERE id = ?").run(ownerId);
+
+    expectCode(() => reserve(repo, ownerId, "deleted-owner-idempotency-key-0001"), "AUTH_REQUIRED");
+    expect(db.prepare("SELECT count(*) AS count FROM jobs").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT count(*) AS count FROM idempotency").get()).toEqual({ count: 0 });
+    expect(db.prepare("SELECT count(*) AS count FROM daily_usage").get()).toEqual({ count: 0 });
+  });
 });

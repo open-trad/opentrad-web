@@ -12,9 +12,22 @@ export type AuthConfig = ApiConfig;
 
 export type OpenTradAuthOptions = BetterAuthOptions;
 
-export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
+export type OwnerDataDeletion = (ownerId: string) => Promise<void>;
+
+export function createAuthOptions(
+  config: AuthConfig,
+  ownerDeletion?: OwnerDataDeletion,
+): OpenTradAuthOptions {
   assertApiConfig(config);
+  if (ownerDeletion !== undefined && typeof ownerDeletion !== "function") {
+    throw new Error("Invalid owner deletion hooks");
+  }
   const database = openDatabase(config.databasePath);
+  const deleteOwnerData = database.transaction((ownerId: string) => {
+    database.prepare("DELETE FROM idempotency WHERE owner_id = ?").run(ownerId);
+    database.prepare("DELETE FROM jobs WHERE owner_id = ?").run(ownerId);
+    database.prepare("DELETE FROM daily_usage WHERE owner_id = ?").run(ownerId);
+  });
   const options: BetterAuthOptions = {
     account: {
       accountLinking: {
@@ -57,7 +70,8 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
       deleteUser: {
         enabled: true,
         afterDelete: async (user) => {
-          database.prepare("DELETE FROM daily_usage WHERE owner_id = ?").run(user.id);
+          if (ownerDeletion) await ownerDeletion(user.id);
+          else deleteOwnerData(user.id);
         },
       },
     },
@@ -74,8 +88,8 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
   return options;
 }
 
-export function createAuth(config: AuthConfig) {
-  return betterAuth(createAuthOptions(config));
+export function createAuth(config: AuthConfig, ownerDeletion?: OwnerDataDeletion) {
+  return betterAuth(createAuthOptions(config, ownerDeletion));
 }
 
 export function createInternalEmailAlias(): string {

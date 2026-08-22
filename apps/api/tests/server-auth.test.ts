@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -190,6 +190,27 @@ describe("real Better Auth username lifecycle", () => {
     inspection
       .prepare("INSERT INTO daily_usage (owner_id, utc_day, accepted_count) VALUES (?, ?, ?)")
       .run(userId, "2026-08-22", 3);
+    const jobId = "00000000-0000-4000-8000-000000000001";
+    inspection
+      .prepare(
+        `INSERT INTO jobs
+          (id, owner_id, operation, input_format, output_format, quality, status, input_bytes,
+           created_at, expires_at, result_media_type, result_bytes)
+         VALUES (?, ?, 'structured.convert', 'md', 'docx', 'B', 'succeeded', 64,
+           1, 2, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 3)`,
+      )
+      .run(jobId, userId);
+    inspection
+      .prepare(
+        `INSERT INTO idempotency
+          (owner_id, key_hmac, operation, input_format, output_format, input_bytes, job_id,
+           expires_at, request_shape)
+         VALUES (?, ?, 'structured.convert', 'md', 'docx', 64, ?, 2, '{}')`,
+      )
+      .run(userId, "a".repeat(43), jobId);
+    const resultDirectory = join(config.jobRoot, "done", jobId);
+    mkdirSync(resultDirectory, { mode: 0o700 });
+    writeFileSync(join(resultDirectory, "result.bin"), "PK\n", { mode: 0o600 });
 
     const deletion = await app.inject({
       method: "POST",
@@ -203,11 +224,19 @@ describe("real Better Auth username lifecycle", () => {
     });
     expect(deletion.statusCode).toBe(200);
     expect(deletion.json()).toEqual({ success: true, message: "User deleted" });
-    const usageAfterDeletion = inspection
-      .prepare("SELECT count(*) AS count FROM daily_usage WHERE owner_id = ?")
-      .get(userId);
+    const privateRowsAfterDeletion = Object.fromEntries(
+      ["daily_usage", "idempotency", "jobs"].map((table) => [
+        table,
+        inspection.prepare(`SELECT count(*) AS count FROM ${table} WHERE owner_id = ?`).get(userId),
+      ]),
+    );
     inspection.close();
-    expect(usageAfterDeletion).toEqual({ count: 0 });
+    expect(privateRowsAfterDeletion).toEqual({
+      daily_usage: { count: 0 },
+      idempotency: { count: 0 },
+      jobs: { count: 0 },
+    });
+    expect(existsSync(resultDirectory)).toBe(false);
 
     const ended = await app.inject({
       method: "GET",
