@@ -441,6 +441,17 @@ test("release verifies the exact built runtime images before scanning them", () 
   assert.match(verifyStep, /sh infra\/docker\/verify-images\.sh "\$API_IMAGE" "\$WORKER_IMAGE"/);
 });
 
+test("final worker image verification executes the compiled startup toolchain policy", () => {
+  const entrypoint = readFileSync(new URL("infra/docker/worker-entrypoint.sh", root), "utf8");
+  const verifyOnly = entrypoint.indexOf('test "${OPENTRAD_VERIFY_ONLY:-false}" = true');
+  const productionStart = entrypoint.indexOf("exec node /app/main.js");
+
+  assert.ok(verifyOnly >= 0, "worker entrypoint must retain verify-only mode");
+  assert.ok(verifyOnly < productionStart, "verify-only policy must run before production startup");
+  assert.match(entrypoint, /await import\("\/app\/toolchain\.js"\)/);
+  assert.match(entrypoint, /await verifyToolchain\(\)/);
+});
+
 test("Poppler's newer CMake input has an independent exact lock", () => {
   const lock = JSON.parse(readFileSync(new URL("infra/docker/cmake.lock.json", root), "utf8"));
   assert.deepEqual(lock, {

@@ -11,5 +11,8 @@ qpdf --version | grep -F '12.4.0'
 pdftoppm -v 2>&1 | grep -F '26.08.0'
 vips --version | grep -F '8.18.5'
 
-test "${OPENTRAD_VERIFY_ONLY:-false}" = true && exit 0
+if test "${OPENTRAD_VERIFY_ONLY:-false}" = true; then
+  exec node --input-type=module -e \
+    'const { verifyToolchain } = await import("/app/toolchain.js"); await verifyToolchain();'
+fi
 exec node /app/main.js
