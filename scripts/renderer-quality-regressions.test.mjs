@@ -7,10 +7,10 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rootPackage = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8"));
 
-test("root workflows build both document packages before every renderer consumer", () => {
+test("root workflows build contracts and both document packages before every consumer", () => {
   assert.equal(
     rootPackage.scripts["build:document-prerequisites"],
-    "pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build",
+    "pnpm --filter @opentrad/contracts build && pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build",
   );
   for (const name of ["dev", "test", "typecheck", "golds:generate", "golds:verify"]) {
     assert.match(rootPackage.scripts[name], /^pnpm run build:document-prerequisites && /u, name);
