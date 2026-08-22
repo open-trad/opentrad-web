@@ -4,6 +4,7 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import Database from "better-sqlite3";
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { requireSession } from "../src/auth/sessionGuard.js";
@@ -40,9 +41,16 @@ function testConfig(overrides: Readonly<Record<string, string | undefined>> = {}
 }
 
 async function appForTest(dependencies?: ServerDependencies): Promise<FastifyInstance> {
-  const app = await buildServer(testConfig(), dependencies);
+  return (await appAndConfig(dependencies)).app;
+}
+
+async function appAndConfig(
+  dependencies?: ServerDependencies,
+): Promise<{ readonly app: FastifyInstance; readonly config: ApiConfig }> {
+  const config = testConfig();
+  const app = await buildServer(config, dependencies);
   liveApps.push(app);
-  return app;
+  return { app, config };
 }
 
 function cookieHeader(response: { headers: Record<string, unknown> }): string {
@@ -158,7 +166,7 @@ describe("real Better Auth username lifecycle", () => {
   });
 
   it("deletes a password account and invalidates its existing session", async () => {
-    const app = await appForTest();
+    const { app, config } = await appAndConfig();
     const password = "correct-horse-battery-staple";
     const registration = await app.inject({
       method: "POST",
@@ -172,6 +180,16 @@ describe("real Better Auth username lifecycle", () => {
     });
     expect(registration.statusCode).toBe(201);
     const cookie = cookieHeader(registration);
+    const activeSession = await app.inject({
+      method: "GET",
+      url: "/api/auth/get-session",
+      headers: { host: "opentrad.example", cookie },
+    });
+    const userId = activeSession.json().user.id as string;
+    const inspection = new Database(config.databasePath);
+    inspection
+      .prepare("INSERT INTO daily_usage (owner_id, utc_day, accepted_count) VALUES (?, ?, ?)")
+      .run(userId, "2026-08-22", 3);
 
     const deletion = await app.inject({
       method: "POST",
@@ -185,6 +203,11 @@ describe("real Better Auth username lifecycle", () => {
     });
     expect(deletion.statusCode).toBe(200);
     expect(deletion.json()).toEqual({ success: true, message: "User deleted" });
+    const usageAfterDeletion = inspection
+      .prepare("SELECT count(*) AS count FROM daily_usage WHERE owner_id = ?")
+      .get(userId);
+    inspection.close();
+    expect(usageAfterDeletion).toEqual({ count: 0 });
 
     const ended = await app.inject({
       method: "GET",

@@ -132,7 +132,8 @@ compose run --rm --no-deps api node /app/dist/db/migrate.js \
 deploy_stage=compose-up
 compose up -d --wait --wait-timeout 180
 deploy_stage=readiness
-curl --fail --silent --show-error http://127.0.0.1:13300/api/health/ready >/dev/null
+curl --fail --silent --show-error --header 'Host: opentrad.dns.army' \
+  http://127.0.0.1:13300/api/health/ready >/dev/null
 
 deploy_stage=static-switch
 ln -sfn "$release_dir" "$opentrad_root/current.next"

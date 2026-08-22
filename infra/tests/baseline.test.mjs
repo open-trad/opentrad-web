@@ -180,3 +180,16 @@ test("production baseline evidence is generated inside a root-owned directory", 
     /install -d -o opentrad-deploy -g opentrad-deploy[^\n]*baselines/,
   );
 });
+
+test("production web root is traversable by Nginx without exposing private siblings", () => {
+  const bootstrap = readFileSync(new URL("../deploy/bootstrap-host.sh", import.meta.url), "utf8");
+  assert.match(bootstrap, /web_group=www-data/u);
+  assert.match(bootstrap, /id "\$web_group"/u);
+  assert.match(bootstrap, /usermod --append --groups "\$web_group" opentrad-deploy/u);
+  assert.match(bootstrap, /install -d -o root -g "\$web_group" -m 0750 \/opt\/opentrad/u);
+  assert.match(bootstrap, /install -d -o root -g "\$web_group" -m 0750 \/opt\/opentrad\/releases/u);
+  assert.match(
+    bootstrap,
+    /install -d -o root -g root -m 0700 \/opt\/opentrad\/secrets \/opt\/opentrad\/backups/u,
+  );
+});

@@ -76,6 +76,10 @@ test("image definitions preserve the read-only runtime boundary", () => {
 
 test("worker verifies every runtime tool before starting its current entry point", () => {
   const entrypoint = readFileSync(new URL("infra/docker/worker-entrypoint.sh", root), "utf8");
+  const scratchSetup = entrypoint.indexOf("install -d -m 0700 /work/home /work/tmp");
+  const firstProbe = entrypoint.indexOf("/usr/bin/soffice --version");
+  assert.ok(scratchSetup >= 0, "worker must create private scratch directories in the tmpfs");
+  assert.ok(scratchSetup < firstProbe, "scratch directories must exist before tool verification");
   for (const probe of [
     "/usr/bin/soffice --version | grep -F '26.2.5'",
     "pandoc --version | head -n 1 | grep -F '3.10.2'",

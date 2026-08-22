@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+install -d -m 0700 /work/home /work/tmp
+
 /usr/bin/soffice --version | grep -F '26.2.5'
 pandoc --version | head -n 1 | grep -F '3.10.2'
 ocrmypdf --version 2>&1 | grep -F '17.10.0'

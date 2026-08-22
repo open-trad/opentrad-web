@@ -10,6 +10,7 @@ infra/deploy/install-host-tools.sh infra/deploy/host-tools.lock
 
 runtime_group=opentrad-runtime
 runtime_gid=10100
+web_group=www-data
 existing_runtime_group="$(getent group "$runtime_gid" | cut -d: -f1 || true)"
 if test -n "$existing_runtime_group" && test "$existing_runtime_group" != "$runtime_group"; then
   printf '%s\n' "PAUSE_HOST:RUNTIME_GID_COLLISION" >&2
@@ -17,6 +18,10 @@ if test -n "$existing_runtime_group" && test "$existing_runtime_group" != "$runt
 fi
 getent group "$runtime_group" >/dev/null 2>&1 ||
   groupadd --system --gid "$runtime_gid" "$runtime_group"
+if ! getent group "$web_group" >/dev/null 2>&1 || ! id "$web_group" >/dev/null 2>&1; then
+  printf '%s\n' "PAUSE_HOST:WEB_IDENTITY_MISSING" >&2
+  exit 78
+fi
 
 id opentrad-deploy >/dev/null 2>&1 ||
   useradd --system --create-home --home-dir /home/opentrad-deploy \
@@ -25,11 +30,12 @@ if id -nG opentrad-deploy | tr ' ' '\n' | grep -Fxq docker; then
   printf '%s\n' "PAUSE_HOST:DEPLOY_USER_IN_DOCKER_GROUP" >&2
   exit 78
 fi
+usermod --append --groups "$web_group" opentrad-deploy
 
-install -d -o root -g opentrad-deploy -m 0750 /opt/opentrad
+install -d -o root -g "$web_group" -m 0750 /opt/opentrad
 install -d -o root -g root -m 0700 /opt/opentrad/secrets /opt/opentrad/backups
 install -d -o opentrad-deploy -g opentrad-deploy -m 0750 /opt/opentrad/incoming
-install -d -o root -g opentrad-deploy -m 0750 /opt/opentrad/releases
+install -d -o root -g "$web_group" -m 0750 /opt/opentrad/releases
 install -d -o root -g opentrad-deploy -m 0750 /opt/opentrad/baselines
 install -d -o root -g root -m 0755 /var/www/letsencrypt /usr/local/libexec/opentrad
 for secret_name in better_auth_secret github_client_id github_client_secret; do

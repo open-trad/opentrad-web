@@ -508,7 +508,8 @@ describe("createAuthOptions", () => {
       maxPasswordLength: 128,
       minPasswordLength: 12,
     });
-    expect(options.user).toEqual({ deleteUser: { enabled: true } });
+    expect(options.user?.deleteUser).toMatchObject({ enabled: true });
+    expect(options.user?.deleteUser?.afterDelete).toBeTypeOf("function");
   });
 
   it("enables secure cookies without disabling CSRF or origin protection", () => {

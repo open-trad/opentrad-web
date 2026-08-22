@@ -14,6 +14,7 @@ export type OpenTradAuthOptions = BetterAuthOptions;
 
 export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
   assertApiConfig(config);
+  const database = openDatabase(config.databasePath);
   const options: BetterAuthOptions = {
     account: {
       accountLinking: {
@@ -34,7 +35,7 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
       ]),
     },
     baseURL: config.publicOrigin,
-    database: openDatabase(config.databasePath),
+    database,
     disabledPaths: [
       "/is-username-available",
       "/request-password-reset",
@@ -52,7 +53,14 @@ export function createAuthOptions(config: AuthConfig): OpenTradAuthOptions {
     secret: config.betterAuthSecret,
     session: { expiresIn: 604_800, updateAge: 86_400 },
     trustedOrigins: [config.publicOrigin],
-    user: { deleteUser: { enabled: true } },
+    user: {
+      deleteUser: {
+        enabled: true,
+        afterDelete: async (user) => {
+          database.prepare("DELETE FROM daily_usage WHERE owner_id = ?").run(user.id);
+        },
+      },
+    },
   };
   if (config.githubClientId !== null && config.githubClientSecret !== null) {
     options.socialProviders = {

@@ -62,7 +62,8 @@ docker compose --project-name opentrad \
   --project-directory "$release_dir/infra" \
   --env-file "$release_env" \
   -f "$release_dir/infra/compose.prod.yml" up -d --wait --wait-timeout 180
-curl --fail --silent --show-error http://127.0.0.1:13300/api/health/ready >/dev/null
+curl --fail --silent --show-error --header 'Host: opentrad.dns.army' \
+  http://127.0.0.1:13300/api/health/ready >/dev/null
 
 ln -sfn "$release_dir" "$opentrad_root/current.next"
 node -e 'require("node:fs").renameSync(process.argv[1], process.argv[2])' \

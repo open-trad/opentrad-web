@@ -191,3 +191,14 @@ test("rollback and cleanup implementations forbid volume deletion and implicit r
   assert.match(cleanup, /trusted_verifier="\$libexec\/release\/verify-manifest\.mjs"/u);
   assert.doesNotMatch(cleanup, /join\(directory, "scripts\/release\/verify-manifest\.mjs"\)/u);
 });
+
+test("deploy and rollback readiness preserve the public host boundary", async () => {
+  for (const script of ["deploy-release.sh", "rollback-release.sh"]) {
+    const source = await readFile(path.join(repositoryRoot, "infra/deploy", script), "utf8");
+    assert.match(
+      source,
+      /curl --fail --silent --show-error --header 'Host: opentrad\.dns\.army'\s*\\\s*http:\/\/127\.0\.0\.1:13300\/api\/health\/ready/u,
+      script,
+    );
+  }
+});
