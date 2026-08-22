@@ -1,0 +1,74 @@
+{
+  "name": "@opentrad/conversion-local",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./pdf": {
+      "types": "./dist/pdf/pdfjs.d.ts",
+      "import": "./dist/pdf/pdfjs.js"
+    },
+    "./pdf-transform": {
+      "types": "./dist/pdf/transformPdf.d.ts",
+      "import": "./dist/pdf/transformPdf.js"
+    },
+    "./document": {
+      "types": "./dist/document/generateDocument.d.ts",
+      "import": "./dist/document/generateDocument.js"
+    },
+    "./text": {
+      "types": "./dist/text/convertText.d.ts",
+      "import": "./dist/text/convertText.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js"
+    },
+    "./worker-runtime": {
+      "types": "./dist/workerRuntime.d.ts",
+      "import": "./dist/workerRuntime.js"
+    },
+    "./validation": {
+      "types": "./dist/output/validateOutput.d.ts",
+      "import": "./dist/output/validateOutput.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:native-pdf": "pnpm build && node scripts/pdf-native-smoke.mjs",
+    "typecheck": "tsc -p tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@jsquash/avif": "2.1.1",
+    "@jsquash/jpeg": "1.6.0",
+    "@jsquash/webp": "1.5.0",
+    "@opentrad/contracts": "workspace:*",
+    "docx": "9.7.1",
+    "mammoth": "1.12.1",
+    "pdf-lib": "1.17.1",
+    "pdfjs-dist": "6.2.108",
+    "rehype-parse": "9.0.1",
+    "rehype-sanitize": "6.0.0",
+    "rehype-stringify": "10.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
+    "saxes": "6.0.0",
+    "turndown": "7.2.4",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/turndown": "5.0.6",
+    "typescript": "5.9.2",
+    "vitest": "3.2.6"
+  }
+}

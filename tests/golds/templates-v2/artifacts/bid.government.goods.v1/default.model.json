@@ -1,0 +1,754 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "bid-government-goods-gold",
+  "template": {
+    "id": "bid.government.goods.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "bid",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "政府采购货物投标文件"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 18,
+      "bottom": 18,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "draft-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "government-goods-cover",
+          "title": {
+            "zhCN": "政府采购货物投标文件"
+          },
+          "subtitle": {
+            "zhCN": "公共服务终端设备采购项目 · 包1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-baseline",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "government-goods-source",
+          "entries": [
+            {
+              "id": "project-number",
+              "label": {
+                "zhCN": "项目编号"
+              },
+              "value": {
+                "zhCN": "ZFCG-2026-0819"
+              }
+            },
+            {
+              "id": "version-label",
+              "label": {
+                "zhCN": "文件版本"
+              },
+              "value": {
+                "zhCN": "招标文件正式版"
+              }
+            },
+            {
+              "id": "deadline",
+              "label": {
+                "zhCN": "投标截止"
+              },
+              "value": {
+                "zhCN": "2026-09-10T09:00:00+08:00"
+              }
+            },
+            {
+              "id": "source-attachment",
+              "label": {
+                "zhCN": "项目招标文件附件"
+              },
+              "value": {
+                "zhCN": "source-main"
+              }
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "government-goods-source-notice",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "财政部规范仅作为模板结构依据；本项目要求只来自已绑定的招标文件及其澄清，不得以模板依据替代项目文件。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "blocks": [
+        {
+          "type": "toc",
+          "id": "government-goods-toc",
+          "maxDepth": 2
+        }
+      ]
+    },
+    {
+      "id": "bid-letter",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "government-goods-bid-letter",
+          "title": {
+            "zhCN": "投标函"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "我方就公共服务终端设备采购项目提交投标文件；报价、有效期和响应内容以本文件各表及项目招标文件为准。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legal-representative",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "legal-representative-grid",
+          "entries": [
+            {
+              "id": "legal-name",
+              "label": {
+                "zhCN": "投标人"
+              },
+              "value": {
+                "zhCN": "宁波义星科技有限公司"
+              }
+            },
+            {
+              "id": "legal-representative-name",
+              "label": {
+                "zhCN": "法定代表人"
+              },
+              "value": {
+                "zhCN": "王示例"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "authorization",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "authorization-declaration",
+          "title": {
+            "zhCN": "授权信息"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "授权代表：张示例。授权事实与签章状态须由投标人自行核验。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualification-index",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "qualification-attachment-index",
+          "attachmentIds": [
+            "proof-license"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualifications",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "qualifications-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "资格项"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "status",
+              "label": {
+                "zhCN": "状态"
+              },
+              "width": "20%",
+              "align": "center"
+            },
+            {
+              "id": "certificate",
+              "label": {
+                "zhCN": "证书编号"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性确认"
+              },
+              "width": "20%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "qualification-license",
+              "cells": {
+                "name": {
+                  "zhCN": "营业执照"
+                },
+                "status": {
+                  "zhCN": "attached"
+                },
+                "certificate": {
+                  "zhCN": "91330200EXAMPLE01"
+                },
+                "truth": {
+                  "zhCN": "已由用户确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "policy-declarations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "confirmed-policy-declarations",
+          "columns": [
+            {
+              "id": "policy",
+              "label": {
+                "zhCN": "政策"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "statement",
+              "label": {
+                "zhCN": "经用户确认的声明"
+              },
+              "width": "55%",
+              "align": "left"
+            },
+            {
+              "id": "evidence",
+              "label": {
+                "zhCN": "证据附件"
+              },
+              "width": "20%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "policy-sme",
+              "cells": {
+                "policy": {
+                  "zhCN": "中小企业政策"
+                },
+                "statement": {
+                  "zhCN": "本企业声明按随附的中小企业声明函参与本项目。"
+                },
+                "evidence": {
+                  "zhCN": "proof-license"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "opening-price",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "opening-price-total",
+          "entries": [
+            {
+              "id": "opening-total",
+              "label": {
+                "zhCN": "开标一览报价"
+              },
+              "value": {
+                "zhCN": "CNY 10,000.00"
+              }
+            },
+            {
+              "id": "calculated-total",
+              "label": {
+                "zhCN": "货物明细重算"
+              },
+              "value": {
+                "zhCN": "CNY 10,000.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "itemized-price",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "goods-itemized-price",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "货物"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "brandModel",
+              "label": {
+                "zhCN": "品牌型号"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "manufacturer",
+              "label": {
+                "zhCN": "制造商/产地"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "12%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "重算金额"
+              },
+              "width": "18%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "goods-1",
+              "cells": {
+                "name": {
+                  "zhCN": "公共服务终端"
+                },
+                "brandModel": {
+                  "zhCN": "义星 / XY-100"
+                },
+                "manufacturer": {
+                  "zhCN": "宁波义星科技有限公司 / 中国宁波"
+                },
+                "quantity": {
+                  "zhCN": "10 台"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 1,000.00"
+                },
+                "total": {
+                  "zhCN": "CNY 10,000.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "technical-response",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "complianceMatrix",
+          "id": "technical-response-matrix",
+          "columns": [
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "招标要求"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "offered",
+              "label": {
+                "zhCN": "响应值"
+              },
+              "width": "15%",
+              "align": "left"
+            },
+            {
+              "id": "compliance",
+              "label": {
+                "zhCN": "符合性"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "evidence",
+              "label": {
+                "zhCN": "证据引用"
+              },
+              "width": "17%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "req-tech-1",
+              "sourceRef": "第三章 技术要求 2.1",
+              "substantial": true,
+              "cells": {
+                "requirement": {
+                  "zhCN": "终端设备须满足招标文件技术参数。"
+                },
+                "response": {
+                  "zhCN": "所投型号按技术响应表逐项响应。"
+                },
+                "offered": {
+                  "zhCN": "XY-100"
+                },
+                "compliance": {
+                  "zhCN": "yes"
+                },
+                "evidence": {
+                  "zhCN": "proof-spec"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "business-response",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "complianceMatrix",
+          "id": "business-response-matrix",
+          "columns": [
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "招标要求"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "offered",
+              "label": {
+                "zhCN": "响应值"
+              },
+              "width": "15%",
+              "align": "left"
+            },
+            {
+              "id": "compliance",
+              "label": {
+                "zhCN": "符合性"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "evidence",
+              "label": {
+                "zhCN": "证据引用"
+              },
+              "width": "17%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "req-business-1",
+              "sourceRef": "第二章 投标人须知 12.2",
+              "substantial": true,
+              "cells": {
+                "requirement": {
+                  "zhCN": "合同签订后30日内完成交付。"
+                },
+                "response": {
+                  "zhCN": "合同签订后30日内完成交付。"
+                },
+                "offered": {
+                  "zhCN": "未提供"
+                },
+                "compliance": {
+                  "zhCN": "yes"
+                },
+                "evidence": {
+                  "zhCN": "未提供"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delivery-installation",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "delivery-installation-text",
+          "text": {
+            "zhCN": "交付：合同签订后30日内运抵采购人指定地点。；安装：到货后5个工作日内完成安装调试。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "training-acceptance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "training-acceptance-text",
+          "text": {
+            "zhCN": "培训：提供2场现场使用与维护培训。；验收：按招标文件技术参数和双方确认的验收方案逐项验收。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "warranty-aftersales",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "warranty-aftersales-text",
+          "text": {
+            "zhCN": "质保：验收合格之日起三年。；售后：7×24小时受理，2小时响应，必要时24小时内到场。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deviations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "bid-deviations-table",
+          "columns": [
+            {
+              "id": "type",
+              "label": {
+                "zhCN": "类型"
+              },
+              "width": "15%",
+              "align": "center"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "我方响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "submission-attachment-index",
+          "attachmentIds": [
+            "proof-license",
+            "proof-spec"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "final-checklist",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "government-goods-final-checklist",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "投标函电子签章：已确认"
+            },
+            {
+              "zhCN": "中小企业政策：适用且已确认"
+            },
+            {
+              "zhCN": "节能产品政策：不适用"
+            },
+            {
+              "zhCN": "导出状态：submission-ready。submission-ready 仅表示本地校验通过，不等于已签名、已上传或已由主管机关认定合规。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "government-goods-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "投标人授权代表"
+              },
+              "name": "张示例",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "投标人盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "bid-authority"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-spec",
+      "category": "technical",
+      "displayName": "制造商技术规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

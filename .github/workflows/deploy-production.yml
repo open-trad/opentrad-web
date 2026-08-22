@@ -1,0 +1,209 @@
+name: Deploy exact release to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character source commit
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+  attestations: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: production
+      url: https://opentrad.dns.army
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate exact release SHA
+        id: target
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          if [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo 'PAUSE_RELEASE:DEPLOY_MUST_RUN_ON_MAIN' >&2
+            exit 78
+          fi
+          if ! printf '%s' "$RELEASE_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo 'PAUSE_RELEASE:INVALID_SHA' >&2
+            exit 78
+          fi
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 0
+      - name: Prove exact checkout on protected main history
+        env:
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" refs/remotes/origin/main; then
+            echo 'PAUSE_RELEASE:SHA_NOT_ON_PROTECTED_MAIN' >&2
+            exit 78
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62
+        with:
+          cosign-release: v3.1.3
+      - name: Download evidence from the successful release run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          run_id="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/release-images.yml/runs?head_sha=${RELEASE_SHA}&status=success&per_page=10" \
+            --jq '[.workflow_runs[] | select(.head_sha == env.RELEASE_SHA)] | sort_by(.created_at) | reverse | .[0].id')"
+          if ! printf '%s' "$run_id" | grep -Eq '^[0-9]+$'; then
+            echo 'PAUSE_RELEASE:EVIDENCE_RUN_NOT_FOUND' >&2
+            exit 78
+          fi
+          gh run download "$run_id" --name "release-${RELEASE_SHA}" --dir release-bundle
+      - name: Verify hashes, signatures, and attestations before transfer
+        env:
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          node scripts/release/verify-manifest.mjs release-bundle/release-manifest.json \
+            --web release-bundle/web.tar \
+            --web-root release-bundle/web \
+            --repository . \
+            --verify-github-attestations
+      - name: Install dedicated SSH material
+        env:
+          DEPLOY_KEY: ${{ secrets.OPENTRAD_DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OPENTRAD_DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 "$RUNNER_TEMP/opentrad-ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/opentrad-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/opentrad-ssh/known_hosts"
+          chmod 0600 "$RUNNER_TEMP/opentrad-ssh/key" "$RUNNER_TEMP/opentrad-ssh/known_hosts"
+      - name: Upload and seal the exact verified release directory
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          staging_dir="/opt/opentrad/incoming/${RELEASE_SHA}.incoming-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          cleanup_needed=1
+          cleanup() {
+            if [ "$cleanup_needed" -eq 1 ]; then
+              ssh -i "$RUNNER_TEMP/opentrad-ssh/key" \
+                -o IdentitiesOnly=yes \
+                -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+                -o StrictHostKeyChecking=yes \
+                "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                /usr/bin/sudo /usr/local/libexec/opentrad/cleanup-incoming-release.sh \
+                "$RELEASE_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            fi
+          }
+          trap cleanup EXIT
+          trap 'exit 129' HUP
+          trap 'exit 130' INT
+          trap 'exit 143' TERM
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -eu; test ! -e '${staging_dir}'; install -d -m 0750 '${staging_dir}'"
+          rsync --archive --delete \
+            -e "ssh -i $RUNNER_TEMP/opentrad-ssh/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$RUNNER_TEMP/opentrad-ssh/known_hosts -o StrictHostKeyChecking=yes" \
+            release-bundle/ \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${staging_dir}/"
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            /usr/bin/sudo /usr/local/libexec/opentrad/seal-release.sh \
+            "$RELEASE_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+          cleanup_needed=0
+          trap - EXIT HUP INT TERM
+      - name: Invoke the fixed production deploy command
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: >-
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key"
+          -o IdentitiesOnly=yes
+          -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts"
+          -o StrictHostKeyChecking=yes
+          "${DEPLOY_USER}@${DEPLOY_HOST}"
+          /usr/bin/sudo /usr/local/libexec/opentrad/deploy-release.sh "$RELEASE_SHA"
+      - name: Capture sanitized deployment evidence
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          mkdir -p deployment
+          scp -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/reports/${RELEASE_SHA}.json" \
+            "deployment/deployment-${RELEASE_SHA}.json"
+          node scripts/release/post-deploy-report.mjs --verify-deployment \
+            "$RELEASE_SHA" "deployment/deployment-${RELEASE_SHA}.json"
+          scp -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/baselines/after-${RELEASE_SHA}.json" \
+            "deployment/after-${RELEASE_SHA}.json"
+      - name: Upload deployment evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-deployment-${{ steps.target.outputs.sha }}
+          path: deployment
+          if-no-files-found: error
+          retention-days: 90
+      - name: Run the fixed formal acceptance command
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: >-
+          ssh -i "$RUNNER_TEMP/opentrad-ssh/key"
+          -o IdentitiesOnly=yes
+          -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts"
+          -o StrictHostKeyChecking=yes
+          "${DEPLOY_USER}@${DEPLOY_HOST}"
+          /usr/bin/sudo /usr/local/libexec/opentrad/run-acceptance.sh "$RELEASE_SHA"
+      - name: Fetch and verify formal acceptance evidence
+        env:
+          DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
+          RELEASE_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          mkdir -p acceptance
+          scp -i "$RUNNER_TEMP/opentrad-ssh/key" \
+            -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/opt/opentrad/reports/acceptance-${RELEASE_SHA}.json" \
+            "acceptance/acceptance-${RELEASE_SHA}.json"
+          node scripts/release/post-deploy-report.mjs --verify \
+            "$RELEASE_SHA" "acceptance/acceptance-${RELEASE_SHA}.json"
+      - name: Upload verified formal acceptance evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: production-acceptance-${{ steps.target.outputs.sha }}
+          path: acceptance
+          if-no-files-found: error
+          retention-days: 90

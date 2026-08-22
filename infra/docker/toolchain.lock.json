@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "tools": [
+    {
+      "id": "libreoffice",
+      "version": "26.2.5",
+      "source": "https://download.documentfoundation.org/libreoffice/stable/26.2.5/deb/x86_64/LibreOffice_26.2.5_Linux_x86-64_deb.tar.gz",
+      "license": "MPL-2.0",
+      "sha256": "2f03bfb2ac9f33ea7c77331b4b7a23300fb0ed7443566046bf8b5bc51c1bed1e"
+    },
+    {
+      "id": "pandoc",
+      "version": "3.10.2",
+      "source": "https://github.com/jgm/pandoc/releases/download/3.10.2/pandoc-3.10.2-linux-amd64.tar.gz",
+      "license": "GPL-2.0-or-later",
+      "sha256": "c7edd535941c48be6a362081a748272837de81ae11777202d9c341d3d8261c9a"
+    },
+    {
+      "id": "ocrmypdf",
+      "version": "17.10.0",
+      "source": "https://files.pythonhosted.org/packages/source/o/ocrmypdf/ocrmypdf-17.10.0.tar.gz",
+      "license": "MPL-2.0",
+      "sha256": "3e80a22e7ca9a746034e990414c9f18791f168800f3ede92101504f45be6129c"
+    },
+    {
+      "id": "tesseract",
+      "version": "5.5.3",
+      "source": "https://github.com/tesseract-ocr/tesseract/archive/refs/tags/5.5.3.tar.gz",
+      "license": "Apache-2.0",
+      "sha256": "9218e62793116d42a9f6d14cd9348518b27f382096eea3d0f2d1a24616bb5884"
+    },
+    {
+      "id": "qpdf",
+      "version": "12.4.0",
+      "source": "https://github.com/qpdf/qpdf/releases/download/v12.4.0/qpdf-12.4.0.tar.gz",
+      "license": "Apache-2.0",
+      "sha256": "2783a032f443cc886dad41aa6d5fae3dabf23dec00ee7ec2cfb27ef67ebcf529"
+    },
+    {
+      "id": "poppler",
+      "version": "26.08.0",
+      "source": "https://poppler.freedesktop.org/poppler-26.08.0.tar.xz",
+      "license": "GPL-2.0-or-later",
+      "sha256": "dc906e68cea698109706ac6aa3d2c9d4512fcfcac42d90b8afcda486d1b9abd0"
+    },
+    {
+      "id": "libvips",
+      "version": "8.18.5",
+      "source": "https://github.com/libvips/libvips/releases/download/v8.18.5/vips-8.18.5.tar.xz",
+      "license": "LGPL-2.1-or-later",
+      "sha256": "8c4e6332d818249ed05ce98e36e6ed8a08e3249ac70f69680842ab2e5fee8510"
+    },
+    {
+      "id": "clamav",
+      "version": "1.5.4",
+      "source": "https://github.com/Cisco-Talos/clamav/releases/download/clamav-1.5.4/clamav-1.5.4.tar.gz",
+      "license": "GPL-2.0-only",
+      "sha256": "1af1117a228f1b5bc7fa91a0dabc37848a99e7d25188e9be8043332ce721dfd3"
+    }
+  ]
+}

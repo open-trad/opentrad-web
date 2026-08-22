@@ -1,0 +1,136 @@
+{
+  "id": "oem-processing-gold",
+  "templateId": "contract.oem.processing.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "contractNumber": "OEM-2026-001",
+    "title": "OEM加工合同",
+    "signingDate": "2026-08-19",
+    "effectiveMode": "signature",
+    "copies": 2,
+    "language": "zh-CN",
+    "layoutStyleId": "classic-formal.v1"
+  },
+  "principal": {
+    "legalName": "深圳示例品牌有限公司",
+    "entityType": "company",
+    "contactName": "陈经理",
+    "registeredAddress": "深圳市示例路1号"
+  },
+  "processor": {
+    "legalName": "东莞示例加工有限公司",
+    "entityType": "company",
+    "contactName": "林经理",
+    "registeredAddress": "东莞市示例路2号"
+  },
+  "products": [
+    {
+      "id": "product-1",
+      "name": "智能传感器",
+      "specification": "S1",
+      "unit": "件",
+      "quantity": "100",
+      "unitPriceMinor": "0",
+      "discountBps": 0,
+      "taxRateBps": 0
+    }
+  ],
+  "technical": {
+    "packageVersion": "TECH-S1-R3",
+    "drawingAttachmentIds": ["drawing-r3"],
+    "sampleApproval": "双方签署封样确认单后方可量产",
+    "engineeringChange": "任何技术变更须提交书面变更单并确认价格与交期影响"
+  },
+  "materials": {
+    "mode": "mixed",
+    "items": ["委托方提供核心芯片", "加工方采购结构件"],
+    "yieldTarget": "成品良率不低于98%",
+    "scrapHandling": "报废物料分类登记，未经书面同意不得处置",
+    "returnMethod": "余料与报废品按月清点并退还委托方"
+  },
+  "tooling": [
+    {
+      "id": "tool-1",
+      "name": "注塑模具",
+      "owner": "principal",
+      "custody": "由加工方在合同期内保管",
+      "maintenance": "加工方负责日常保养",
+      "returnOrDisposal": "终止后十日内返还委托方"
+    }
+  ],
+  "production": {
+    "currency": "CNY",
+    "taxMode": "tax-included",
+    "schedule": "封样后30日完成首批生产",
+    "processingFeeLines": [
+      {
+        "id": "fee-1",
+        "name": "组装加工费",
+        "unit": "件",
+        "quantity": "100",
+        "unitPriceMinor": "500",
+        "discountBps": 0,
+        "taxRateBps": 1300
+      }
+    ],
+    "paymentSchedule": [
+      { "id": "advance", "trigger": "订单确认", "amountBps": 3000, "dueDays": 5 },
+      { "id": "acceptance", "trigger": "验收合格", "amountBps": 7000, "dueDays": 15 }
+    ]
+  },
+  "quality": {
+    "standard": "技术包TECH-S1-R3及封样",
+    "inspection": "出厂全检并由委托方抽检",
+    "nonconformingProduct": "隔离、分析并按委托方书面指示返工或报废",
+    "traceability": "批次、物料与工序记录保存三年",
+    "recall": "质量原因召回时双方按责任承担费用"
+  },
+  "intellectualProperty": {
+    "backgroundIp": "各方原有知识产权归原权利人",
+    "foregroundIp": "基于委托方技术资料形成的定制成果归委托方",
+    "licenseScope": "加工方仅可为履行本合同使用",
+    "confidentiality": "技术资料仅限授权人员访问"
+  },
+  "subcontracting": "未经委托方事先书面同意不得分包",
+  "terminationCompensation": "按合格在制品、不可退料件及已完成工序据实结算",
+  "generalTerms": {
+    "noticeAddresses": "以合同所列地址送达",
+    "confidentiality": "双方承担保密义务",
+    "forceMajeure": "及时通知并提供证明",
+    "changeControl": "变更须书面确认",
+    "termination": "重大违约可解除",
+    "breachRemedies": "违约方赔偿实际损失",
+    "governingLaw": "中华人民共和国法律",
+    "disputeMethod": "arbitration",
+    "arbitrationCommission": "深圳国际仲裁院",
+    "severability": "部分无效不影响其他条款",
+    "entireAgreement": "正文、技术包与附件构成完整约定"
+  },
+  "signers": [
+    {
+      "partyId": "principal",
+      "role": { "zhCN": "委托方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    },
+    {
+      "partyId": "processor",
+      "role": { "zhCN": "加工方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    }
+  ],
+  "attachments": [
+    {
+      "id": "drawing-r3",
+      "category": "technical",
+      "displayName": "S1图纸R3.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

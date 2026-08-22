@@ -1,0 +1,90 @@
+{
+  "id": "proforma-invoice-fixture",
+  "templateId": "quotation.proforma.invoice.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "number": "PI-20260819-001",
+    "title": "形式发票",
+    "englishTitle": "PRO FORMA INVOICE",
+    "issueDate": "2026-08-19",
+    "validUntil": "2026-09-18",
+    "currency": "USD",
+    "taxMode": "tax-exempt",
+    "quoteNature": "binding-offer",
+    "language": "zh-en",
+    "layoutStyleId": "international-compact.v1"
+  },
+  "seller": {
+    "legalName": "开源出口有限公司",
+    "englishName": "OpenTrad Export Co., Ltd.",
+    "entityType": "company",
+    "registeredAddress": "中国上海市示例路1号",
+    "contactName": "张三",
+    "email": "sales@example.invalid"
+  },
+  "buyer": {
+    "legalName": "示例进口有限公司",
+    "englishName": "Example Import Ltd.",
+    "entityType": "company",
+    "registeredAddress": "美国加州示例街2号",
+    "contactName": "李四",
+    "email": "buyer@example.invalid"
+  },
+  "consignee": {
+    "legalName": "示例收货有限公司",
+    "englishName": "Example Consignee Ltd.",
+    "entityType": "company",
+    "contactName": "王五"
+  },
+  "notifyParty": {
+    "legalName": "示例通知有限公司",
+    "englishName": "Example Notify Party Ltd.",
+    "entityType": "company",
+    "contactName": "赵六"
+  },
+  "buyerReference": "RFQ-88",
+  "purchaseOrderReference": "PO-99",
+  "goodsLines": [
+    {
+      "id": "goods-1",
+      "name": "精密连接器",
+      "englishName": "Precision Connector",
+      "specification": "PC-01",
+      "unit": "pcs",
+      "quantity": "10",
+      "unitPriceMinor": "2500",
+      "discountBps": 0,
+      "taxRateBps": 0,
+      "countryOfOrigin": "China",
+      "hsCodeUserSupplied": "8536.69",
+      "netWeightKg": "8",
+      "grossWeightKg": "10"
+    }
+  ],
+  "shipment": {
+    "packageCount": "1 carton",
+    "totalNetWeightKg": "8",
+    "totalGrossWeightKg": "10",
+    "totalVolumeCbm": "0.125",
+    "incotermsRule": "CIF",
+    "namedPlace": "Port of Los Angeles, USA",
+    "incotermsEdition": "2020",
+    "transportMode": "sea",
+    "estimatedShippingDate": "2026-09-10",
+    "paymentTerms": "T/T 30% advance, balance before shipment",
+    "originCountry": "China",
+    "destinationCountry": "United States",
+    "portOfLoading": "Port of Shanghai",
+    "portOfDischarge": "Port of Los Angeles",
+    "insuranceArrangement": "Seller to insure at 110% of invoice value",
+    "bankInstructions": "Beneficiary: OpenTrad Export Co., Ltd.; Bank: Example Bank; SWIFT: EXAMPLE00",
+    "languagePriority": "en-US"
+  },
+  "charges": {
+    "discountMinor": "1000",
+    "freightMinor": "5000",
+    "insuranceMinor": "2500",
+    "otherCharges": [{ "id": "documentation", "label": "Documentation fee", "amountMinor": "1000" }]
+  },
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

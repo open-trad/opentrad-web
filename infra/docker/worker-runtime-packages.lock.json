@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "fontconfig-config",
+      "version": "2.14.1-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "73b5ad73ea77bced5665a617c1fd05b1bd856dd8d7707ed2ab6748e58e52a5b2"
+    },
+    {
+      "name": "fonts-dejavu-core",
+      "version": "2.37-6",
+      "architecture": "all",
+      "md5ManifestSha256": "57865bced2775f7c0c606f44c754d3281160ad0261d48cdb877111cddbad2c17"
+    },
+    {
+      "name": "libbrotli1",
+      "version": "1.0.9-2+b6",
+      "architecture": "amd64",
+      "md5ManifestSha256": "2ffbe537ca7b5c48f94e163d7ec7110212229518536bce3cb8ca66d467d6cfb7"
+    },
+    {
+      "name": "libbsd0",
+      "version": "0.11.7-2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "3080ed7c951125f705eab4e8a5a0a0e1e3232c8cf05f8645b89c834814478e92"
+    },
+    {
+      "name": "libcairo2",
+      "version": "1.16.0-7",
+      "architecture": "amd64",
+      "md5ManifestSha256": "334bd181419514c68897f64671b6ff10c67af9565c0f5a9949d1166245134234"
+    },
+    {
+      "name": "libexpat1",
+      "version": "2.5.0-1+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "768235bc0056a52e0fe8f307447d7d2eddb4fc02a20cc1e34016f9416bdb6e2e"
+    },
+    {
+      "name": "libfontconfig1",
+      "version": "2.14.1-4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "6647a86ca2ad709ff17478705cc94272cb8355af28514f8b21a389f5bc9e76fb"
+    },
+    {
+      "name": "libfreetype6",
+      "version": "2.12.1+dfsg-5+deb12u4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "8ea473f66793dc8a93b964d41d3f32b42862acff560ff8adc47302ba3a8d4d03"
+    },
+    {
+      "name": "libnspr4",
+      "version": "2:4.35-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "0eb508c14fd29e5b204cdbbfd1435b8fb1c9186fa08fa55817d1b36c6db370a7"
+    },
+    {
+      "name": "libnss3",
+      "version": "2:3.87.1-1+deb12u4",
+      "architecture": "amd64",
+      "md5ManifestSha256": "8739fa9318bdb84e4a82bfd3213ee5f4ee92a950a4f02f7bd8ce03c349ece5d2"
+    },
+    {
+      "name": "libpixman-1-0",
+      "version": "0.42.2-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "be10b95cd2176139bb6978379993a3b54dff07807e355f8ac7850287e1a8b679"
+    },
+    {
+      "name": "libpng16-16",
+      "version": "1.6.39-2+deb12u5",
+      "architecture": "amd64",
+      "md5ManifestSha256": "937b5e21bf8a745b041aac84b333eb027a06ef152d6cf6ae117ccc8a7c4e8a78"
+    },
+    {
+      "name": "libsqlite3-0",
+      "version": "3.40.1-2+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "e24fdd9ef47aae3ea73ff7986fe8862fa74992da6d28e97a10a4bf9a6f34ef5b"
+    },
+    {
+      "name": "libx11-6",
+      "version": "2:1.8.4-2+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "da7dcf73f82bc2dd65ce6ec5da89ef3814bfbec0e30c0b03b482cabb24ababc4"
+    },
+    {
+      "name": "libx11-data",
+      "version": "2:1.8.4-2+deb12u2",
+      "architecture": "all",
+      "md5ManifestSha256": "f2b108658daf7dd8756bbd9205c031b0011b97e58587f4d461172e75d60ff104"
+    },
+    {
+      "name": "libx11-xcb1",
+      "version": "2:1.8.4-2+deb12u2",
+      "architecture": "amd64",
+      "md5ManifestSha256": "b6c910a0b921b5a48eb9c9008fd83d419fa464b2d9d493c95c1bfbf42b9bfbdc"
+    },
+    {
+      "name": "libxau6",
+      "version": "1:1.0.9-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "38e90315965504a748fccadf47817ba220f36751ec82f20c4785211608f64e7a"
+    },
+    {
+      "name": "libxcb-render0",
+      "version": "1.15-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "ebea3647d2cc5fd7a50822028f47c0bb17af4b5ba49bf187aae07d0ec0dbba69"
+    },
+    {
+      "name": "libxcb-shm0",
+      "version": "1.15-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "0454daadb2c6c41c880a2197f5448ddc2d0c55d27fa2de2df8d52c7f15609665"
+    },
+    {
+      "name": "libxcb1",
+      "version": "1.15-1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "f5b1864d150b61573a3461472ad07ef644693c34d9c76648c926fe4783235948"
+    },
+    {
+      "name": "libxdmcp6",
+      "version": "1:1.1.2-3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9ca9fc6761e80a2c55591ba81dad73a52129ece0fe98dd621e7e04f4c9865c3d"
+    },
+    {
+      "name": "libxext6",
+      "version": "2:1.3.4-1+b1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "755bf7ab7d69666724fca996b6e0289ab7bb735ead3a65f6f64c5bf9ebdb9781"
+    },
+    {
+      "name": "libxinerama1",
+      "version": "2:1.1.4-3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "f096643d2ac4101ab3dc1243809919e0204615528829e03b8cc21d51e409c679"
+    },
+    {
+      "name": "libxrender1",
+      "version": "1:0.9.10-1.1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "9ac0e44eea9932f35cfb3729256523757dc615910a33ee49cc492edc9f627a99"
+    }
+  ]
+}

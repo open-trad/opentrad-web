@@ -1,0 +1,35 @@
+{
+  "name": "@opentrad/api",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && mkdir -p dist/db && cp -R src/db/migrations dist/db/",
+    "db:migrate": "node dist/db/migrate.js",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:integration": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@fastify/helmet": "13.1.1",
+    "@fastify/multipart": "10.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@opentrad/contracts": "workspace:*",
+    "better-auth": "1.7.1",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.1",
+    "file-type": "22.0.2",
+    "pdfjs-dist": "6.2.108",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "24.3.0",
+    "pdf-lib": "1.17.1",
+    "typescript": "5.9.2",
+    "vitest": "3.2.6"
+  }
+}

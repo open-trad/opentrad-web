@@ -1,0 +1,596 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "domestic-sale-gold",
+  "template": {
+    "id": "contract.sale.domestic-b2b.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "contract",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "国内货物销售合同"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 20,
+      "bottom": 18,
+      "left": 20
+    }
+  },
+  "sections": [
+    {
+      "id": "cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "contract-cover",
+          "title": {
+            "zhCN": "国内货物销售合同"
+          },
+          "subtitle": {
+            "zhCN": "XS-2026-001"
+          }
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "contract-meta",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "合同编号"
+              },
+              "value": {
+                "zhCN": "XS-2026-001"
+              }
+            },
+            {
+              "id": "date",
+              "label": {
+                "zhCN": "签署日期"
+              },
+              "value": {
+                "zhCN": "2026-08-19"
+              }
+            },
+            {
+              "id": "place",
+              "label": {
+                "zhCN": "签署地点"
+              },
+              "value": {
+                "zhCN": "上海"
+              }
+            },
+            {
+              "id": "copies",
+              "label": {
+                "zhCN": "合同份数"
+              },
+              "value": {
+                "zhCN": "2"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "contract-parties",
+          "parties": [
+            {
+              "id": "seller",
+              "role": {
+                "zhCN": "卖方"
+              },
+              "name": {
+                "zhCN": "上海示例制造有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "登记号：91310000EXAMPLE01"
+                },
+                {
+                  "zhCN": "注册地址：上海市浦东新区示例路1号"
+                },
+                {
+                  "zhCN": "联系人：张经理"
+                },
+                {
+                  "zhCN": "电话：021-00000001"
+                }
+              ]
+            },
+            {
+              "id": "buyer",
+              "role": {
+                "zhCN": "买方"
+              },
+              "name": {
+                "zhCN": "苏州示例采购有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "登记号：91320500EXAMPLE02"
+                },
+                {
+                  "zhCN": "注册地址：苏州市工业园区示例路2号"
+                },
+                {
+                  "zhCN": "联系人：李经理"
+                },
+                {
+                  "zhCN": "电话：0512-00000002"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "subject-goods",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "goods-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "商品"
+              },
+              "width": "24%",
+              "align": "left"
+            },
+            {
+              "id": "spec",
+              "label": {
+                "zhCN": "品牌/规格/标准"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "amount",
+              "label": {
+                "zhCN": "金额"
+              },
+              "width": "18%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "goods-1",
+              "cells": {
+                "name": {
+                  "zhCN": "工业控制器"
+                },
+                "spec": {
+                  "zhCN": "示例牌 / 上海示例制造有限公司 / V2 / 双方确认的技术规格书"
+                },
+                "quantity": {
+                  "zhCN": "2 台"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 100.00"
+                },
+                "amount": {
+                  "zhCN": "CNY 200.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "price-tax-invoice",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "price-grid",
+          "entries": [
+            {
+              "id": "currency",
+              "label": {
+                "zhCN": "币种"
+              },
+              "value": {
+                "zhCN": "CNY"
+              }
+            },
+            {
+              "id": "tax",
+              "label": {
+                "zhCN": "含税口径"
+              },
+              "value": {
+                "zhCN": "tax-included"
+              }
+            },
+            {
+              "id": "invoice",
+              "label": {
+                "zhCN": "发票类型"
+              },
+              "value": {
+                "zhCN": "vat-special"
+              }
+            },
+            {
+              "id": "timing",
+              "label": {
+                "zhCN": "开票时点"
+              },
+              "value": {
+                "zhCN": "收到首付款后五个工作日内开具"
+              }
+            }
+          ]
+        },
+        {
+          "type": "totals",
+          "id": "contract-total",
+          "entries": [
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "合同总价"
+              },
+              "value": {
+                "zhCN": "CNY 200.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "payment",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "payment-schedule",
+          "ordered": true,
+          "items": [
+            {
+              "zhCN": "合同生效：30.00%，5日内"
+            },
+            {
+              "zhCN": "到货验收：60.00%，10日内"
+            },
+            {
+              "zhCN": "质保期届满：10.00%，10日内"
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "retention-note",
+          "tone": "info",
+          "paragraphs": [
+            {
+              "zhCN": "留存比例为 10.00%；留存比例属于付款进度分配，不从合同总价重复扣减。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delivery-packaging",
+      "blocks": [
+        {
+          "type": "clauseGroup",
+          "id": "delivery-clauses",
+          "title": {
+            "zhCN": "交付与包装"
+          },
+          "clauses": [
+            {
+              "id": "delivery",
+              "number": "1",
+              "title": {
+                "zhCN": "交付"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "2026-09-30前；买方注册地仓库；seller-delivery"
+                }
+              ]
+            },
+            {
+              "id": "packaging",
+              "number": "2",
+              "title": {
+                "zhCN": "包装与费用"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "适合公路运输的防潮包装；运费：卖方承担；保险：卖方自行决定并承担费用"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "title-risk",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "title-transfer",
+          "text": {
+            "zhCN": "所有权转移：买方付清全部价款时所有权转移"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "risk-transfer",
+          "text": {
+            "zhCN": "风险转移：货物在交付地点由买方签收时风险转移"
+          }
+        }
+      ]
+    },
+    {
+      "id": "inspection-acceptance",
+      "blocks": [
+        {
+          "type": "clauseGroup",
+          "id": "inspection-clauses",
+          "title": {
+            "zhCN": "检验与异议"
+          },
+          "clauses": [
+            {
+              "id": "inspection",
+              "number": "1",
+              "title": {
+                "zhCN": "检验"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "合同与技术规格书；数量清点与通电抽检；期限：到货后五个工作日"
+                }
+              ]
+            },
+            {
+              "id": "objection",
+              "number": "2",
+              "title": {
+                "zhCN": "异议"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "在检验期内书面列明不符合项并附证据"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quality-warranty",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-warranty-text",
+          "text": {
+            "zhCN": "质保：验收合格后十二个月；售后：收到故障通知后两个工作日内响应"
+          }
+        }
+      ]
+    },
+    {
+      "id": "parties-obligations",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "obligations-text",
+          "text": {
+            "zhCN": "双方应按约提供履约所需资料、协助并及时通知影响履约的事项。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "breach-termination",
+      "blocks": [
+        {
+          "type": "clauseGroup",
+          "id": "breach-termination-clauses",
+          "title": {
+            "zhCN": "违约与解除"
+          },
+          "clauses": [
+            {
+              "id": "breach",
+              "number": "1",
+              "title": {
+                "zhCN": "违约责任"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "违约方赔偿守约方实际损失"
+                }
+              ]
+            },
+            {
+              "id": "termination",
+              "number": "2",
+              "title": {
+                "zhCN": "解除"
+              },
+              "paragraphs": [
+                {
+                  "zhCN": "按合同约定解除并完成结算"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "force-majeure",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "force-majeure-text",
+          "text": {
+            "zhCN": "受影响方及时通知并提供合理证明"
+          }
+        }
+      ]
+    },
+    {
+      "id": "notices",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "notices-text",
+          "text": {
+            "zhCN": "以本合同所列地址送达"
+          }
+        }
+      ]
+    },
+    {
+      "id": "governing-law-dispute",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "law-dispute-text",
+          "text": {
+            "zhCN": "中华人民共和国法律；上海仲裁委员会"
+          }
+        }
+      ]
+    },
+    {
+      "id": "miscellaneous",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "misc-list",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "双方对履约中知悉的商业秘密保密"
+            },
+            {
+              "zhCN": "变更须由双方书面确认"
+            },
+            {
+              "zhCN": "部分条款无效不影响其他条款"
+            },
+            {
+              "zhCN": "正文与附件构成双方完整约定"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "attachment-index",
+          "attachmentIds": [
+            "technical-spec"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "contract-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "卖方"
+              },
+              "name": "张经理（总经理）",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "买方"
+              },
+              "name": "李经理",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "contract-generation-note"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "technical-spec",
+      "category": "technical",
+      "displayName": "技术规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 3,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

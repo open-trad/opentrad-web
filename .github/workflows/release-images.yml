@@ -1,0 +1,269 @@
+name: Build immutable release evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Exact 40-character source commit
+        required: true
+        type: string
+  push:
+    tags:
+      - "v1.0.0"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  NODE_VERSION: 24.19.0
+  PNPM_VERSION: 10.28.2
+  VITE_DEPLOYMENT_MODE: production
+  VITE_SERVER_API_ENABLED: "true"
+  VITE_BASE_PATH: /
+  API_REPOSITORY: ghcr.io/open-trad/opentrad-api
+  WORKER_REPOSITORY: ghcr.io/open-trad/opentrad-worker
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate exact release SHA
+        id: target
+        env:
+          REQUESTED_SHA: ${{ inputs.release_sha || github.sha }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$GITHUB_REF" != refs/tags/v1.0.0 ]; then
+            echo 'PAUSE_RELEASE:INVALID_TAG' >&2
+            exit 78
+          fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo 'PAUSE_RELEASE:DISPATCH_MUST_RUN_ON_MAIN' >&2
+            exit 78
+          fi
+          if ! printf '%s' "$REQUESTED_SHA" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo 'PAUSE_RELEASE:INVALID_SHA' >&2
+            exit 78
+          fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$REQUESTED_SHA" != "$GITHUB_SHA" ]; then
+            echo 'PAUSE_RELEASE:DISPATCH_SHA_MUST_EQUAL_HEAD_SHA' >&2
+            exit 78
+          fi
+          echo "sha=$REQUESTED_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          fetch-depth: 0
+      - name: Prove exact checkout on protected main history
+        env:
+          REQUESTED_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$REQUESTED_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$REQUESTED_SHA" refs/remotes/origin/main; then
+            echo 'PAUSE_RELEASE:SHA_NOT_ON_PROTECTED_MAIN' >&2
+            exit 78
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Install document verification tools
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes --no-install-recommends
+          fontconfig libxml2-utils libreoffice-writer poppler-utils
+      - name: Quality and policy gates
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test
+          pnpm build
+          pnpm golds:verify
+          node --test tests/release/*.test.mjs
+          node --test infra/tests/*.test.mjs
+          node scripts/release/check-licenses.mjs
+          node scripts/release/privacy-sentinel.mjs --fixture-mode
+      - name: Browser end-to-end gate
+        run: |
+          pnpm --filter @opentrad/web exec playwright install --with-deps chromium
+          pnpm e2e
+      - name: Prove production build did not mutate tracked source
+        run: test -z "$(git status --porcelain --untracked-files=no)"
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Load verified base image locks
+        id: base-images
+        run: |
+          node infra/docker/verify-locks.mjs
+          while IFS= read -r line; do
+            printf '%s\n' "$line" >> "$GITHUB_OUTPUT"
+          done < infra/docker/base-images.lock
+      - name: Build and push API by source SHA
+        id: api
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: .
+          file: infra/docker/api.Dockerfile
+          push: true
+          tags: ${{ env.API_REPOSITORY }}:${{ steps.target.outputs.sha }}
+          build-args: |
+            DEBIAN_IMAGE=${{ steps.base-images.outputs.DEBIAN_IMAGE }}
+            NODE_IMAGE=${{ steps.base-images.outputs.NODE_IMAGE }}
+      - name: Build and push worker by source SHA
+        id: worker
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: .
+          file: infra/docker/worker.Dockerfile
+          push: true
+          tags: ${{ env.WORKER_REPOSITORY }}:${{ steps.target.outputs.sha }}
+          build-args: |
+            DEBIAN_IMAGE=${{ steps.base-images.outputs.DEBIAN_IMAGE }}
+            NODE_IMAGE=${{ steps.base-images.outputs.NODE_IMAGE }}
+      - name: Scan API runtime image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ env.API_REPOSITORY }}@${{ steps.api.outputs.digest }}
+          format: json
+          output: trivy-api.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: "0"
+          version: v0.74.0
+      - name: Scan worker runtime image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
+          format: json
+          output: trivy-worker.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: "0"
+          version: v0.74.0
+      - name: Scan digest-pinned ClamAV runtime image
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
+        with:
+          image-ref: ${{ steps.base-images.outputs.CLAMAV_IMAGE }}
+          format: json
+          output: trivy-clamav.json
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+          exit-code: "0"
+          version: v0.74.0
+      - name: Fail on high or critical findings
+        run: >-
+          jq -s -e '[.[].Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length == 0'
+          trivy-api.json trivy-worker.json trivy-clamav.json
+      - name: Create web SPDX SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
+        with:
+          path: apps/web/dist
+          artifact-name: sbom-web.spdx.json
+          output-file: sbom-web.spdx.json
+          format: spdx-json
+          upload-artifact: false
+      - name: Create API SPDX SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
+        with:
+          image: ${{ env.API_REPOSITORY }}@${{ steps.api.outputs.digest }}
+          artifact-name: sbom-api.spdx.json
+          output-file: sbom-api.spdx.json
+          format: spdx-json
+          upload-artifact: false
+      - name: Create worker SPDX SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
+        with:
+          image: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
+          artifact-name: sbom-worker.spdx.json
+          output-file: sbom-worker.spdx.json
+          format: spdx-json
+          upload-artifact: false
+      - name: Create digest-pinned ClamAV SPDX SBOM
+        uses: anchore/sbom-action@da167eac915b4e86f08b264dbdbc867b61be6f0c
+        with:
+          image: ${{ steps.base-images.outputs.CLAMAV_IMAGE }}
+          artifact-name: sbom-clamav.spdx.json
+          output-file: sbom-clamav.spdx.json
+          format: spdx-json
+          upload-artifact: false
+      - uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62
+        with:
+          cosign-release: v3.1.3
+      - name: Keyless-sign OpenTrad images
+        env:
+          API_IMAGE: ${{ env.API_REPOSITORY }}@${{ steps.api.outputs.digest }}
+          WORKER_IMAGE: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
+        run: |
+          cosign sign --yes "$API_IMAGE"
+          cosign sign --yes "$WORKER_IMAGE"
+      - name: Create canonical manifest and bundle
+        env:
+          GITHUB_SHA: ${{ steps.target.outputs.sha }}
+          API_IMAGE: ${{ env.API_REPOSITORY }}@${{ steps.api.outputs.digest }}
+          WORKER_IMAGE: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
+        run: |
+          mkdir -p release-bundle/scripts release-bundle/infra
+          cp -R apps/web/dist release-bundle/web
+          tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+            -cf release-bundle/web.tar -C release-bundle/web .
+          cp -R scripts/release release-bundle/scripts/release
+          cp -R infra/. release-bundle/infra/
+          cp sbom*.spdx.json trivy-*.json release-bundle/
+          node scripts/release/create-manifest.mjs \
+            --web release-bundle/web.tar \
+            --infra release-bundle/infra \
+            --release-scripts release-bundle/scripts/release \
+            --web-sbom release-bundle/sbom-web.spdx.json \
+            --api-sbom release-bundle/sbom-api.spdx.json \
+            --clamav-sbom release-bundle/sbom-clamav.spdx.json \
+            --worker-sbom release-bundle/sbom-worker.spdx.json \
+            --trivy-api release-bundle/trivy-api.json \
+            --trivy-clamav release-bundle/trivy-clamav.json \
+            --trivy-worker release-bundle/trivy-worker.json \
+            --api-image "$API_IMAGE" \
+            --worker-image "$WORKER_IMAGE" \
+            --output release-bundle/release-manifest.json
+      - name: Create portable Sigstore verification bundles
+        run: |
+          cosign sign-blob --yes \
+            --bundle release-bundle/release-manifest.sigstore.json \
+            release-bundle/release-manifest.json
+          cosign sign-blob --yes \
+            --bundle release-bundle/web.sigstore.json \
+            release-bundle/web.tar
+      - name: Attest canonical web archive
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: release-bundle/web.tar
+      - name: Attest canonical release manifest
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-path: release-bundle/release-manifest.json
+      - name: Attest API image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-name: ${{ env.API_REPOSITORY }}
+          subject-digest: ${{ steps.api.outputs.digest }}
+          push-to-registry: true
+      - name: Attest worker image
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be
+        with:
+          subject-name: ${{ env.WORKER_REPOSITORY }}
+          subject-digest: ${{ steps.worker.outputs.digest }}
+          push-to-registry: true
+      - name: Upload immutable release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ steps.target.outputs.sha }}
+          path: release-bundle
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

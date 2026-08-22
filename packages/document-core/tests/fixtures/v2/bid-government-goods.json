@@ -1,0 +1,259 @@
+{
+  "id": "bid-government-goods-gold",
+  "templateId": "bid.government.goods.v1",
+  "templateVersion": "1.0.0",
+  "source": {
+    "issuer": "宁波市示例采购中心",
+    "agency": "宁波示例招标代理有限公司",
+    "projectName": "公共服务终端设备采购项目",
+    "projectNumber": "ZFCG-2026-0819",
+    "packageNumber": "包1",
+    "versionLabel": "招标文件正式版",
+    "issueDate": "2026-08-19",
+    "clarificationIds": [],
+    "versionEvidence": {
+      "mainSolicitationAttachmentId": "source-main",
+      "clarificationAttachments": [],
+      "allClarificationsIncluded": true,
+      "userConfirmedExactVersion": true
+    },
+    "bidDeadline": "2026-09-10T09:00:00+08:00",
+    "openingTime": "2026-09-10T09:30:00+08:00",
+    "openingPlace": "政府采购电子交易平台",
+    "bidValidityDays": 90,
+    "submissionMode": "electronic",
+    "signatureRules": "按招标文件要求完成电子签章",
+    "sealingRules": "电子投标文件加密后提交",
+    "currency": "CNY",
+    "taxBasis": "tax-included",
+    "evaluationMethod": "comprehensive-score",
+    "maximumPriceMinor": "1200000",
+    "jointVentureAllowed": false,
+    "subcontractAllowed": false,
+    "submissionCopies": { "original": 0, "copies": 0, "electronic": 1 },
+    "guaranteeRequirement": {
+      "required": false,
+      "allowedMethods": [],
+      "sourceRefIds": []
+    }
+  },
+  "bidder": {
+    "legalName": "宁波义星科技有限公司",
+    "entityType": "company",
+    "registrationId": "91330200EXAMPLE01",
+    "registeredAddress": "宁波市鄞州区示例路1号",
+    "legalRepresentative": "王示例",
+    "authorizedRepresentative": "张示例",
+    "contactName": "张示例",
+    "phone": "0574-00000001",
+    "email": "bid@example.invalid"
+  },
+  "authorizedRepresentative": "张示例",
+  "consortiumMembers": [],
+  "requirements": [
+    {
+      "id": "req-tech-1",
+      "sourceRefIds": ["source-tech-1"],
+      "category": "technical",
+      "requirementText": "终端设备须满足招标文件技术参数。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "所投型号按技术响应表逐项响应。",
+      "offeredValue": "XY-100",
+      "compliance": "yes",
+      "evidenceRefIds": ["proof-spec"],
+      "owner": "技术负责人",
+      "reviewStatus": "accepted"
+    },
+    {
+      "id": "req-business-1",
+      "sourceRefIds": ["source-business-1"],
+      "category": "commercial",
+      "requirementText": "合同签订后30日内完成交付。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "合同签订后30日内完成交付。",
+      "compliance": "yes",
+      "evidenceRefIds": [],
+      "owner": "商务负责人",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "qualifications": [
+    {
+      "id": "qualification-license",
+      "sourceRefIds": ["source-qualification-1"],
+      "name": "营业执照",
+      "required": true,
+      "issuer": "宁波市市场监督管理局",
+      "certificateNumber": "91330200EXAMPLE01",
+      "validUntil": "2036-08-19",
+      "attachmentId": "proof-license",
+      "status": "attached",
+      "userConfirmedTruth": true
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "id": "source-tech-1",
+      "kind": "solicitation",
+      "sourceRef": "第三章 技术要求 2.1",
+      "attachmentId": "source-main",
+      "page": 18
+    },
+    {
+      "id": "source-business-1",
+      "kind": "solicitation",
+      "sourceRef": "第二章 投标人须知 12.2",
+      "attachmentId": "source-main",
+      "page": 9
+    },
+    {
+      "id": "source-qualification-1",
+      "kind": "solicitation",
+      "sourceRef": "第一章 资格条件 3.1",
+      "attachmentId": "source-main",
+      "page": 4
+    },
+    {
+      "id": "proof-spec",
+      "kind": "proof",
+      "attachmentId": "proof-spec",
+      "page": 1,
+      "label": "制造商技术规格书"
+    }
+  ],
+  "businessDeviations": [],
+  "technicalDeviations": [],
+  "projectReferences": [],
+  "attachments": [
+    {
+      "id": "source-main",
+      "category": "other",
+      "displayName": "招标文件正式版.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 62,
+      "required": true,
+      "sourceRef": "采购人提供的项目招标文件",
+      "status": "attached",
+      "includedInSubmission": false
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-spec",
+      "category": "technical",
+      "displayName": "制造商技术规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "priceDeclaration": {
+    "itemizedTotalMinor": "1000000",
+    "bidLetterTotalMinor": "1000000",
+    "openingTotalMinor": "1000000",
+    "userConfirmed": true
+  },
+  "signSealChecklist": [
+    {
+      "id": "sign-bid-letter",
+      "sourceRefIds": ["source-business-1"],
+      "label": "投标函电子签章",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "finalReviewers": [
+    {
+      "name": "李示例",
+      "role": "合规复核",
+      "reviewedAt": "2026-08-20T12:00:00+08:00"
+    }
+  ],
+  "updatedAt": "2026-08-20T12:00:00+08:00",
+  "coreProduct": "公共服务终端设备",
+  "goodsOfferLines": [
+    {
+      "id": "goods-1",
+      "name": "公共服务终端",
+      "brand": "义星",
+      "model": "XY-100",
+      "manufacturer": "宁波义星科技有限公司",
+      "origin": "中国宁波",
+      "specification": "详见技术规格书与逐项技术响应表",
+      "quantity": "10",
+      "unit": "台",
+      "unitPriceMinor": "100000",
+      "taxRateBps": 1300,
+      "policyAttributes": "不声明未核实的政府采购政策属性"
+    }
+  ],
+  "technicalMatrix": [
+    {
+      "id": "req-tech-1",
+      "sourceRefIds": ["source-tech-1"],
+      "category": "technical",
+      "requirementText": "终端设备须满足招标文件技术参数。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "所投型号按技术响应表逐项响应。",
+      "offeredValue": "XY-100",
+      "compliance": "yes",
+      "evidenceRefIds": ["proof-spec"],
+      "owner": "技术负责人",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "businessMatrix": [
+    {
+      "id": "req-business-1",
+      "sourceRefIds": ["source-business-1"],
+      "category": "commercial",
+      "requirementText": "合同签订后30日内完成交付。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "合同签订后30日内完成交付。",
+      "compliance": "yes",
+      "evidenceRefIds": [],
+      "owner": "商务负责人",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "plans": {
+    "delivery": "合同签订后30日内运抵采购人指定地点。",
+    "installation": "到货后5个工作日内完成安装调试。",
+    "training": "提供2场现场使用与维护培训。",
+    "acceptance": "按招标文件技术参数和双方确认的验收方案逐项验收。",
+    "warranty": "验收合格之日起三年。",
+    "afterSales": "7×24小时受理，2小时响应，必要时24小时内到场。"
+  },
+  "policyDeclarations": [
+    {
+      "id": "policy-sme",
+      "policyName": "中小企业政策",
+      "statement": "本企业声明按随附的中小企业声明函参与本项目。",
+      "evidenceAttachmentIds": ["proof-license"],
+      "applicable": true,
+      "userConfirmedTruth": true
+    },
+    {
+      "id": "policy-energy",
+      "policyName": "节能产品政策",
+      "statement": "此项尚未核实，不得形成肯定声明。",
+      "evidenceAttachmentIds": [],
+      "applicable": false,
+      "userConfirmedTruth": false
+    }
+  ]
+}

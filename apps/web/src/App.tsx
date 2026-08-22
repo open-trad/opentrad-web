@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppHeader } from "./components/AppHeader";
+import { DocumentEditorPage } from "./features/documents/editor/DocumentEditorPage";
 import { ConvertPage } from "./pages/ConvertPage";
 import { HomePage } from "./pages/HomePage";
 import { InfoPage } from "./pages/InfoPage";
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/templates/:templateId" element={<TemplateDetailPage />} />
             <Route path="/editor/standard-goods-quote" element={<QuoteEditorPage />} />
+            <Route path="/editor/:templateId" element={<DocumentEditorPage />} />
             <Route path="/convert" element={<ConvertPage />} />
             <Route
               path="/help"

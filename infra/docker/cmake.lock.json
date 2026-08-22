@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "cmake",
+  "version": "3.31.10",
+  "source": "https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10-linux-x86_64.tar.gz",
+  "license": "BSD-3-Clause",
+  "sha256": "3cb3dd247b6a1de2d0f4b20c6fd4326c9024e894cebc9dc8699758887e566ca7"
+}

@@ -1,0 +1,81 @@
+{
+  "id": "oem-custom-fixture",
+  "templateId": "quotation.oem.custom.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "number": "OEM-20260819-001",
+    "title": "OEM 定制报价单",
+    "issueDate": "2026-08-19",
+    "validUntil": "2026-09-18",
+    "currency": "CNY",
+    "taxMode": "tax-excluded",
+    "quoteNature": "binding-offer",
+    "language": "zh-CN",
+    "layoutStyleId": "modern-business.v1"
+  },
+  "seller": {
+    "legalName": "开源制造有限公司",
+    "entityType": "company",
+    "contactName": "张三"
+  },
+  "buyer": {
+    "legalName": "示例品牌有限公司",
+    "entityType": "company",
+    "contactName": "李四"
+  },
+  "project": {
+    "projectName": "智能控制器定制",
+    "productName": "智能控制器",
+    "customerModel": "BUYER-X1",
+    "drawingVersion": "DWG-R3",
+    "sampleBasis": "经双方确认的金样",
+    "annualForecast": "预计 12000 件，不构成采购承诺",
+    "moq": "1000 件",
+    "prototypeQty": "20 件",
+    "massProductionQty": "1000 件/批",
+    "buyerSuppliedMaterials": true
+  },
+  "chargeLines": [
+    {
+      "id": "unit-product",
+      "chargeType": "unit-product",
+      "name": "量产产品",
+      "specification": "按 DWG-R3",
+      "unit": "件",
+      "quantity": "10",
+      "unitPriceMinor": "5000",
+      "discountBps": 0,
+      "taxRateBps": 1300
+    },
+    {
+      "id": "tooling",
+      "chargeType": "tooling",
+      "name": "专用测试治具",
+      "unit": "套",
+      "quantity": "1",
+      "unitPriceMinor": "100000",
+      "discountBps": 0,
+      "taxRateBps": 1300,
+      "amortizationQuantity": "10000"
+    }
+  ],
+  "terms": {
+    "toolingRequired": true,
+    "toolingOwnership": "买方付清模具费后享有专用治具所有权",
+    "sampleApproval": "买方书面签样后进入量产",
+    "prototypeLeadTime": "收到资料与款项后 15 个工作日",
+    "massProductionLeadTime": "签样后 30 个工作日",
+    "qualityStandard": "按双方确认图纸与检验规范",
+    "acceptance": "到货后十个工作日内完成检验并书面提出异议",
+    "engineeringChange": "任何工程变更须双方书面确认价格、库存与交期影响",
+    "packaging": "防静电独立包装，外箱标注批次",
+    "delivery": "买方指定仓库",
+    "payment": "下单付 30%，发货前付清余款",
+    "warranty": "验收合格后十二个月",
+    "intellectualProperty": "背景知识产权归原权利人，新产生成果按书面协议约定",
+    "confidentiality": "双方对图纸、样品与商务信息保密",
+    "materialReceiptAndReturn": "买方来料按交接单验收，余料和不良料按月清点退回",
+    "notes": "量产数量以正式订单为准"
+  },
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

@@ -1,0 +1,120 @@
+name: opentrad
+
+services:
+  api:
+    image: ${OPENTRAD_API_IMAGE:?OPENTRAD_API_IMAGE is required}
+    user: "10001:10001"
+    group_add: ["10100"]
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    cpus: 0.50
+    mem_limit: 512m
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:13300:3000"
+    env_file: ./runtime/api.env.example
+    environment:
+      OPENTRAD_DATABASE_PATH: /var/lib/opentrad/opentrad.sqlite
+      OPENTRAD_JOB_ROOT: /jobs
+      OPENTRAD_CLAMD_HOST: clamav
+      OPENTRAD_CLAMD_PORT: "3310"
+    secrets:
+      - better_auth_secret
+      - github_client_id
+      - github_client_secret
+    volumes:
+      - auth_data:/var/lib/opentrad
+      - job_ram:/jobs
+    tmpfs:
+      - /run/opentrad:rw,nodev,nosuid,noexec,size=32m,uid=10001,gid=10001,mode=0700
+    networks: [egress, scan]
+    depends_on:
+      clamav:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - const origin=new URL(process.env.OPENTRAD_PUBLIC_ORIGIN);require('node:http').get({hostname:'127.0.0.1',port:3000,path:'/api/health/ready',headers:{host:origin.host}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    image: ${OPENTRAD_WORKER_IMAGE:?OPENTRAD_WORKER_IMAGE is required}
+    user: "10002:10002"
+    group_add: ["10100"]
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    cpus: 1.25
+    mem_limit: 3g
+    restart: unless-stopped
+    network_mode: none
+    env_file: ./runtime/worker.env.example
+    environment:
+      OPENTRAD_JOB_ROOT: /jobs
+    volumes:
+      - job_ram:/jobs
+    tmpfs:
+      - /run/opentrad:rw,nodev,nosuid,noexec,size=64m,uid=10002,gid=10002,mode=0700
+      - /work:rw,nodev,nosuid,noexec,size=2g,uid=10002,gid=10002,mode=0700
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - test -x /jobs && test -w /jobs/queued && test -w /jobs/running && test -w /jobs/outbox && test -r /jobs/control && test -w /work && kill -0 1
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  clamav:
+    image: ${OPENTRAD_CLAMAV_IMAGE:?OPENTRAD_CLAMAV_IMAGE is required}
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    cpus: 0.50
+    mem_limit: 1280m
+    restart: unless-stopped
+    volumes:
+      - clam_db:/var/lib/clamav
+      - ./docker/clamd.conf:/etc/clamav/clamd.conf:ro
+    tmpfs:
+      - /run/clamav:rw,nodev,nosuid,noexec,size=16m
+      - /tmp:rw,nodev,nosuid,noexec,size=64m
+    networks: [egress, scan]
+    healthcheck:
+      test: [CMD-SHELL, "clamdscan --ping 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+
+networks:
+  egress: {}
+  scan:
+    internal: true
+
+volumes:
+  auth_data:
+  clam_db:
+  job_ram:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=2g,uid=10001,gid=10100,mode=0770,nodev,nosuid,noexec
+
+secrets:
+  better_auth_secret:
+    file: /opt/opentrad/secrets/better_auth_secret
+  github_client_id:
+    file: /opt/opentrad/secrets/github_client_id
+  github_client_secret:
+    file: /opt/opentrad/secrets/github_client_secret

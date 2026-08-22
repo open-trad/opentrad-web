@@ -1,0 +1,951 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "bid-government-services-gold",
+  "template": {
+    "id": "bid.government.services.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "bid",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "政府采购服务投标文件"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 18,
+      "bottom": 18,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "draft-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "government-services-cover",
+          "title": {
+            "zhCN": "政府采购服务投标文件"
+          },
+          "subtitle": {
+            "zhCN": "政务热线运营服务项目 · 包1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-baseline",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "government-services-source",
+          "entries": [
+            {
+              "id": "project-number",
+              "label": {
+                "zhCN": "项目编号"
+              },
+              "value": {
+                "zhCN": "ZFCG-SVC-2026-0819"
+              }
+            },
+            {
+              "id": "version-label",
+              "label": {
+                "zhCN": "文件版本"
+              },
+              "value": {
+                "zhCN": "招标文件正式版"
+              }
+            },
+            {
+              "id": "deadline",
+              "label": {
+                "zhCN": "投标截止"
+              },
+              "value": {
+                "zhCN": "2026-09-12T09:00:00+08:00"
+              }
+            },
+            {
+              "id": "source-file",
+              "label": {
+                "zhCN": "项目招标文件"
+              },
+              "value": {
+                "zhCN": "source-main"
+              }
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "government-services-source-notice",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "财政部来源仅作为模板结构依据；不得替代本项目招标文件、澄清或采购人的具体要求。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "blocks": [
+        {
+          "type": "toc",
+          "id": "government-services-toc",
+          "maxDepth": 2
+        }
+      ]
+    },
+    {
+      "id": "bid-letter",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "government-services-bid-letter",
+          "title": {
+            "zhCN": "投标函"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "我方就政务热线运营服务项目提交服务投标文件，响应内容以项目文件及本投标文件为准。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "authorization",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "government-services-authorization",
+          "title": {
+            "zhCN": "授权信息"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "授权代表：张示例。授权和签章须人工核验。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualifications",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "government-services-qualifications",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "资格项"
+              },
+              "width": "45%",
+              "align": "left"
+            },
+            {
+              "id": "status",
+              "label": {
+                "zhCN": "状态"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "30%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "qualification-license",
+              "cells": {
+                "name": {
+                  "zhCN": "营业执照"
+                },
+                "status": {
+                  "zhCN": "attached"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "policy-declarations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "government-services-policy-status",
+          "columns": [
+            {
+              "id": "policy",
+              "label": {
+                "zhCN": "政策"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "status",
+              "label": {
+                "zhCN": "状态"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "statement",
+              "label": {
+                "zhCN": "经确认声明"
+              },
+              "width": "40%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "opening-price",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "government-services-opening-price",
+          "entries": [
+            {
+              "id": "declared",
+              "label": {
+                "zhCN": "开标报价"
+              },
+              "value": {
+                "zhCN": "CNY 10,000.00"
+              }
+            },
+            {
+              "id": "calculated",
+              "label": {
+                "zhCN": "服务明细重算"
+              },
+              "value": {
+                "zhCN": "CNY 10,000.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "service-price",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "government-services-price-table",
+          "columns": [
+            {
+              "id": "service",
+              "label": {
+                "zhCN": "服务"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "deliverable",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "14%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "重算金额"
+              },
+              "width": "15%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "service-1",
+              "cells": {
+                "service": {
+                  "zhCN": "政务热线运营服务"
+                },
+                "deliverable": {
+                  "zhCN": "月度运营报告与工单台账"
+                },
+                "quantity": {
+                  "zhCN": "1 项"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 10,000.00"
+                },
+                "total": {
+                  "zhCN": "CNY 10,000.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "requirement-response",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "complianceMatrix",
+          "id": "government-services-requirements",
+          "columns": [
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "招标要求"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "offered",
+              "label": {
+                "zhCN": "响应值"
+              },
+              "width": "15%",
+              "align": "left"
+            },
+            {
+              "id": "compliance",
+              "label": {
+                "zhCN": "符合性"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "evidence",
+              "label": {
+                "zhCN": "证据引用"
+              },
+              "width": "17%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "req-service-1",
+              "sourceRef": "第三章 服务需求 2.1",
+              "substantial": true,
+              "cells": {
+                "requirement": {
+                  "zhCN": "提供7×24小时热线运营服务。"
+                },
+                "response": {
+                  "zhCN": "配置轮班团队提供7×24小时服务。"
+                },
+                "offered": {
+                  "zhCN": "7×24小时"
+                },
+                "compliance": {
+                  "zhCN": "yes"
+                },
+                "evidence": {
+                  "zhCN": "proof-team"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "understanding-objectives",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "understanding-objectives-text",
+          "text": {
+            "zhCN": "项目理解：本项目需要稳定、可量化且可审计的政务热线运营服务。\n目标：保持热线连续可用并按月交付质量报告。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "methodology",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "methodology-text",
+          "text": {
+            "zhCN": "采用知识库、工单闭环、质量抽检和持续改进方法。"
+          }
+        },
+        {
+          "type": "list",
+          "id": "work-packages",
+          "ordered": true,
+          "items": [
+            {
+              "zhCN": "热线运营：排班接听、工单流转、知识库维护；交付：月度运营报告、工单台账"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deliverables-schedule",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "deliverables-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "due",
+              "label": {
+                "zhCN": "日期"
+              },
+              "width": "20%",
+              "align": "center"
+            },
+            {
+              "id": "acceptance",
+              "label": {
+                "zhCN": "验收标准"
+              },
+              "width": "45%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "deliverable-1",
+              "cells": {
+                "name": {
+                  "zhCN": "月度运营报告"
+                },
+                "due": {
+                  "zhCN": "2026-10-31"
+                },
+                "acceptance": {
+                  "zhCN": "内容完整且指标数据可追溯"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        },
+        {
+          "type": "table",
+          "id": "milestones-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "里程碑"
+              },
+              "width": "35%",
+              "align": "left"
+            },
+            {
+              "id": "date",
+              "label": {
+                "zhCN": "日期"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "dependency",
+              "label": {
+                "zhCN": "依赖"
+              },
+              "width": "40%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "milestone-1",
+              "cells": {
+                "name": {
+                  "zhCN": "服务启动"
+                },
+                "date": {
+                  "zhCN": "2026-10-01"
+                },
+                "dependency": {
+                  "zhCN": "采购人提供系统账号"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "staffing",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "staffing-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "姓名"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "role",
+              "label": {
+                "zhCN": "角色"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "qualification",
+              "label": {
+                "zhCN": "资格"
+              },
+              "width": "27%",
+              "align": "left"
+            },
+            {
+              "id": "experience",
+              "label": {
+                "zhCN": "经历"
+              },
+              "width": "27%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "确认"
+              },
+              "width": "10%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "staff-1",
+              "cells": {
+                "name": {
+                  "zhCN": "赵示例"
+                },
+                "role": {
+                  "zhCN": "项目经理"
+                },
+                "qualification": {
+                  "zhCN": "用户提供的项目管理资质信息"
+                },
+                "experience": {
+                  "zhCN": "用户提供的热线运营经历"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality-sla",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-plan",
+          "text": {
+            "zhCN": "每月抽检工单并形成纠正措施闭环。"
+          }
+        },
+        {
+          "type": "table",
+          "id": "sla-table",
+          "columns": [
+            {
+              "id": "metric",
+              "label": {
+                "zhCN": "指标"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "target",
+              "label": {
+                "zhCN": "目标"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "measurement",
+              "label": {
+                "zhCN": "测量"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "remedy",
+              "label": {
+                "zhCN": "处置"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "sla-1",
+              "cells": {
+                "metric": {
+                  "zhCN": "热线接通率"
+                },
+                "target": {
+                  "zhCN": "不低于95%"
+                },
+                "measurement": {
+                  "zhCN": "平台月度统计"
+                },
+                "remedy": {
+                  "zhCN": "按招标文件约定处理"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "risk-security-privacy",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "risk-security-privacy-text",
+          "text": {
+            "zhCN": "风险：登记运营风险并由项目经理跟踪处置。\n安全：按项目招标文件执行账号和访问控制。\n隐私：按最小必要原则处理热线服务中的个人信息。\n业务连续性：配置备用坐席与应急联络机制。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "acceptance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "acceptance-text",
+          "text": {
+            "zhCN": "按月度报告、工单台账和SLA数据完成验收。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "performance-evidence",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "performance-evidence-table",
+          "columns": [
+            {
+              "id": "project",
+              "label": {
+                "zhCN": "项目"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "customer",
+              "label": {
+                "zhCN": "客户"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "scope",
+              "label": {
+                "zhCN": "范围"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "15%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "performance-1",
+              "cells": {
+                "project": {
+                  "zhCN": "示例客户服务运营项目"
+                },
+                "customer": {
+                  "zhCN": "示例客户有限公司"
+                },
+                "scope": {
+                  "zhCN": "热线运营与服务质量管理"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "deviations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "government-services-deviations",
+          "columns": [
+            {
+              "id": "type",
+              "label": {
+                "zhCN": "类型"
+              },
+              "width": "15%",
+              "align": "center"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "government-services-attachments",
+          "attachmentIds": [
+            "proof-license",
+            "proof-team",
+            "proof-performance"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "final-checklist",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "government-services-checklist",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "投标函电子签章：已确认"
+            },
+            {
+              "zhCN": "导出状态：submission-ready。submission-ready 不等于已签名、已上传或已由主管机关认定合规。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "government-services-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "投标人授权代表"
+              },
+              "name": "张示例",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "投标人盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "bid-authority"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-team",
+      "category": "technical",
+      "displayName": "团队人员证明材料.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 6,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-performance",
+      "category": "commercial",
+      "displayName": "项目业绩证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

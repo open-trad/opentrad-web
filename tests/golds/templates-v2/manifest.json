@@ -1,0 +1,111 @@
+{
+  "formatVersion": "1.0.0",
+  "generatedWithBasisDate": "2026-08-19",
+  "templates": [
+    {
+      "id": "quotation.goods.standard.v1",
+      "version": "1.0.0",
+      "layout": "modern-business.v1",
+      "language": "zh-CN",
+      "fixture": "standard-two-lines-tax-discount"
+    },
+    {
+      "id": "quotation.service.project.v1",
+      "version": "1.0.0",
+      "layout": "modern-business.v1",
+      "language": "zh-CN",
+      "fixture": "three-services-three-milestones"
+    },
+    {
+      "id": "quotation.oem.custom.v1",
+      "version": "1.0.0",
+      "layout": "modern-business.v1",
+      "language": "zh-CN",
+      "fixture": "tooling-nre-sample-materials"
+    },
+    {
+      "id": "quotation.export.bilingual.v1",
+      "version": "1.0.0",
+      "layout": "international-compact.v1",
+      "language": "zh-en",
+      "fixture": "fca-two-goods-bilingual"
+    },
+    {
+      "id": "quotation.proforma.invoice.v1",
+      "version": "1.0.0",
+      "layout": "international-compact.v1",
+      "language": "zh-en",
+      "fixture": "weights-freight-insurance"
+    },
+    {
+      "id": "contract.sale.domestic-b2b.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "staged-payment-inspection-risk"
+    },
+    {
+      "id": "contract.supply.framework.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "nonbinding-forecast-order-priority"
+    },
+    {
+      "id": "contract.oem.processing.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "principal-materials-tooling-ip"
+    },
+    {
+      "id": "contract.service.commercial.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "delegation-acceptance-termination"
+    },
+    {
+      "id": "contract.sale.international-bilingual.v1",
+      "version": "1.0.0",
+      "layout": "international-compact.v1",
+      "language": "zh-en",
+      "fixture": "cip-cisg-arbitration-bilingual"
+    },
+    {
+      "id": "bid.government.goods.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "complete-source-core-product"
+    },
+    {
+      "id": "bid.government.services.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "method-team-sla-acceptance"
+    },
+    {
+      "id": "bid.construction.works.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "manager-equipment-long-plan"
+    },
+    {
+      "id": "bid.enterprise.goods.v1",
+      "version": "1.0.0",
+      "layout": "classic-formal.v1",
+      "language": "zh-CN",
+      "fixture": "technical-commercial-matrix"
+    },
+    {
+      "id": "bid.enterprise.services.v1",
+      "version": "1.0.0",
+      "layout": "modern-business.v1",
+      "language": "zh-CN",
+      "fixture": "solution-team-risks-exclusions"
+    }
+  ]
+}

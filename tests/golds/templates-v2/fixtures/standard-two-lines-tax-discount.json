@@ -1,0 +1,62 @@
+{
+  "id": "gold-standard-quote",
+  "templateId": "quotation.goods.standard.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "number": "QT-20260819-001",
+    "issueDate": "2026-08-19",
+    "validUntil": "2026-09-18",
+    "currency": "CNY",
+    "taxMode": "tax-excluded",
+    "quoteNature": "invitation",
+    "language": "zh-CN",
+    "layout": "classic"
+  },
+  "seller": {
+    "name": "开源商贸（上海）有限公司",
+    "address": "上海市浦东新区示例路 88 号",
+    "contactName": "张三",
+    "email": "sales@example.invalid",
+    "taxId": "91310000EXAMPLE01"
+  },
+  "buyer": {
+    "name": "示例采购有限公司",
+    "address": "苏州市工业园区示例大道 18 号",
+    "contactName": "李四",
+    "email": "buyer@example.invalid"
+  },
+  "lineItems": [
+    {
+      "id": "gold-standard-line-1",
+      "name": "工业传感器",
+      "sku": "OT-SENSOR-01",
+      "specification": "IP67 / 24V",
+      "description": "含标准连接线",
+      "unit": "件",
+      "quantity": "12",
+      "unitPriceMinor": "128000",
+      "discountBps": 500,
+      "taxRateBps": 1300
+    },
+    {
+      "id": "gold-standard-line-2",
+      "name": "现场调试服务",
+      "sku": "OT-SERVICE-01",
+      "specification": "单次八小时",
+      "description": "含调试记录",
+      "unit": "项",
+      "quantity": "1",
+      "unitPriceMinor": "360000",
+      "discountBps": 0,
+      "taxRateBps": 600
+    }
+  ],
+  "terms": {
+    "delivery": "确认订单后十五个工作日交付",
+    "payment": "合同生效后支付百分之三十预付款，验收后付清余款",
+    "quality": "按双方确认的技术规格验收",
+    "warranty": "货物验收后十二个月",
+    "notes": "本报价仅供商业洽谈，最终以双方签署文件为准"
+  },
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

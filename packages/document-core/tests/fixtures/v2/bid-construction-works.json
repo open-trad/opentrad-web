@@ -1,0 +1,225 @@
+{
+  "id": "bid-construction-works-gold",
+  "templateId": "bid.construction.works.v1",
+  "templateVersion": "1.0.0",
+  "source": {
+    "issuer": "宁波市示例建设有限公司",
+    "agency": "宁波示例工程招标代理有限公司",
+    "projectName": "园区配套道路改造工程",
+    "projectNumber": "GCZB-2026-0819",
+    "packageNumber": "施工标段一",
+    "versionLabel": "施工招标文件正式版及工程量清单",
+    "issueDate": "2026-08-19",
+    "clarificationIds": [],
+    "versionEvidence": {
+      "mainSolicitationAttachmentId": "source-main",
+      "clarificationAttachments": [],
+      "allClarificationsIncluded": true,
+      "userConfirmedExactVersion": true
+    },
+    "bidDeadline": "2026-09-15T09:00:00+08:00",
+    "openingTime": "2026-09-15T09:30:00+08:00",
+    "openingPlace": "电子招标投标交易平台",
+    "bidValidityDays": 120,
+    "submissionMode": "electronic",
+    "signatureRules": "按施工招标文件要求完成电子签章",
+    "sealingRules": "电子投标文件加密后提交",
+    "currency": "CNY",
+    "taxBasis": "tax-included",
+    "evaluationMethod": "comprehensive-evaluation",
+    "maximumPriceMinor": "6000000",
+    "jointVentureAllowed": false,
+    "subcontractAllowed": true,
+    "submissionCopies": { "original": 0, "copies": 0, "electronic": 1 },
+    "guaranteeRequirement": { "required": false, "allowedMethods": [], "sourceRefIds": [] }
+  },
+  "bidder": {
+    "legalName": "宁波义星建设有限公司",
+    "entityType": "company",
+    "registrationId": "91330200EXAMPLEC1",
+    "registeredAddress": "宁波市海曙区示例路3号",
+    "legalRepresentative": "王示例",
+    "authorizedRepresentative": "张示例",
+    "contactName": "张示例",
+    "phone": "0574-00000003",
+    "email": "works-bid@example.invalid"
+  },
+  "authorizedRepresentative": "张示例",
+  "consortiumMembers": [],
+  "requirements": [
+    {
+      "id": "req-duration",
+      "sourceRefIds": ["source-duration"],
+      "category": "technical",
+      "requirementText": "计划工期不超过120日历天。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "投标工期120日历天。",
+      "offeredValue": "120日历天",
+      "compliance": "yes",
+      "evidenceRefIds": [],
+      "owner": "项目经理",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "qualifications": [
+    {
+      "id": "qualification-license",
+      "sourceRefIds": ["source-qualification"],
+      "name": "项目要求的企业资格证明",
+      "required": true,
+      "issuer": "用户提供的发证机关",
+      "certificateNumber": "用户提供的证书编号",
+      "validUntil": "2030-08-19",
+      "attachmentId": "proof-license",
+      "status": "attached",
+      "userConfirmedTruth": true
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "id": "source-duration",
+      "kind": "solicitation",
+      "sourceRef": "投标人须知前附表 1.3.2",
+      "attachmentId": "source-main",
+      "page": 8
+    },
+    {
+      "id": "source-qualification",
+      "kind": "solicitation",
+      "sourceRef": "招标公告 3.1",
+      "attachmentId": "source-main",
+      "page": 3
+    }
+  ],
+  "businessDeviations": [],
+  "technicalDeviations": [],
+  "projectReferences": [
+    {
+      "id": "manager-experience-1",
+      "projectName": "用户提供的类似道路工程",
+      "customer": "示例建设单位",
+      "period": "2023-01至2023-10",
+      "scope": "道路改造施工管理",
+      "evidenceAttachmentId": "proof-experience",
+      "userConfirmedTruth": true
+    }
+  ],
+  "attachments": [
+    {
+      "id": "source-main",
+      "category": "other",
+      "displayName": "施工招标文件正式版.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 110,
+      "required": true,
+      "sourceRef": "招标人提供的项目招标文件",
+      "status": "attached",
+      "includedInSubmission": false
+    },
+    {
+      "id": "boq-main",
+      "category": "commercial",
+      "displayName": "招标工程量清单.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 85,
+      "required": true,
+      "sourceRef": "招标人提供的工程量清单，不由模板生成",
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "企业资格证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 3,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-experience",
+      "category": "technical",
+      "displayName": "项目经理经历证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 6,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "priceDeclaration": {
+    "itemizedTotalMinor": "5000000",
+    "bidLetterTotalMinor": "5000000",
+    "openingTotalMinor": "5000000",
+    "userConfirmed": true
+  },
+  "signSealChecklist": [
+    {
+      "id": "sign-bid-letter",
+      "sourceRefIds": ["source-duration"],
+      "label": "投标函及附录电子签章",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "finalReviewers": [
+    { "name": "李示例", "role": "工程合规复核", "reviewedAt": "2026-08-20T12:00:00+08:00" }
+  ],
+  "updatedAt": "2026-08-20T12:00:00+08:00",
+  "projectScope": "按招标文件、图纸和工程量清单实施园区配套道路改造工程。",
+  "billOfQuantitiesRef": "boq-main",
+  "bidPriceMinor": "5000000",
+  "durationDays": 120,
+  "qualityTarget": "达到项目招标文件明确的质量目标。",
+  "projectManager": {
+    "name": "赵示例",
+    "qualification": "用户提供并确认的项目经理资格信息",
+    "certificateNumber": "用户提供并确认的证书编号",
+    "experience": [
+      {
+        "id": "manager-experience-1",
+        "projectName": "用户提供的类似道路工程",
+        "customer": "示例建设单位",
+        "period": "2023-01至2023-10",
+        "scope": "道路改造施工管理",
+        "evidenceAttachmentId": "proof-experience",
+        "userConfirmedTruth": true
+      }
+    ],
+    "userConfirmedTruth": true
+  },
+  "keyTechnicalPersonnel": [
+    {
+      "id": "person-1",
+      "name": "钱示例",
+      "role": "技术负责人",
+      "qualification": "用户提供并确认的技术资格信息",
+      "experience": "用户提供并确认的工程经历",
+      "userConfirmedTruth": true
+    }
+  ],
+  "laborPlan": [{ "trade": "道路施工班组", "count": 12, "period": "施工阶段" }],
+  "equipmentList": [
+    {
+      "id": "equipment-1",
+      "name": "压路机",
+      "model": "用户提供型号",
+      "quantity": 1,
+      "ownership": "leased",
+      "availability": "计划按施工进度到场",
+      "userConfirmedTruth": true
+    }
+  ],
+  "constructionOrganization": "按项目实际范围编制施工组织、工序衔接和现场协调方案。",
+  "schedulePlan": "以120日历天为控制目标，具体节点按中标后确认的开工条件排定。",
+  "sitePlan": "根据招标人移交的现场条件布置，未取得现场资料前不虚构平面位置。",
+  "qualityPlan": "执行材料检查、过程检验和验收记录闭环。",
+  "safetyPlan": "落实安全教育、风险交底和现场检查。",
+  "environmentPlan": "落实扬尘、噪声、废弃物和现场文明施工措施。",
+  "emergencyPlan": "建立报告、响应和现场应急处置机制。",
+  "subcontractPlan": "仅在招标文件允许且依法履行审批时实施分包。",
+  "materialsPlan": "材料规格和数量以项目工程量清单、图纸及经确认的采购计划为准。",
+  "temporaryWorks": "临时工程以现场条件和经批准的施工组织设计为准。"
+}

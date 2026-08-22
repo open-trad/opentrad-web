@@ -1,0 +1,257 @@
+{
+  "id": "bid-government-services-gold",
+  "templateId": "bid.government.services.v1",
+  "templateVersion": "1.0.0",
+  "source": {
+    "issuer": "宁波市示例政务服务中心",
+    "agency": "宁波示例招标代理有限公司",
+    "projectName": "政务热线运营服务项目",
+    "projectNumber": "ZFCG-SVC-2026-0819",
+    "packageNumber": "包1",
+    "versionLabel": "招标文件正式版",
+    "issueDate": "2026-08-19",
+    "clarificationIds": [],
+    "versionEvidence": {
+      "mainSolicitationAttachmentId": "source-main",
+      "clarificationAttachments": [],
+      "allClarificationsIncluded": true,
+      "userConfirmedExactVersion": true
+    },
+    "bidDeadline": "2026-09-12T09:00:00+08:00",
+    "openingTime": "2026-09-12T09:30:00+08:00",
+    "openingPlace": "政府采购电子交易平台",
+    "bidValidityDays": 90,
+    "submissionMode": "electronic",
+    "signatureRules": "按招标文件要求完成电子签章",
+    "sealingRules": "电子投标文件加密后提交",
+    "currency": "CNY",
+    "taxBasis": "tax-included",
+    "evaluationMethod": "comprehensive-score",
+    "maximumPriceMinor": "1200000",
+    "jointVentureAllowed": false,
+    "subcontractAllowed": false,
+    "submissionCopies": { "original": 0, "copies": 0, "electronic": 1 },
+    "guaranteeRequirement": { "required": false, "allowedMethods": [], "sourceRefIds": [] }
+  },
+  "bidder": {
+    "legalName": "宁波义星数字服务有限公司",
+    "entityType": "company",
+    "registrationId": "91330200EXAMPLES1",
+    "registeredAddress": "宁波市鄞州区示例路2号",
+    "legalRepresentative": "王示例",
+    "authorizedRepresentative": "张示例",
+    "contactName": "张示例",
+    "phone": "0574-00000002",
+    "email": "service-bid@example.invalid"
+  },
+  "authorizedRepresentative": "张示例",
+  "consortiumMembers": [],
+  "requirements": [
+    {
+      "id": "req-service-1",
+      "sourceRefIds": ["source-service-1"],
+      "category": "service",
+      "requirementText": "提供7×24小时热线运营服务。",
+      "substantial": true,
+      "responseStatus": "reviewed",
+      "responseText": "配置轮班团队提供7×24小时服务。",
+      "offeredValue": "7×24小时",
+      "compliance": "yes",
+      "evidenceRefIds": ["proof-team"],
+      "owner": "项目经理",
+      "reviewStatus": "accepted"
+    }
+  ],
+  "qualifications": [
+    {
+      "id": "qualification-license",
+      "sourceRefIds": ["source-qualification-1"],
+      "name": "营业执照",
+      "required": true,
+      "issuer": "宁波市市场监督管理局",
+      "certificateNumber": "91330200EXAMPLES1",
+      "validUntil": "2036-08-19",
+      "attachmentId": "proof-license",
+      "status": "attached",
+      "userConfirmedTruth": true
+    }
+  ],
+  "evidenceRefs": [
+    {
+      "id": "source-service-1",
+      "kind": "solicitation",
+      "sourceRef": "第三章 服务需求 2.1",
+      "attachmentId": "source-main",
+      "page": 20
+    },
+    {
+      "id": "source-qualification-1",
+      "kind": "solicitation",
+      "sourceRef": "第一章 资格条件 3.1",
+      "attachmentId": "source-main",
+      "page": 4
+    },
+    {
+      "id": "proof-team",
+      "kind": "proof",
+      "attachmentId": "proof-team",
+      "page": 1,
+      "label": "团队人员证明材料"
+    }
+  ],
+  "businessDeviations": [],
+  "technicalDeviations": [],
+  "projectReferences": [
+    {
+      "id": "performance-1",
+      "projectName": "示例客户服务运营项目",
+      "customer": "示例客户有限公司",
+      "period": "2024-01至2025-12",
+      "scope": "热线运营与服务质量管理",
+      "evidenceAttachmentId": "proof-performance",
+      "userConfirmedTruth": true
+    }
+  ],
+  "attachments": [
+    {
+      "id": "source-main",
+      "category": "other",
+      "displayName": "招标文件正式版.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 70,
+      "required": true,
+      "sourceRef": "采购人提供的项目招标文件",
+      "status": "attached",
+      "includedInSubmission": false
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-team",
+      "category": "technical",
+      "displayName": "团队人员证明材料.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 6,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-performance",
+      "category": "commercial",
+      "displayName": "项目业绩证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 8,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ],
+  "priceDeclaration": {
+    "itemizedTotalMinor": "1000000",
+    "bidLetterTotalMinor": "1000000",
+    "openingTotalMinor": "1000000",
+    "userConfirmed": true
+  },
+  "signSealChecklist": [
+    {
+      "id": "sign-proposal-letter",
+      "sourceRefIds": ["source-service-1"],
+      "label": "投标函电子签章",
+      "required": true,
+      "confirmed": true
+    }
+  ],
+  "finalReviewers": [
+    { "name": "李示例", "role": "合规复核", "reviewedAt": "2026-08-20T12:00:00+08:00" }
+  ],
+  "updatedAt": "2026-08-20T12:00:00+08:00",
+  "serviceUnderstanding": "本项目需要稳定、可量化且可审计的政务热线运营服务。",
+  "objectives": "保持热线连续可用并按月交付质量报告。",
+  "methodology": "采用知识库、工单闭环、质量抽检和持续改进方法。",
+  "workPackages": [
+    {
+      "id": "wp-1",
+      "name": "热线运营",
+      "activities": "排班接听、工单流转、知识库维护",
+      "deliverables": ["月度运营报告", "工单台账"]
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "deliverable-1",
+      "name": "月度运营报告",
+      "dueDate": "2026-10-31",
+      "acceptanceStandard": "内容完整且指标数据可追溯"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone-1",
+      "name": "服务启动",
+      "date": "2026-10-01",
+      "dependency": "采购人提供系统账号"
+    }
+  ],
+  "sla": [
+    {
+      "id": "sla-1",
+      "metric": "热线接通率",
+      "target": "不低于95%",
+      "measurement": "平台月度统计",
+      "remedy": "按招标文件约定处理"
+    }
+  ],
+  "staffing": [
+    {
+      "id": "staff-1",
+      "name": "赵示例",
+      "role": "项目经理",
+      "qualification": "用户提供的项目管理资质信息",
+      "experience": "用户提供的热线运营经历",
+      "allocation": "100%",
+      "userConfirmedTruth": true
+    }
+  ],
+  "projectManager": "赵示例",
+  "qualityPlan": "每月抽检工单并形成纠正措施闭环。",
+  "riskPlan": "登记运营风险并由项目经理跟踪处置。",
+  "securityPlan": "按项目招标文件执行账号和访问控制。",
+  "privacyPlan": "按最小必要原则处理热线服务中的个人信息。",
+  "businessContinuity": "配置备用坐席与应急联络机制。",
+  "acceptancePlan": "按月度报告、工单台账和SLA数据完成验收。",
+  "servicePriceLines": [
+    {
+      "id": "service-1",
+      "serviceName": "政务热线运营服务",
+      "deliverable": "月度运营报告与工单台账",
+      "unit": "项",
+      "quantity": "1",
+      "unitPriceMinor": "1000000",
+      "discountBps": 0,
+      "taxRateBps": 600,
+      "estimatedHours": "2000",
+      "milestoneId": "milestone-1"
+    }
+  ],
+  "performanceEvidence": [
+    {
+      "id": "performance-1",
+      "projectName": "示例客户服务运营项目",
+      "customer": "示例客户有限公司",
+      "period": "2024-01至2025-12",
+      "scope": "热线运营与服务质量管理",
+      "evidenceAttachmentId": "proof-performance",
+      "userConfirmedTruth": true
+    }
+  ],
+  "policyDeclarations": []
+}

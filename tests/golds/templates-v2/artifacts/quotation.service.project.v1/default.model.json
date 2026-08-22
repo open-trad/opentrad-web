@@ -1,0 +1,651 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "service-project-fixture",
+  "template": {
+    "id": "quotation.service.project.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "quotation",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "项目服务报价单"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 16,
+      "bottom": 18,
+      "left": 16
+    }
+  },
+  "sections": [
+    {
+      "id": "title",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "service-title-cover",
+          "title": {
+            "zhCN": "项目服务报价单"
+          },
+          "subtitle": {
+            "zhCN": "业务系统实施项目"
+          }
+        }
+      ]
+    },
+    {
+      "id": "quote-meta",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "service-meta-grid",
+          "entries": [
+            {
+              "id": "number",
+              "label": {
+                "zhCN": "报价编号"
+              },
+              "value": {
+                "zhCN": "SQ-20260819-001"
+              }
+            },
+            {
+              "id": "issue",
+              "label": {
+                "zhCN": "报价日期"
+              },
+              "value": {
+                "zhCN": "2026-08-19"
+              }
+            },
+            {
+              "id": "valid",
+              "label": {
+                "zhCN": "有效期至"
+              },
+              "value": {
+                "zhCN": "2026-09-18"
+              }
+            },
+            {
+              "id": "currency",
+              "label": {
+                "zhCN": "币种"
+              },
+              "value": {
+                "zhCN": "CNY"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parties",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "service-parties-block",
+          "parties": [
+            {
+              "id": "seller",
+              "role": {
+                "zhCN": "报价方",
+                "enUS": "Seller"
+              },
+              "name": {
+                "zhCN": "开源商贸（上海）有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "联系人：张三"
+                },
+                {
+                  "zhCN": "邮箱：sales@example.invalid"
+                }
+              ]
+            },
+            {
+              "id": "buyer",
+              "role": {
+                "zhCN": "客户",
+                "enUS": "Buyer"
+              },
+              "name": {
+                "zhCN": "示例采购有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "联系人：李四"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "project-overview",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "service-project-grid",
+          "entries": [
+            {
+              "id": "project-name",
+              "label": {
+                "zhCN": "项目名称"
+              },
+              "value": {
+                "zhCN": "业务系统实施项目"
+              }
+            },
+            {
+              "id": "buyer-reference",
+              "label": {
+                "zhCN": "客户参考号"
+              },
+              "value": {
+                "zhCN": "PRJ-2026-008"
+              }
+            },
+            {
+              "id": "objective",
+              "label": {
+                "zhCN": "项目目标"
+              },
+              "value": {
+                "zhCN": "交付可验收的业务系统"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "blocks": [
+        {
+          "type": "heading",
+          "id": "scope-heading",
+          "level": 1,
+          "text": {
+            "zhCN": "服务范围"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "scope-text",
+          "text": {
+            "zhCN": "需求梳理、配置实施与上线支持"
+          }
+        }
+      ]
+    },
+    {
+      "id": "service-lines",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "service-lines-table",
+          "columns": [
+            {
+              "id": "service",
+              "label": {
+                "zhCN": "服务项"
+              },
+              "width": "22%",
+              "align": "left"
+            },
+            {
+              "id": "deliverable",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "24%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "12%",
+              "align": "right"
+            },
+            {
+              "id": "unitPrice",
+              "label": {
+                "zhCN": "单价"
+              },
+              "width": "18%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "含税合计"
+              },
+              "width": "24%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "service-1",
+              "cells": {
+                "service": {
+                  "zhCN": "需求与实施服务"
+                },
+                "deliverable": {
+                  "zhCN": "需求确认书与上线版本"
+                },
+                "quantity": {
+                  "zhCN": "2.5 人日"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 100.00"
+                },
+                "total": {
+                  "zhCN": "CNY 251.75"
+                }
+              }
+            },
+            {
+              "id": "service-2",
+              "cells": {
+                "service": {
+                  "zhCN": "验收支持服务"
+                },
+                "deliverable": {
+                  "zhCN": "验收报告"
+                },
+                "quantity": {
+                  "zhCN": "1 项"
+                },
+                "unitPrice": {
+                  "zhCN": "CNY 200.00"
+                },
+                "total": {
+                  "zhCN": "CNY 212.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "milestones",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "service-milestones-table",
+          "columns": [
+            {
+              "id": "title",
+              "label": {
+                "zhCN": "里程碑"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "deliverable",
+              "label": {
+                "zhCN": "交付物"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "due",
+              "label": {
+                "zhCN": "时间"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "acceptance",
+              "label": {
+                "zhCN": "验收标准"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "payment",
+              "label": {
+                "zhCN": "付款比例"
+              },
+              "width": "10%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "milestone-1",
+              "cells": {
+                "title": {
+                  "zhCN": "需求确认"
+                },
+                "deliverable": {
+                  "zhCN": "需求确认书"
+                },
+                "due": {
+                  "zhCN": "启动后十个工作日"
+                },
+                "acceptance": {
+                  "zhCN": "双方书面确认"
+                },
+                "payment": {
+                  "zhCN": "40.00%"
+                }
+              }
+            },
+            {
+              "id": "milestone-2",
+              "cells": {
+                "title": {
+                  "zhCN": "项目验收"
+                },
+                "deliverable": {
+                  "zhCN": "验收报告"
+                },
+                "due": {
+                  "zhCN": "上线后五个工作日"
+                },
+                "acceptance": {
+                  "zhCN": "通过约定测试"
+                },
+                "payment": {
+                  "zhCN": "60.00%"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "totals",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "service-totals-block",
+          "entries": [
+            {
+              "id": "subtotal",
+              "label": {
+                "zhCN": "未税小计"
+              },
+              "value": {
+                "zhCN": "CNY 437.50"
+              }
+            },
+            {
+              "id": "tax",
+              "label": {
+                "zhCN": "税额"
+              },
+              "value": {
+                "zhCN": "CNY 26.25"
+              }
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "报价总额"
+              },
+              "value": {
+                "zhCN": "CNY 463.75"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assumptions",
+      "blocks": [
+        {
+          "type": "heading",
+          "id": "assumptions-heading",
+          "level": 1,
+          "text": {
+            "zhCN": "报价假设"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "assumptions-text",
+          "text": {
+            "zhCN": "未约定"
+          }
+        }
+      ]
+    },
+    {
+      "id": "exclusions",
+      "blocks": [
+        {
+          "type": "heading",
+          "id": "exclusions-heading",
+          "level": 1,
+          "text": {
+            "zhCN": "不包含事项"
+          }
+        },
+        {
+          "type": "paragraph",
+          "id": "exclusions-text",
+          "text": {
+            "zhCN": "未约定"
+          }
+        }
+      ]
+    },
+    {
+      "id": "delivery-acceptance",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "service-delivery-grid",
+          "entries": [
+            {
+              "id": "start",
+              "label": {
+                "zhCN": "开始日期"
+              },
+              "value": {
+                "zhCN": "2026-09-01"
+              }
+            },
+            {
+              "id": "duration",
+              "label": {
+                "zhCN": "项目周期"
+              },
+              "value": {
+                "zhCN": "预计六周"
+              }
+            },
+            {
+              "id": "location",
+              "label": {
+                "zhCN": "服务地点"
+              },
+              "value": {
+                "zhCN": "买方指定地点及远程"
+              }
+            },
+            {
+              "id": "acceptance",
+              "label": {
+                "zhCN": "验收"
+              },
+              "value": {
+                "zhCN": "交付后五个工作日内书面验收"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "payment-expenses",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "service-payment-grid",
+          "entries": [
+            {
+              "id": "payment",
+              "label": {
+                "zhCN": "付款"
+              },
+              "value": {
+                "zhCN": "按里程碑比例付款"
+              }
+            },
+            {
+              "id": "expenses",
+              "label": {
+                "zhCN": "费用政策"
+              },
+              "value": {
+                "zhCN": "差旅费用须事先书面批准"
+              }
+            },
+            {
+              "id": "dependencies",
+              "label": {
+                "zhCN": "客户配合"
+              },
+              "value": {
+                "zhCN": "按计划提供账号、资料与确认"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ip-confidentiality",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "service-ip-grid",
+          "entries": [
+            {
+              "id": "ip",
+              "label": {
+                "zhCN": "知识产权"
+              },
+              "value": {
+                "zhCN": "背景知识产权归原权利人，项目成果按合同约定"
+              }
+            },
+            {
+              "id": "confidentiality",
+              "label": {
+                "zhCN": "保密"
+              },
+              "value": {
+                "zhCN": "双方对保密信息承担保密义务"
+              }
+            },
+            {
+              "id": "change",
+              "label": {
+                "zhCN": "变更控制"
+              },
+              "value": {
+                "zhCN": "范围变更须书面确认工期和费用"
+              }
+            },
+            {
+              "id": "personal-data",
+              "label": {
+                "zhCN": "个人信息"
+              },
+              "value": {
+                "zhCN": "不涉及"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "quote-notice",
+      "blocks": [
+        {
+          "type": "notice",
+          "id": "service-quote-notice",
+          "tone": "info",
+          "paragraphs": [
+            {
+              "zhCN": "最终以双方签署合同为准"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signature",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "service-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "报价方"
+              },
+              "name": "开源商贸（上海）有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            },
+            {
+              "role": {
+                "zhCN": "客户确认"
+              },
+              "name": "示例采购有限公司",
+              "dateLabel": {
+                "zhCN": "日期"
+              },
+              "sealLabel": {
+                "zhCN": "盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "quotation-non-advice"
+  ],
+  "attachmentManifest": []
+}

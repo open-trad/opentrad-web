@@ -1,0 +1,824 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "bid-construction-works-gold",
+  "template": {
+    "id": "bid.construction.works.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "bid",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "建设工程施工投标文件"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 18,
+      "right": 18,
+      "bottom": 18,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "internal-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "construction-cover",
+          "title": {
+            "zhCN": "建设工程施工投标文件"
+          },
+          "subtitle": {
+            "zhCN": "园区配套道路改造工程 · 施工标段一"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-baseline",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "construction-source",
+          "entries": [
+            {
+              "id": "project-number",
+              "label": {
+                "zhCN": "项目编号"
+              },
+              "value": {
+                "zhCN": "GCZB-2026-0819"
+              }
+            },
+            {
+              "id": "source-version",
+              "label": {
+                "zhCN": "招标文件版本"
+              },
+              "value": {
+                "zhCN": "施工招标文件正式版及工程量清单"
+              }
+            },
+            {
+              "id": "source-file",
+              "label": {
+                "zhCN": "项目招标文件"
+              },
+              "value": {
+                "zhCN": "source-main"
+              }
+            },
+            {
+              "id": "boq-file",
+              "label": {
+                "zhCN": "实际工程量清单"
+              },
+              "value": {
+                "zhCN": "boq-main"
+              }
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "construction-source-notice",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "模板依据不等于本项目招标文件；工程量、资格、人员经历和标准条款均不得由模板补造。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "blocks": [
+        {
+          "type": "toc",
+          "id": "construction-toc",
+          "maxDepth": 2
+        }
+      ]
+    },
+    {
+      "id": "bid-letter-and-appendix",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "construction-bid-letter",
+          "title": {
+            "zhCN": "投标函及附录"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "项目：园区配套道路改造工程；投标总价：CNY 50,000.00；工期：120日历天；质量目标：达到项目招标文件明确的质量目标。。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "authorization",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "construction-authorization",
+          "title": {
+            "zhCN": "授权信息"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "授权代表：张示例。授权与签章状态须人工核验。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualifications",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "construction-qualifications",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "资格项"
+              },
+              "width": "45%",
+              "align": "left"
+            },
+            {
+              "id": "status",
+              "label": {
+                "zhCN": "状态"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "30%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "qualification-license",
+              "cells": {
+                "name": {
+                  "zhCN": "项目要求的企业资格证明"
+                },
+                "status": {
+                  "zhCN": "attached"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "guarantee",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "guarantee-text",
+          "text": {
+            "zhCN": "项目招标文件记录为不要求投标保证金。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "priced-boq",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "notice",
+          "id": "priced-boq-reference",
+          "tone": "info",
+          "paragraphs": [
+            {
+              "zhCN": "本节仅引用用户附加的实际工程量清单 boq-main，模板不生成或改写工程量。"
+            }
+          ]
+        },
+        {
+          "type": "totals",
+          "id": "construction-price-total",
+          "entries": [
+            {
+              "id": "bid-price",
+              "label": {
+                "zhCN": "投标总价"
+              },
+              "value": {
+                "zhCN": "CNY 50,000.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "commercial-deviations",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "commercial-deviation-table",
+          "columns": [
+            {
+              "id": "source",
+              "label": {
+                "zhCN": "来源"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "20%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "technical-deviations",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "technical-deviation-table",
+          "columns": [
+            {
+              "id": "source",
+              "label": {
+                "zhCN": "来源"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "20%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "construction-organization",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "construction-organization-text",
+          "text": {
+            "zhCN": "按招标文件、图纸和工程量清单实施园区配套道路改造工程。\n按项目实际范围编制施工组织、工序衔接和现场协调方案。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "schedule",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "schedule-text",
+          "text": {
+            "zhCN": "投标工期：120日历天。以120日历天为控制目标，具体节点按中标后确认的开工条件排定。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "site-resources",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "site-plan-inner-text",
+          "text": {
+            "zhCN": "现场：根据招标人移交的现场条件布置，未取得现场资料前不虚构平面位置。；材料：材料规格和数量以项目工程量清单、图纸及经确认的采购计划为准。；临时工程：临时工程以现场条件和经批准的施工组织设计为准。"
+          }
+        },
+        {
+          "type": "table",
+          "id": "labor-plan-table",
+          "columns": [
+            {
+              "id": "trade",
+              "label": {
+                "zhCN": "工种/班组"
+              },
+              "width": "40%",
+              "align": "left"
+            },
+            {
+              "id": "count",
+              "label": {
+                "zhCN": "人数"
+              },
+              "width": "20%",
+              "align": "right"
+            },
+            {
+              "id": "period",
+              "label": {
+                "zhCN": "期间"
+              },
+              "width": "40%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "labor-1",
+              "cells": {
+                "trade": {
+                  "zhCN": "道路施工班组"
+                },
+                "count": {
+                  "zhCN": "12"
+                },
+                "period": {
+                  "zhCN": "施工阶段"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "project-manager",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "project-manager-grid",
+          "entries": [
+            {
+              "id": "manager-name",
+              "label": {
+                "zhCN": "姓名"
+              },
+              "value": {
+                "zhCN": "赵示例"
+              }
+            },
+            {
+              "id": "manager-qualification",
+              "label": {
+                "zhCN": "资格"
+              },
+              "value": {
+                "zhCN": "用户提供并确认的项目经理资格信息"
+              }
+            },
+            {
+              "id": "manager-certificate",
+              "label": {
+                "zhCN": "证书编号"
+              },
+              "value": {
+                "zhCN": "用户提供并确认的证书编号"
+              }
+            },
+            {
+              "id": "manager-truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "value": {
+                "zhCN": "已由用户确认"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "key-personnel",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "key-personnel-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "姓名"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "role",
+              "label": {
+                "zhCN": "角色"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "qualification",
+              "label": {
+                "zhCN": "资格"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "experience",
+              "label": {
+                "zhCN": "经历"
+              },
+              "width": "30%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "person-1",
+              "cells": {
+                "name": {
+                  "zhCN": "钱示例"
+                },
+                "role": {
+                  "zhCN": "技术负责人"
+                },
+                "qualification": {
+                  "zhCN": "用户提供并确认的技术资格信息"
+                },
+                "experience": {
+                  "zhCN": "用户提供并确认的工程经历"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "equipment",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "equipment-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "机械"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "model",
+              "label": {
+                "zhCN": "型号"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "15%",
+              "align": "right"
+            },
+            {
+              "id": "ownership",
+              "label": {
+                "zhCN": "来源"
+              },
+              "width": "15%",
+              "align": "center"
+            },
+            {
+              "id": "availability",
+              "label": {
+                "zhCN": "可用性"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "equipment-1",
+              "cells": {
+                "name": {
+                  "zhCN": "压路机"
+                },
+                "model": {
+                  "zhCN": "用户提供型号"
+                },
+                "quantity": {
+                  "zhCN": "1"
+                },
+                "ownership": {
+                  "zhCN": "leased"
+                },
+                "availability": {
+                  "zhCN": "计划按施工进度到场"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-text",
+          "text": {
+            "zhCN": "质量目标：达到项目招标文件明确的质量目标。\n质量方案：执行材料检查、过程检验和验收记录闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "safety-environment",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "safety-environment-text",
+          "text": {
+            "zhCN": "安全：落实安全教育、风险交底和现场检查。\n环保：落实扬尘、噪声、废弃物和现场文明施工措施。\n应急：建立报告、响应和现场应急处置机制。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "subcontract",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "subcontract-text",
+          "text": {
+            "zhCN": "仅在招标文件允许且依法履行审批时实施分包。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "experience",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "manager-experience-table",
+          "columns": [
+            {
+              "id": "project",
+              "label": {
+                "zhCN": "项目"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "customer",
+              "label": {
+                "zhCN": "建设单位"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "period",
+              "label": {
+                "zhCN": "期间"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "scope",
+              "label": {
+                "zhCN": "范围"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "manager-experience-1",
+              "cells": {
+                "project": {
+                  "zhCN": "用户提供的类似道路工程"
+                },
+                "customer": {
+                  "zhCN": "示例建设单位"
+                },
+                "period": {
+                  "zhCN": "2023-01至2023-10"
+                },
+                "scope": {
+                  "zhCN": "道路改造施工管理"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "construction-attachments",
+          "attachmentIds": [
+            "boq-main",
+            "proof-license",
+            "proof-experience"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "final-checklist",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "construction-final-checklist",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "投标函及附录电子签章：已确认"
+            },
+            {
+              "zhCN": "导出状态：submission-ready。submission-ready 不等于已签名、已上传、工程量正确或已由招标人认定合规。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "construction-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "投标人授权代表"
+              },
+              "name": "张示例",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "投标人盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "bid-authority"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "boq-main",
+      "category": "commercial",
+      "displayName": "招标工程量清单.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 85,
+      "required": true,
+      "sourceRef": "招标人提供的工程量清单，不由模板生成",
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "企业资格证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 3,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-experience",
+      "category": "technical",
+      "displayName": "项目经理经历证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 6,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}

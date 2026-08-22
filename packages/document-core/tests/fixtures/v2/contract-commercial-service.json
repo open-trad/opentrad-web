@@ -1,0 +1,117 @@
+{
+  "id": "commercial-service-gold",
+  "templateId": "contract.service.commercial.v1",
+  "templateVersion": "1.0.0",
+  "meta": {
+    "contractNumber": "FW-2026-001",
+    "title": "商务服务合同",
+    "signingDate": "2026-08-19",
+    "effectiveMode": "signature",
+    "copies": 2,
+    "language": "zh-CN",
+    "layoutStyleId": "classic-formal.v1"
+  },
+  "client": {
+    "legalName": "北京示例客户有限公司",
+    "entityType": "company",
+    "contactName": "王经理",
+    "registeredAddress": "北京市示例路1号"
+  },
+  "provider": {
+    "legalName": "上海示例服务有限公司",
+    "entityType": "company",
+    "contactName": "赵经理",
+    "registeredAddress": "上海市示例路2号"
+  },
+  "engagement": {
+    "type": "specific",
+    "serviceMatter": "供应链流程诊断",
+    "scope": "访谈、流程梳理与改进方案",
+    "workRequirements": "按周汇报并保留工作底稿",
+    "serviceLocation": "客户上海办公室及远程",
+    "startDate": "2026-09-01",
+    "endDate": "2026-11-30",
+    "reportingMethod": "每周书面周报",
+    "clientDependencies": "按计划提供资料并安排访谈"
+  },
+  "deliverables": [
+    {
+      "id": "deliverable-1",
+      "name": "流程诊断报告",
+      "dueDate": "2026-10-15",
+      "acceptanceStandard": "覆盖约定范围并列明证据与建议"
+    }
+  ],
+  "delegation": { "subcontractConsent": "written-consent", "parallelEngagementConsent": "allowed" },
+  "fees": {
+    "currency": "CNY",
+    "taxMode": "tax-included",
+    "model": "milestone",
+    "lines": [
+      {
+        "id": "service-1",
+        "serviceName": "流程诊断服务",
+        "deliverable": "流程诊断报告",
+        "unit": "人日",
+        "quantity": "10",
+        "unitPriceMinor": "10000",
+        "discountBps": 0,
+        "taxRateBps": 600,
+        "estimatedHours": "80"
+      }
+    ],
+    "necessaryExpenses": "经客户事先书面同意的差旅费用据实报销",
+    "paymentSchedule": [
+      { "id": "advance", "trigger": "合同生效", "amountBps": 4000, "dueDays": 5 },
+      { "id": "acceptance", "trigger": "成果验收", "amountBps": 6000, "dueDays": 10 }
+    ]
+  },
+  "acceptance": {
+    "standard": "以交付物验收标准为准",
+    "period": "提交后十个工作日",
+    "deemedAcceptance": "逾期未反馈不当然视为验收，双方另行书面确认"
+  },
+  "rights": {
+    "ipOwnership": "client",
+    "dataHandling": "仅在客户授权环境处理业务数据",
+    "personalDataInvolved": true,
+    "personalDataTerms": "处理目的：完成访谈分析；处理范围：授权联系人信息；保存期限：项目结束后30日；访问控制：仅项目组；删除安排：期限届满删除；事件通知：发现事件后24小时内通知客户。",
+    "confidentiality": "未经披露方书面同意不得向第三方披露"
+  },
+  "agency": {
+    "relationship": "authorized-agency",
+    "thirdPartyAuthority": "权限范围：仅代为预约访谈；授权期限：2026-09-01至2026-11-30"
+  },
+  "terminationAtWill": {
+    "handling": "任一方提前十五日书面通知可解除并完成资料交接",
+    "compensation": "客户结清已完成服务、已承诺不可取消成本及合理撤场费用"
+  },
+  "generalTerms": {
+    "noticeAddresses": "以合同所列地址送达",
+    "confidentiality": "双方承担保密义务",
+    "forceMajeure": "及时通知并提供证明",
+    "changeControl": "范围变更须书面确认",
+    "termination": "按约解除并完成结算",
+    "breachRemedies": "违约方赔偿实际损失",
+    "governingLaw": "中华人民共和国法律",
+    "disputeMethod": "court",
+    "court": "客户所在地有管辖权的人民法院",
+    "severability": "部分无效不影响其他条款",
+    "entireAgreement": "正文与附件构成完整约定"
+  },
+  "signers": [
+    {
+      "partyId": "client",
+      "role": { "zhCN": "客户" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    },
+    {
+      "partyId": "provider",
+      "role": { "zhCN": "服务方" },
+      "dateLabel": { "zhCN": "日期" },
+      "sealLabel": { "zhCN": "盖章" }
+    }
+  ],
+  "updatedAt": "2026-08-19T00:00:00.000Z"
+}

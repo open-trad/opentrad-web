@@ -1,0 +1,693 @@
+{
+  "schemaVersion": "2.0.0",
+  "documentId": "bid-enterprise-goods-gold",
+  "template": {
+    "id": "bid.enterprise.goods.v1",
+    "version": "1.0.0",
+    "basisDate": "2026-08-19"
+  },
+  "documentKind": "bid",
+  "language": "zh-CN",
+  "title": {
+    "zhCN": "企业货物采购投标文件"
+  },
+  "pageDefaults": {
+    "size": "A4",
+    "orientation": "portrait",
+    "marginsMm": {
+      "top": 16,
+      "right": 18,
+      "bottom": 16,
+      "left": 18
+    }
+  },
+  "sections": [
+    {
+      "id": "draft-cover",
+      "blocks": [
+        {
+          "type": "cover",
+          "id": "enterprise-goods-cover",
+          "title": {
+            "zhCN": "企业货物采购投标文件"
+          },
+          "subtitle": {
+            "zhCN": "生产线检测终端采购项目 · 标包A"
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-baseline",
+      "blocks": [
+        {
+          "type": "keyValueGrid",
+          "id": "enterprise-goods-source",
+          "entries": [
+            {
+              "id": "project-number",
+              "label": {
+                "zhCN": "项目编号"
+              },
+              "value": {
+                "zhCN": "EP-GOODS-2026-0819"
+              }
+            },
+            {
+              "id": "source-version",
+              "label": {
+                "zhCN": "采购文件版本"
+              },
+              "value": {
+                "zhCN": "企业采购文件正式版"
+              }
+            },
+            {
+              "id": "source-file",
+              "label": {
+                "zhCN": "项目采购文件"
+              },
+              "value": {
+                "zhCN": "source-main"
+              }
+            }
+          ]
+        },
+        {
+          "type": "notice",
+          "id": "enterprise-goods-law-context",
+          "tone": "warning",
+          "paragraphs": [
+            {
+              "zhCN": "《招标投标法》仅作为上下文来源；是否适用招标法律规则取决于项目和采购主体。本项目要求仅来自已绑定的企业采购文件及澄清。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "toc",
+      "blocks": [
+        {
+          "type": "toc",
+          "id": "enterprise-goods-toc",
+          "maxDepth": 2
+        }
+      ]
+    },
+    {
+      "id": "offer-letter",
+      "blocks": [
+        {
+          "type": "declaration",
+          "id": "enterprise-goods-offer-letter",
+          "title": {
+            "zhCN": "报价函"
+          },
+          "paragraphs": [
+            {
+              "zhCN": "我方就生产线检测终端采购项目提交货物采购响应，价格和条件以本文件各表为准。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bidder-profile",
+      "blocks": [
+        {
+          "type": "parties",
+          "id": "enterprise-goods-bidder",
+          "parties": [
+            {
+              "id": "bidder",
+              "role": {
+                "zhCN": "供应商"
+              },
+              "name": {
+                "zhCN": "宁波义星工业科技有限公司"
+              },
+              "details": [
+                {
+                  "zhCN": "联系人：张示例"
+                },
+                {
+                  "zhCN": "登记号：91330200EXAMPLEE1"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "qualifications",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-goods-qualifications",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "资格项"
+              },
+              "width": "45%",
+              "align": "left"
+            },
+            {
+              "id": "status",
+              "label": {
+                "zhCN": "状态"
+              },
+              "width": "25%",
+              "align": "center"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "30%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "qualification-license",
+              "cells": {
+                "name": {
+                  "zhCN": "营业执照"
+                },
+                "status": {
+                  "zhCN": "attached"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "executive-summary",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "executive-summary-text",
+          "text": {
+            "zhCN": "提供可追溯的检测终端供货、交付、验收和售后方案。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "price",
+      "blocks": [
+        {
+          "type": "totals",
+          "id": "enterprise-goods-price",
+          "entries": [
+            {
+              "id": "declared",
+              "label": {
+                "zhCN": "报价声明"
+              },
+              "value": {
+                "zhCN": "CNY 8,000.00"
+              }
+            },
+            {
+              "id": "calculated",
+              "label": {
+                "zhCN": "货物明细重算"
+              },
+              "value": {
+                "zhCN": "CNY 8,000.00"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goods-offer",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-goods-offer-table",
+          "columns": [
+            {
+              "id": "name",
+              "label": {
+                "zhCN": "货物"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "brandModel",
+              "label": {
+                "zhCN": "品牌型号"
+              },
+              "width": "18%",
+              "align": "left"
+            },
+            {
+              "id": "makerOrigin",
+              "label": {
+                "zhCN": "制造商/产地"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "spec",
+              "label": {
+                "zhCN": "规格"
+              },
+              "width": "20%",
+              "align": "left"
+            },
+            {
+              "id": "quantity",
+              "label": {
+                "zhCN": "数量"
+              },
+              "width": "10%",
+              "align": "right"
+            },
+            {
+              "id": "total",
+              "label": {
+                "zhCN": "重算金额"
+              },
+              "width": "14%",
+              "align": "right"
+            }
+          ],
+          "rows": [
+            {
+              "id": "goods-1",
+              "cells": {
+                "name": {
+                  "zhCN": "工业检测终端"
+                },
+                "brandModel": {
+                  "zhCN": "义星 / YX-I200"
+                },
+                "makerOrigin": {
+                  "zhCN": "宁波义星工业科技有限公司 / 中国宁波"
+                },
+                "spec": {
+                  "zhCN": "详见制造商规格书和需求响应矩阵"
+                },
+                "quantity": {
+                  "zhCN": "4 台"
+                },
+                "total": {
+                  "zhCN": "CNY 8,000.00"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "requirements-matrix",
+      "page": {
+        "orientation": "landscape"
+      },
+      "blocks": [
+        {
+          "type": "complianceMatrix",
+          "id": "enterprise-goods-requirements",
+          "columns": [
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "招标要求"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "投标响应"
+              },
+              "width": "28%",
+              "align": "left"
+            },
+            {
+              "id": "offered",
+              "label": {
+                "zhCN": "响应值"
+              },
+              "width": "15%",
+              "align": "left"
+            },
+            {
+              "id": "compliance",
+              "label": {
+                "zhCN": "符合性"
+              },
+              "width": "12%",
+              "align": "center"
+            },
+            {
+              "id": "evidence",
+              "label": {
+                "zhCN": "证据引用"
+              },
+              "width": "17%",
+              "align": "left"
+            }
+          ],
+          "rows": [
+            {
+              "id": "req-terminal",
+              "sourceRef": "采购文件 技术规格 2.1",
+              "substantial": true,
+              "cells": {
+                "requirement": {
+                  "zhCN": "检测终端须支持采购文件所列接口。"
+                },
+                "response": {
+                  "zhCN": "所投型号按响应矩阵逐项响应接口要求。"
+                },
+                "offered": {
+                  "zhCN": "YX-I200"
+                },
+                "compliance": {
+                  "zhCN": "yes"
+                },
+                "evidence": {
+                  "zhCN": "proof-spec"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "technical-solution",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "technical-solution-text",
+          "text": {
+            "zhCN": "按采购文件要求提供检测终端、部署配置与技术资料。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "delivery",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "delivery-text",
+          "text": {
+            "zhCN": "合同生效后30日内交付至采购人指定地点。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "quality-acceptance",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "quality-acceptance-text",
+          "text": {
+            "zhCN": "质量保证：执行出厂检验、到货检查和问题闭环。\n检验验收：按采购文件、规格书和经确认的验收方案逐项验收。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "warranty-aftersales",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "warranty-aftersales-text",
+          "text": {
+            "zhCN": "质保：验收合格后两年。\n售后：7×24小时受理，4小时内响应。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "continuity",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "continuity-text",
+          "text": {
+            "zhCN": "供应连续性：未提供\n库存方案：未提供\n厂商支持：未提供"
+          }
+        }
+      ]
+    },
+    {
+      "id": "commercial-terms",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "id": "commercial-terms-text",
+          "text": {
+            "zhCN": "价格、付款和合同条件以报价表及偏差表为准。"
+          }
+        }
+      ]
+    },
+    {
+      "id": "deviations",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-goods-deviations",
+          "columns": [
+            {
+              "id": "type",
+              "label": {
+                "zhCN": "类型"
+              },
+              "width": "15%",
+              "align": "center"
+            },
+            {
+              "id": "requirement",
+              "label": {
+                "zhCN": "原要求"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "response",
+              "label": {
+                "zhCN": "响应"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "deviation",
+              "label": {
+                "zhCN": "偏差"
+              },
+              "width": "25%",
+              "align": "left"
+            }
+          ],
+          "rows": [],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "cases",
+      "blocks": [
+        {
+          "type": "table",
+          "id": "enterprise-goods-cases",
+          "columns": [
+            {
+              "id": "project",
+              "label": {
+                "zhCN": "案例"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "customer",
+              "label": {
+                "zhCN": "客户"
+              },
+              "width": "25%",
+              "align": "left"
+            },
+            {
+              "id": "scope",
+              "label": {
+                "zhCN": "范围"
+              },
+              "width": "30%",
+              "align": "left"
+            },
+            {
+              "id": "truth",
+              "label": {
+                "zhCN": "真实性"
+              },
+              "width": "15%",
+              "align": "center"
+            }
+          ],
+          "rows": [
+            {
+              "id": "case-1",
+              "cells": {
+                "project": {
+                  "zhCN": "用户提供的检测终端交付案例"
+                },
+                "customer": {
+                  "zhCN": "示例客户有限公司"
+                },
+                "scope": {
+                  "zhCN": "检测终端供货和部署"
+                },
+                "truth": {
+                  "zhCN": "已确认"
+                }
+              }
+            }
+          ],
+          "repeatHeader": true,
+          "pagePolicy": {
+            "allowRowSplit": false,
+            "keepHeaderWithRows": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "attachments",
+      "blocks": [
+        {
+          "type": "attachmentIndex",
+          "id": "enterprise-goods-attachments",
+          "attachmentIds": [
+            "proof-license",
+            "proof-spec",
+            "proof-case"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "checklist",
+      "blocks": [
+        {
+          "type": "list",
+          "id": "enterprise-goods-checklist",
+          "ordered": false,
+          "items": [
+            {
+              "zhCN": "报价函电子签章：已确认"
+            },
+            {
+              "zhCN": "合同接受偏差：无"
+            },
+            {
+              "zhCN": "导出状态：submission-ready。submission-ready 不等于已签名、已上传或已由采购人认定合规。"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "signatures",
+      "blocks": [
+        {
+          "type": "signatureGroup",
+          "id": "enterprise-goods-signatures",
+          "signers": [
+            {
+              "role": {
+                "zhCN": "供应商授权代表"
+              },
+              "name": "张示例",
+              "dateLabel": {
+                "zhCN": "签署日期"
+              },
+              "sealLabel": {
+                "zhCN": "供应商盖章"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "watermarks": [],
+  "disclaimers": [
+    "bid-authority"
+  ],
+  "attachmentManifest": [
+    {
+      "id": "proof-license",
+      "category": "qualification",
+      "displayName": "营业执照.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 1,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-spec",
+      "category": "technical",
+      "displayName": "制造商规格书.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 10,
+      "required": true,
+      "status": "attached",
+      "includedInSubmission": true
+    },
+    {
+      "id": "proof-case",
+      "category": "commercial",
+      "displayName": "案例证明.pdf",
+      "mediaType": "application/pdf",
+      "pageCount": 4,
+      "required": false,
+      "status": "attached",
+      "includedInSubmission": true
+    }
+  ]
+}
