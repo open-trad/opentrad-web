@@ -128,6 +128,10 @@ describe("worker cancellation lifecycle", () => {
     expect(claim).not.toBeNull();
     if (!claim) return;
     let observedAbort = false;
+    let markConversionStarted: (() => void) | undefined;
+    const conversionStarted = new Promise<void>((resolve) => {
+      markConversionStarted = resolve;
+    });
     const clear = vi.fn(clearInterval);
     const pending = runClaim(
       claim,
@@ -136,6 +140,7 @@ describe("worker cancellation lifecycle", () => {
         clearInterval: clear,
         convert: async (_claim, signal) =>
           new Promise((_resolve, reject) => {
+            markConversionStarted?.();
             signal.addEventListener(
               "abort",
               () => {
@@ -147,6 +152,7 @@ describe("worker cancellation lifecycle", () => {
           }),
       }),
     );
+    await conversionStarted;
     await cancel(root);
     await vi.advanceTimersByTimeAsync(250);
 
