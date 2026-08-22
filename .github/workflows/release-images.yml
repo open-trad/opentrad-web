@@ -131,6 +131,11 @@ jobs:
           build-args: |
             DEBIAN_IMAGE=${{ steps.base-images.outputs.DEBIAN_IMAGE }}
             NODE_IMAGE=${{ steps.base-images.outputs.NODE_IMAGE }}
+      - name: Verify built runtime images
+        env:
+          API_IMAGE: ${{ env.API_REPOSITORY }}@${{ steps.api.outputs.digest }}
+          WORKER_IMAGE: ${{ env.WORKER_REPOSITORY }}@${{ steps.worker.outputs.digest }}
+        run: sh infra/docker/verify-images.sh "$API_IMAGE" "$WORKER_IMAGE"
       - name: Scan API runtime image
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8
         with:

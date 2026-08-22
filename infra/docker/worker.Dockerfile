@@ -164,6 +164,7 @@ RUN rm -rf /usr/lib/python3/dist-packages/setuptools \
       /usr/lib/python3/dist-packages/setuptools-*.egg-info \
       /usr/lib/python3/dist-packages/pkg_resources \
       /usr/lib/python3/dist-packages/_distutils_hack \
+      /usr/lib/python3/dist-packages/distutils-precedence.pth \
  && mkdir -p /opt/ocr/bin \
  && ln -s /opt/opentrad-tools/bin/pandoc /usr/bin/pandoc \
  && ln -s /opt/opentrad-tools/bin/pdfinfo /usr/bin/pdfinfo \
