@@ -230,6 +230,10 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   assert.match(release, /attest/);
 
   const deploy = await readFile(new URL(".github/workflows/deploy-production.yml", root), "utf8");
+  const verifyRelease = deploy.slice(
+    deploy.indexOf("Verify hashes, signatures, and attestations before transfer"),
+    deploy.indexOf("Install dedicated SSH material"),
+  );
   const actionResolver = await readFile(
     new URL("scripts/release/resolve-actions.mjs", root),
     "utf8",
@@ -242,6 +246,7 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   assert.match(deploy, /GITHUB_REF.*refs\/heads\/main|refs\/heads\/main.*GITHUB_REF/s);
   assert.match(deploy, /merge-base --is-ancestor "\$RELEASE_SHA" refs\/remotes\/origin\/main/);
   assert.match(deploy, /environment:\s*\n\s+name:\s*production/);
+  assert.match(verifyRelease, /GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}/);
   assert.match(deploy, /\^\[a-f0-9\]\{40\}\$/);
   assert.doesNotMatch(deploy, /git\s+checkout\s+(main|master)/);
   assert.match(deploy, /\.incoming-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}/);
