@@ -51,7 +51,14 @@ function report(image, overrides = {}) {
 const cleanClamav = Object.freeze({
   ArtifactName: `clamav/clamav@sha256:${"b".repeat(64)}`,
   ArtifactType: "container_image",
-  Results: [{ Class: "os-pkgs", Packages: [{}], Target: "debian 13", Type: "alpine" }],
+  Results: [
+    {
+      Class: "os-pkgs",
+      Packages: [{ Name: "alpine-baselayout", Version: "3.7.2-r1" }],
+      Target: "debian 13",
+      Type: "alpine",
+    },
+  ],
   SchemaVersion: 2,
 });
 
@@ -65,6 +72,7 @@ test("Trivy normalizer makes native clean results explicit and rejects incomplet
     { ...cleanClamav, Results: [] },
     { ...cleanClamav, Results: [{}] },
     { ...cleanClamav, Results: [{ ...cleanClamav.Results[0], Packages: [] }] },
+    { ...cleanClamav, Results: [{ ...cleanClamav.Results[0], Packages: [{}] }] },
     {
       ...cleanClamav,
       Results: [{ ...cleanClamav.Results[0], Vulnerabilities: null }],
