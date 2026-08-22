@@ -1,0 +1,4 @@
+Defaults:opentrad-deploy env_reset,use_pty
+Cmnd_Alias OPENTRAD_RELEASE = /usr/local/libexec/opentrad/deploy-release.sh ^[a-f0-9]{40}$, /usr/local/libexec/opentrad/rollback-release.sh ^[a-f0-9]{40}$, /usr/local/libexec/opentrad/capture-baseline.sh manual-preflight, /usr/local/libexec/opentrad/capture-baseline.sh acceptance
+Cmnd_Alias OPENTRAD_INSPECT = /usr/sbin/nginx -t, /usr/bin/systemctl reload nginx
+opentrad-deploy ALL=(root) NOPASSWD: OPENTRAD_RELEASE, OPENTRAD_INSPECT

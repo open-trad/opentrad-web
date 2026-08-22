@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "architecture": "amd64",
+  "packages": [
+    {
+      "name": "liblcms2-dev",
+      "version": "2.14-2+deb12u1",
+      "architecture": "amd64",
+      "md5ManifestSha256": "41c748511463b4139952484001e2dc2257149741a3cecafc83e90c22ef7fd53f"
+    },
+    {
+      "name": "libopenjp2-7-dev",
+      "version": "2.5.0-2+deb12u3",
+      "architecture": "amd64",
+      "md5ManifestSha256": "ba67062afca20cf6965fc41090417dea794923a9d32997538a47ac5edb4ea22f"
+    }
+  ]
+}
