@@ -41,7 +41,14 @@ export function normalizeTrivyReport(report) {
       !Array.isArray(result.Packages) ||
       result.Packages.length === 0 ||
       result.Packages.some(
-        (entry) => entry === null || typeof entry !== "object" || Array.isArray(entry),
+        (entry) =>
+          entry === null ||
+          typeof entry !== "object" ||
+          Array.isArray(entry) ||
+          typeof entry.Name !== "string" ||
+          entry.Name.trim().length === 0 ||
+          typeof entry.Version !== "string" ||
+          entry.Version.trim().length === 0,
       ) ||
       (own(result, "Vulnerabilities") && !Array.isArray(result.Vulnerabilities))
     ) {
