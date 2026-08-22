@@ -52,16 +52,28 @@ docker compose --project-name opentrad \
   --env-file "$release_env" \
   -f "$release_dir/infra/compose.prod.yml" pull
 api_image="$(sed -n 's/^OPENTRAD_API_IMAGE=//p' "$release_env")"
-printf '%s' "$api_image" | grep -Eq '^[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$' || \
-  pause API_IMAGE_INVALID
+worker_image="$(sed -n 's/^OPENTRAD_WORKER_IMAGE=//p' "$release_env")"
+clamav_image="$(sed -n 's/^OPENTRAD_CLAMAV_IMAGE=//p' "$release_env")"
+for image in "$api_image" "$worker_image" "$clamav_image"; do
+  printf '%s' "$image" | grep -Eq '^[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$' || \
+    pause IMAGE_INVALID
+  docker image inspect "$image" >/dev/null || pause IMAGE_MISSING_AFTER_PULL
+done
 docker volume create opentrad_auth_data >/dev/null
 docker run --rm --network none --user 0:0 --entrypoint /bin/sh \
   --mount type=volume,src=opentrad_auth_data,dst=/var/lib/opentrad \
   "$api_image" -c 'install -d -o 10001 -g 10100 -m 0700 /var/lib/opentrad'
+for image in "$api_image" "$worker_image" "$clamav_image"; do
+  docker image inspect "$image" >/dev/null || pause IMAGE_MISSING_BEFORE_START
+done
 docker compose --project-name opentrad \
   --project-directory "$release_dir/infra" \
   --env-file "$release_env" \
-  -f "$release_dir/infra/compose.prod.yml" up -d --wait --wait-timeout 180
+  -f "$release_dir/infra/compose.prod.yml" rm --force --stop api worker clamav
+docker compose --project-name opentrad \
+  --project-directory "$release_dir/infra" \
+  --env-file "$release_env" \
+  -f "$release_dir/infra/compose.prod.yml" up -d --pull never --wait --wait-timeout 180
 curl --fail --silent --show-error --header 'Host: opentrad.dns.army' \
   http://127.0.0.1:13300/api/health/ready >/dev/null
 
