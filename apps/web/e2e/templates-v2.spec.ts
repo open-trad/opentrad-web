@@ -20,8 +20,8 @@ test.afterEach(async ({ page }) => {
 });
 
 async function openEditor(page: Page, templateId: string, heading: string) {
-  await page.goto(`/opentrad-web/editor/${templateId}`);
-  await expect(page).toHaveURL(new RegExp(`/opentrad-web/editor/${templateId}$`, "u"));
+  await page.goto(`/editor/${templateId}`);
+  await expect(page).toHaveURL(new RegExp(`/editor/${templateId}$`, "u"));
   await expect(
     page.locator(".document-editor-v2__topbar").getByRole("heading", { level: 1 }),
   ).toHaveText(heading);
@@ -113,7 +113,7 @@ test("unbound bid exports only a marked internal draft and round-trips attachmen
 });
 
 test("clear-all requires confirmation and leaves a fresh local V1 draft", async ({ page }) => {
-  await page.goto("/opentrad-web/editor/standard-goods-quote");
+  await page.goto("/editor/standard-goods-quote");
   await expect(page.getByRole("heading", { level: 1, name: "标准商品报价单" })).toBeVisible();
   const sellerName = page.getByRole("textbox", { name: "报价方名称" });
   await sellerName.fill("Task18 清空持久性哨兵");

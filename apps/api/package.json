@@ -10,6 +10,7 @@
     "db:migrate": "node dist/db/migrate.js",
     "start": "node dist/server.js",
     "test": "vitest run",
+    "test:integration": "vitest run",
     "typecheck": "tsc -p tsconfig.json --pretty false"
   },
   "dependencies": {

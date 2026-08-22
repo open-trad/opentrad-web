@@ -1,5 +1,4 @@
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, devices } from "@playwright/test";
 
@@ -15,23 +14,50 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: [["line"]],
-  outputDir: join(tmpdir(), "opentrad-playwright-results"),
+  outputDir: resolve(repositoryRoot, "output/playwright/test-results"),
   use: {
     ...devices["Desktop Chrome"],
     acceptDownloads: true,
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: "https://opentrad.dynv6.net:4173",
+    ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
     viewport: { width: 1_440, height: 1_000 },
   },
   webServer: {
-    command:
-      "pnpm --filter @opentrad/document-core build && VITE_BASE_PATH=/opentrad-web/ pnpm --filter @opentrad/web exec vite --host 127.0.0.1 --port 4173 --strictPort",
+    command: "pnpm e2e:serve",
     cwd: repositoryRoot,
-    url: "http://127.0.0.1:4173/opentrad-web/",
+    ignoreHTTPSErrors: true,
+    url: "https://127.0.0.1:4173/api/health",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium-desktop",
+      use: {
+        ...devices["Desktop Chrome"],
+        launchOptions: {
+          args: [
+            "--proxy-server=direct://",
+            "--host-resolver-rules=MAP opentrad.dynv6.net 127.0.0.1",
+          ],
+        },
+        viewport: { width: 1_440, height: 1_000 },
+      },
+    },
+    {
+      name: "chromium-mobile",
+      use: {
+        ...devices["Pixel 7"],
+        launchOptions: {
+          args: [
+            "--proxy-server=direct://",
+            "--host-resolver-rules=MAP opentrad.dynv6.net 127.0.0.1",
+          ],
+        },
+      },
+    },
+  ],
 });

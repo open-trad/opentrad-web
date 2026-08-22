@@ -502,7 +502,37 @@ function createDefaultRuntime(): LocalConversionRuntime {
       if (signalAborted(signal)) throw fixedError("LOCAL_CONVERSION_CANCELLED");
       return bytes;
     },
-    run: (request: LocalWorkerRequest, signal: AbortSignal) => client.run(request, signal),
+    run: async (request: LocalWorkerRequest, signal: AbortSignal) => {
+      let output: { readonly bytes: Uint8Array; readonly mediaType: string };
+      switch (request.operation) {
+        case "text.semantic":
+          output = await (
+            await import("@opentrad/conversion-local/text")
+          ).dispatchSemanticTextConversion(request, signal);
+          break;
+        case "document.generate":
+          if ("kind" in request) throw fixedError("LOCAL_SELECTION_INVALID");
+          output = await (
+            await import("@opentrad/conversion-local/document")
+          ).dispatchDocumentGeneration(request, signal);
+          break;
+        case "pdf.inspect":
+        case "pdf.organize":
+        case "images.to.pdf":
+          output = await (
+            await import("@opentrad/conversion-local/pdf-transform")
+          ).dispatchPdfConversion(request, signal);
+          break;
+        default:
+          return client.run(request, signal);
+      }
+      return Object.freeze({
+        bytes: output.bytes,
+        id: request.id,
+        mediaType: output.mediaType,
+        ok: true as const,
+      });
+    },
   });
 }
 

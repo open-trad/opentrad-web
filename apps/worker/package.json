@@ -19,6 +19,7 @@
     "test:native-spreadsheet": "pnpm build && node tests/spreadsheet-native-smoke.mjs",
     "test:native-main": "pnpm --filter @opentrad/api build && pnpm build && node tests/main-native-smoke.mjs",
     "test": "vitest run && pnpm test:native-main",
+    "test:corpus": "vitest run",
     "typecheck": "tsc -p tsconfig.json --pretty false"
   },
   "dependencies": {

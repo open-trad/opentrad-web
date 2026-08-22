@@ -13,6 +13,18 @@
       "types": "./dist/pdf/pdfjs.d.ts",
       "import": "./dist/pdf/pdfjs.js"
     },
+    "./pdf-transform": {
+      "types": "./dist/pdf/transformPdf.d.ts",
+      "import": "./dist/pdf/transformPdf.js"
+    },
+    "./document": {
+      "types": "./dist/document/generateDocument.d.ts",
+      "import": "./dist/document/generateDocument.js"
+    },
+    "./text": {
+      "types": "./dist/text/convertText.d.ts",
+      "import": "./dist/text/convertText.js"
+    },
     "./client": {
       "types": "./dist/client.d.ts",
       "import": "./dist/client.js"
