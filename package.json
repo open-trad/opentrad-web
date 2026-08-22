@@ -11,15 +11,16 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "build:document-prerequisites": "pnpm --filter @opentrad/contracts build && pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build",
+    "build:workspace-prerequisites": "pnpm run build:document-prerequisites && pnpm --filter @opentrad/conversion-local build",
     "dev": "pnpm run build:document-prerequisites && pnpm --filter @opentrad/web dev",
     "e2e": "pnpm --filter @opentrad/web exec playwright test",
     "e2e:serve": "pnpm --filter @opentrad/contracts build && pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build && pnpm --filter @opentrad/conversion-local build && pnpm --filter @opentrad/api build && pnpm --filter @opentrad/worker build && VITE_DEPLOYMENT_MODE=production VITE_BASE_PATH=/ pnpm --filter @opentrad/web build && node scripts/e2e/start-stack.mjs",
     "golds:generate": "pnpm run build:document-prerequisites && node scripts/generate-template-golds.mjs",
     "golds:verify": "pnpm run build:document-prerequisites && node --test scripts/gold-verification-helpers.test.mjs && node scripts/verify-template-golds.mjs",
     "lint": "biome check .",
-    "test": "pnpm run build:document-prerequisites && pnpm --workspace-concurrency=1 -r --if-present test",
+    "test": "pnpm run build:workspace-prerequisites && pnpm --filter @opentrad/web build && pnpm --workspace-concurrency=1 -r --if-present test",
     "test:fresh-renderer-dist": "node scripts/fresh-renderer-dist-smoke.mjs",
-    "typecheck": "pnpm run build:document-prerequisites && pnpm -r --if-present typecheck"
+    "typecheck": "pnpm run build:workspace-prerequisites && pnpm -r --if-present typecheck"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",

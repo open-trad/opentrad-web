@@ -7,14 +7,23 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rootPackage = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8"));
 
-test("root workflows build contracts and both document packages before every consumer", () => {
+test("root workflows build every exported workspace package before its consumers", () => {
   assert.equal(
     rootPackage.scripts["build:document-prerequisites"],
     "pnpm --filter @opentrad/contracts build && pnpm --filter @opentrad/document-core build && pnpm --filter @opentrad/document-renderer build",
   );
-  for (const name of ["dev", "test", "typecheck", "golds:generate", "golds:verify"]) {
+  assert.equal(
+    rootPackage.scripts["build:workspace-prerequisites"],
+    "pnpm run build:document-prerequisites && pnpm --filter @opentrad/conversion-local build",
+  );
+  for (const name of ["dev", "golds:generate", "golds:verify"]) {
     assert.match(rootPackage.scripts[name], /^pnpm run build:document-prerequisites && /u, name);
   }
+  assert.match(rootPackage.scripts.typecheck, /^pnpm run build:workspace-prerequisites && /u);
+  assert.match(
+    rootPackage.scripts.test,
+    /^pnpm run build:workspace-prerequisites && pnpm --filter @opentrad\/web build && /u,
+  );
   assert.equal(
     rootPackage.scripts["test:fresh-renderer-dist"],
     "node scripts/fresh-renderer-dist-smoke.mjs",
