@@ -90,15 +90,16 @@ RUN node /build/fetch-gperf.mjs /build/gperf.lock.json /build/gperf \
 COPY infra/docker/fontconfig.lock.json /build/fontconfig.lock.json
 COPY infra/docker/fetch-fontconfig.mjs /build/fetch-fontconfig.mjs
 RUN node /build/fetch-fontconfig.mjs /build/fontconfig.lock.json /build/fontconfig \
- && cd /build/fontconfig \
  && export PATH=/build/gperf-install/bin:$PATH \
- && FREETYPE_CFLAGS=-I/build/toolchain/root/opt/opentrad-tools/include/freetype2 \
-      FREETYPE_LIBS='-L/build/toolchain/root/opt/opentrad-tools/lib -lfreetype' \
-      EXPAT_CFLAGS=-I/build/toolchain/root/opt/opentrad-tools/include \
-      EXPAT_LIBS='-L/build/toolchain/root/opt/opentrad-tools/lib -lexpat' \
-      ./configure --prefix=/opt/opentrad-tools \
- && make -j2 \
- && make DESTDIR=/build/toolchain/root install
+      PKG_CONFIG_PATH=/build/toolchain/root/opt/opentrad-tools/lib/pkgconfig \
+      CMAKE_PREFIX_PATH=/build/toolchain/root/opt/opentrad-tools \
+      CFLAGS='-I/build/toolchain/root/opt/opentrad-tools/include/freetype2 -I/build/toolchain/root/opt/opentrad-tools/include' \
+      LDFLAGS='-L/build/toolchain/root/opt/opentrad-tools/lib' \
+ && meson setup /build/fontconfig-build /build/fontconfig \
+      --buildtype=release --prefix=/opt/opentrad-tools \
+      -Dnls=disabled -Ddoc=disabled -Dtests=disabled -Dtools=enabled -Dcache-build=disabled \
+ && meson compile -C /build/fontconfig-build -j 2 \
+ && DESTDIR=/build/toolchain/root meson install -C /build/fontconfig-build
 
 FROM toolchain-base AS toolchain
 COPY infra/docker/poppler-build-packages.lock.json /build/poppler-build-packages.lock.json
@@ -133,10 +134,19 @@ FROM ${DEBIAN_IMAGE} AS runtime
 ENV HOME=/run/opentrad \
     XDG_CACHE_HOME=/run/opentrad/cache \
     TMPDIR=/work \
-    PYTHONPATH=/opt/opentrad-tools/lib/python3.11/site-packages \
+    PYTHONPATH=/opt/opentrad-tools/local/lib/python3.11/dist-packages \
     TESSDATA_PREFIX=/opt/opentrad-tools/share/tessdata \
-    PATH=/opt/opentrad-tools/bin:/opt/libreoffice26.2/program:/usr/local/bin:/usr/bin:/bin \
-    LD_LIBRARY_PATH=/opt/opentrad-tools/lib:/opt/libreoffice26.2/program
+    PATH=/opt/opentrad-tools/local/bin:/opt/opentrad-tools/bin:/opt/libreoffice26.2/program:/usr/local/bin:/usr/bin:/bin \
+    LD_LIBRARY_PATH=/opt/opentrad-tools/lib/x86_64-linux-gnu:/opt/opentrad-tools/lib:/opt/libreoffice26.2/program
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY infra/docker/worker-runtime-packages.lock.json /build/worker-runtime-packages.lock.json
+COPY infra/docker/verify-runtime-packages.mjs /build/verify-runtime-packages.mjs
+RUN sed -i 's|deb.debian.org/debian-security|mirrors.aliyun.com/debian-security|g; s|deb.debian.org/debian|mirrors.aliyun.com/debian|g' /etc/apt/sources.list.d/debian.sources \
+ && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 update \
+ && package_args="$(node -e 'const lock=require(process.argv[1]); process.stdout.write(lock.packages.map((dependency) => `${dependency.name}=${dependency.version}`).join(" "))' /build/worker-runtime-packages.lock.json)" \
+ && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=30 install -y --no-install-recommends $package_args \
+ && node /build/verify-runtime-packages.mjs /build/worker-runtime-packages.lock.json \
+ && rm -rf /var/lib/apt/lists/*
 RUN mkdir -p /run/opentrad /work \
  && chown -R 10002:10002 /run/opentrad /work
 COPY --from=toolchain /build/toolchain/root/ /
@@ -145,10 +155,21 @@ COPY --from=toolchain /usr/share /usr/share
 COPY --from=toolchain /usr/bin/python3 /usr/bin/python3
 COPY --from=toolchain /usr/bin/python3.11 /usr/bin/python3.11
 COPY --from=toolchain /usr/bin/gs /usr/bin/gs
-COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=app-build --chown=10002:10002 /out/dist /app
 COPY --from=app-build --chown=10002:10002 /out/node_modules /app/node_modules
 COPY --chown=10002:10002 infra/docker/worker-entrypoint.sh /usr/local/bin/opentrad-worker
-RUN chmod 0555 /usr/local/bin/opentrad-worker
+COPY infra/docker/ocrmypdf-wrapper.sh /opt/ocr/bin/ocrmypdf
+COPY infra/docker/soffice-wrapper.sh /usr/bin/soffice
+RUN mkdir -p /opt/ocr/bin \
+ && ln -s /opt/opentrad-tools/bin/pandoc /usr/bin/pandoc \
+ && ln -s /opt/opentrad-tools/bin/pdfinfo /usr/bin/pdfinfo \
+ && ln -s /opt/opentrad-tools/bin/pdftoppm /usr/bin/pdftoppm \
+ && ln -s /opt/opentrad-tools/bin/pdftotext /usr/bin/pdftotext \
+ && ln -s /opt/opentrad-tools/bin/qpdf /usr/bin/qpdf \
+ && ln -s /opt/opentrad-tools/bin/tesseract /usr/bin/tesseract \
+ && ln -s /opt/opentrad-tools/bin/vips /usr/bin/vips \
+ && printf '%s\n' /opt/opentrad-tools/lib/x86_64-linux-gnu /opt/opentrad-tools/lib > /etc/ld.so.conf.d/opentrad-tools.conf \
+ && /sbin/ldconfig \
+ && chmod 0555 /usr/local/bin/opentrad-worker /opt/ocr/bin/ocrmypdf /usr/bin/soffice
 USER 10002:10002
 ENTRYPOINT ["/usr/local/bin/opentrad-worker"]

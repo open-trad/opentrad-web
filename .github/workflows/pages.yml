@@ -40,7 +40,7 @@ jobs:
           VITE_SERVER_API_ENABLED: "false"
       - name: Prove preview has no production API endpoint
         run: >-
-          ! rg --text --fixed-strings 'opentrad.dynv6.net/api' apps/web/dist
+          ! rg --text --fixed-strings 'opentrad.dns.army/api' apps/web/dist
       - name: Add single-page fallback
         run: cp apps/web/dist/index.html apps/web/dist/404.html
       - name: Configure Pages

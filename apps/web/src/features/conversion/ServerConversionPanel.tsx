@@ -27,7 +27,7 @@ export type { ServerConversionServices } from "./useConversionJob";
 
 export const SERVER_FEATURES_ENABLED =
   import.meta.env.VITE_DEPLOYMENT_MODE === "production" &&
-  window.location.hostname === "opentrad.dynv6.net";
+  window.location.hostname === "opentrad.dns.army";
 
 const serverCapabilities = Object.freeze(
   CAPABILITIES.filter((capability) => capability.execution === "server"),
@@ -137,7 +137,7 @@ function ServerPreview() {
       </div>
       <div className="server-preview-note">
         <LockKeyhole aria-hidden="true" />
-        <p>GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dynv6.net 开放。</p>
+        <p>GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。</p>
       </div>
     </section>
   );

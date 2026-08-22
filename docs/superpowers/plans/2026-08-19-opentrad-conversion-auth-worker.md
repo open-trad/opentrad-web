@@ -1038,7 +1038,7 @@ import { createAuthOptions } from "../src/auth/auth.js";
 
 it("uses seven-day sessions and explicit account linking", () => {
   const options = createAuthOptions({
-    baseUrl: "https://opentrad.dynv6.net",
+    baseUrl: "https://opentrad.dns.army",
     secret: "a".repeat(48),
     githubClientId: "client",
     githubClientSecret: "secret",
@@ -1151,7 +1151,7 @@ Run:
 
 ~~~bash
 BETTER_AUTH_SECRET="$(openssl rand -base64 48)" \
-BETTER_AUTH_URL="https://opentrad.dynv6.net" \
+BETTER_AUTH_URL="https://opentrad.dns.army" \
 pnpm exec auth@1.7.1 generate --config apps/api/src/auth/auth.ts --output apps/api/src/db/migrations/001_auth.sql
 git diff -- apps/api/src/db/migrations/001_auth.sql
 ~~~
@@ -1257,7 +1257,7 @@ it("rejects registration without the recovery acknowledgement", async () => {
   const response = await app.inject({
     method: "POST",
     url: "/api/v1/register",
-    headers: { origin: "https://opentrad.dynv6.net" },
+    headers: { origin: "https://opentrad.dns.army" },
     payload: { username: "trader", password: "correct-horse-12" },
   });
   expect(response.statusCode).toBe(400);
@@ -1318,7 +1318,7 @@ export function mountAuthHandler(app: FastifyInstance, auth: ReturnType<typeof c
     method: ["GET", "POST"],
     url: "/api/auth/*",
     async handler(request, reply) {
-      const url = new URL(request.url, "https://opentrad.dynv6.net");
+      const url = new URL(request.url, "https://opentrad.dns.army");
       const response = await auth.handler(new Request(url, {
         method: request.method,
         headers: fromNodeHeaders(request.headers),
@@ -2090,10 +2090,10 @@ export async function submitServerJob(
 ~~~ts
 export const SERVER_FEATURES_ENABLED =
   import.meta.env.VITE_DEPLOYMENT_MODE === "production" &&
-  window.location.hostname === "opentrad.dynv6.net";
+  window.location.hostname === "opentrad.dns.army";
 ~~~
 
-When false, render: “GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dynv6.net 开放。” Do not render a clickable login or upload action.
+When false, render: “GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。” Do not render a clickable login or upload action.
 
 - [ ] **Step 7: Implement accessible job polling and cancellation**
 
@@ -2296,7 +2296,7 @@ Do not create DNS records, OAuth credentials, server users, images, containers, 
 1. All local and API/worker tests pass.
 2. Worker container artifacts can be built reproducibly by the companion release plan.
 3. GitHub Pages build keeps server features disabled.
-4. A production build enables server features only on \`opentrad.dynv6.net\`.
+4. A production build enables server features only on \`opentrad.dns.army\`.
 5. The production release plan can consume the committed contracts, images, migrations, and canary tests without renaming types.
 
 ## Self-review findings

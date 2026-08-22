@@ -14,7 +14,7 @@ assert_uid() {
 assert_read_only() {
   image="$1"
   docker run --rm --read-only --entrypoint /bin/sh "$image" -c \
-    'if : > /opentrad-policy-write 2>/dev/null; then exit 1; fi'
+    'if touch /opentrad-policy-write 2>/dev/null; then exit 1; fi'
 }
 
 assert_clean_image() {

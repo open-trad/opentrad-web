@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build, sign, deploy, verify, and safely roll back OpenTrad at `https://opentrad.dynv6.net` without changing or degrading PaperBanana, Tensor Auto, OpenVac, global Docker configuration, or any existing Compose project.
+**Goal:** Build, sign, deploy, verify, and safely roll back OpenTrad at `https://opentrad.dns.army` without changing or degrading PaperBanana, Tensor Auto, OpenVac, global Docker configuration, or any existing Compose project.
 
 **Architecture:** CI produces immutable API and worker images, SBOMs, vulnerability reports, and a signed release manifest. A dedicated unprivileged host account stages one release directory, checks DNS/OAuth/secrets and an existing-service baseline, then invokes narrowly allowlisted root scripts for Compose and Nginx. OpenTrad is its own Compose project; only the API binds `127.0.0.1:13300`, the worker has no network, job bytes live on tmpfs, and Nginx exposes the same-origin web/API surface. Deployment is an atomic static-directory switch followed by canary, privacy, load, and no-change checks.
 
@@ -12,7 +12,7 @@
 
 ## Locked production boundaries
 
-- The only production hostname is `opentrad.dynv6.net`. GitHub Pages remains a static preview/project page and never calls production APIs.
+- The only production hostname is `opentrad.dns.army`. GitHub Pages remains a static preview/project page and never calls production APIs.
 - OpenTrad uses Compose project `opentrad`. Existing projects `openvac-production`, `paperbanana-hk`, and `tensor-auto` are inventory subjects only.
 - Existing listeners `3010`, `13005`, `13200`, and `13201` are immutable. OpenTrad may add only `127.0.0.1:13300`; Nginx already owns public ports 80 and 443.
 - Do not edit `/etc/docker/daemon.json`, Docker's systemd unit, global iptables/nftables, existing Compose files, existing Docker networks, or existing Nginx server blocks.
@@ -533,7 +533,7 @@ Create `infra/runtime/api.env.example`:
 
 ~~~dotenv
 NODE_ENV=production
-OPENTRAD_PUBLIC_ORIGIN=https://opentrad.dynv6.net
+OPENTRAD_PUBLIC_ORIGIN=https://opentrad.dns.army
 OPENTRAD_TRUSTED_PROXY_CIDR=REPLACE_WITH_EXACT_CONTAINER_OBSERVED_PROXY_CIDR
 OPENTRAD_DATABASE_PATH=/var/lib/opentrad/opentrad.sqlite
 OPENTRAD_JOB_ROOT=/jobs
@@ -613,7 +613,7 @@ Create `infra/nginx/opentrad-http.conf`:
 server {
     listen 80;
     listen [::]:80;
-    server_name opentrad.dynv6.net;
+    server_name opentrad.dns.army;
 
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/letsencrypt;
@@ -648,7 +648,7 @@ Create `infra/nginx/opentrad.conf`:
 server {
     listen 80;
     listen [::]:80;
-    server_name opentrad.dynv6.net;
+    server_name opentrad.dns.army;
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/letsencrypt;
     }
@@ -660,10 +660,10 @@ server {
 server {
     listen 443 ssl http2;
     listen [::]:443 ssl http2;
-    server_name opentrad.dynv6.net;
+    server_name opentrad.dns.army;
 
-    ssl_certificate /etc/letsencrypt/live/opentrad.dynv6.net/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/opentrad.dynv6.net/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/opentrad.dns.army/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/opentrad.dns.army/privkey.pem;
     include /etc/nginx/snippets/security-headers.conf;
 
     root /opt/opentrad/current/web;
@@ -752,7 +752,7 @@ public_ip="$(curl --fail --silent --show-error --max-time 5 https://api.ipify.or
   pause "PAUSE_DNS:PUBLIC_IP_UNAVAILABLE"
 dns_ip="$(curl --fail --silent --show-error --max-time 5 \
   -H 'accept: application/dns-json' \
-  'https://cloudflare-dns.com/dns-query?name=opentrad.dynv6.net&type=A' |
+  'https://cloudflare-dns.com/dns-query?name=opentrad.dns.army&type=A' |
   node -e '
     let body="";
     process.stdin.on("data", (chunk) => body += chunk);
@@ -791,8 +791,8 @@ printf '%s\n' "EXTERNAL_GATES_OK"
 
 The operator creates the dynv6 A record through the dynv6 console or API and creates a GitHub OAuth App with:
 
-- Homepage URL: `https://opentrad.dynv6.net`
-- Authorization callback URL: `https://opentrad.dynv6.net/api/auth/callback/github`
+- Homepage URL: `https://opentrad.dns.army`
+- Authorization callback URL: `https://opentrad.dns.army/api/auth/callback/github`
 
 The script verifies results only; it never asks for a dynv6 token or GitHub client secret on the command line.
 
@@ -1216,7 +1216,7 @@ env:
   VITE_SERVER_API_ENABLED: "false"
 ~~~
 
-The release build sets `VITE_DEPLOYMENT_MODE=production` and `VITE_SERVER_API_ENABLED=true`. Tests fail if a Pages artifact contains `opentrad.dynv6.net/api`.
+The release build sets `VITE_DEPLOYMENT_MODE=production` and `VITE_SERVER_API_ENABLED=true`. Tests fail if a Pages artifact contains `opentrad.dns.army/api`.
 
 - [ ] **Step 7: Prove GREEN and commit**
 
@@ -1342,7 +1342,7 @@ docker compose --project-name opentrad -f infra/compose.prod.yml --dry-run up -d
 
 Document the one-time operator actions:
 
-1. create the dynv6 A record `opentrad.dynv6.net` pointing to the currently observed production public IPv4 address;
+1. create the dynv6 A record `opentrad.dns.army` pointing to the currently observed production public IPv4 address;
 2. create the GitHub OAuth App with the exact homepage and callback from Task 5;
 3. install the three secret files through the no-echo script;
 4. configure GitHub environment `production` with a required reviewer and self-review prevention;
@@ -1450,12 +1450,12 @@ sudo nginx -t
 sudo systemctl reload nginx
 sudo certbot certonly --webroot \
   --webroot-path /var/www/letsencrypt \
-  --domain opentrad.dynv6.net \
+  --domain opentrad.dns.army \
   --agree-tos --no-eff-email --email-file /opt/opentrad/secrets/acme_email \
   --dry-run
 sudo certbot certonly --webroot \
   --webroot-path /var/www/letsencrypt \
-  --domain opentrad.dynv6.net \
+  --domain opentrad.dns.army \
   --agree-tos --no-eff-email --email-file /opt/opentrad/secrets/acme_email
 sudo install -o root -g root -m 0644 infra/nginx/opentrad.conf /etc/nginx/sites-available/opentrad.conf
 sudo ln -s /etc/nginx/sites-available/opentrad.conf /etc/nginx/sites-enabled/opentrad.conf
@@ -1481,8 +1481,8 @@ Expected: required reviewer approves, manifest verifies remotely, all three cont
 Run:
 
 ~~~bash
-curl --fail --silent --show-error https://opentrad.dynv6.net/api/health/ready
-node scripts/release/load-smoke.mjs --target https://opentrad.dynv6.net
+curl --fail --silent --show-error https://opentrad.dns.army/api/health/ready
+node scripts/release/load-smoke.mjs --target https://opentrad.dns.army
 node scripts/release/privacy-sentinel.mjs --remote-profile production
 ssh opentrad-production 'sudo /usr/local/libexec/opentrad/capture-baseline.sh acceptance'
 ~~~

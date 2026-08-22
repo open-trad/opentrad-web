@@ -85,7 +85,7 @@ const buildSupportTools = [
   {
     id: "fontconfig",
     version: "2.15.0",
-    source: "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.15.0.tar.xz",
+    source: "https://github.com/fontconfig/fontconfig/archive/refs/tags/2.15.0.tar.gz",
     license: "MIT",
   },
   {

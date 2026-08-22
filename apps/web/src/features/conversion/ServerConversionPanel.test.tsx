@@ -85,7 +85,7 @@ describe("server conversion panel", () => {
     render(<ServerConversionPanel enabled={false} account={runtime} services={services()} />);
 
     expect(
-      screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dynv6.net 开放。"),
+      screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。"),
     ).toBeVisible();
     expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();

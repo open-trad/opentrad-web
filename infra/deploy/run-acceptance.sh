@@ -71,7 +71,7 @@ baseline="$runtime/baseline.json"
 
 node "$libexec/build-load-profile.mjs" "$before" "$profile"
 node "$libexec/release/load-smoke.mjs" \
-  --target https://opentrad.dynv6.net --profile-fd 3 3<"$profile" >"$load"
+  --target https://opentrad.dns.army --profile-fd 3 3<"$profile" >"$load"
 
 # The marker evidence contains the private canary strings by design. Validate it,
 # hold a root-only copy outside every production scan root, and restore it after

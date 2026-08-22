@@ -20,7 +20,7 @@ function renderCompose() {
     [
       `OPENTRAD_API_IMAGE=example.invalid/opentrad-api@sha256:${"1".repeat(64)}`,
       `OPENTRAD_WORKER_IMAGE=example.invalid/opentrad-worker@sha256:${"2".repeat(64)}`,
-      `CLAMAV_IMAGE=${clamavImage}`,
+      `OPENTRAD_CLAMAV_IMAGE=${clamavImage}`,
     ].join("\n"),
   );
   try {
@@ -128,4 +128,19 @@ test("active API environment never ships the trusted-proxy placeholder", () => {
   const rendered = renderCompose();
   assert.doesNotMatch(JSON.stringify(rendered.services.api.environment), /REPLACE_WITH_/);
   assert.equal(rendered.services.api.environment.OPENTRAD_TRUSTED_PROXY_CIDR, undefined);
+});
+
+test("release images and readiness use the verified production contracts", () => {
+  const { services } = renderCompose();
+  assert.match(services.clamav.image, /^clamav\/clamav:1\.5\.4@sha256:[a-f0-9]{64}$/);
+  assert.match(JSON.stringify(services.api.healthcheck.test), /\/api\/health\/ready/);
+  assert.match(JSON.stringify(services.api.healthcheck.test), /OPENTRAD_PUBLIC_ORIGIN/);
+  assert.match(JSON.stringify(services.api.healthcheck.test), /node:http/);
+  const workerHealth = JSON.stringify(services.worker.healthcheck.test);
+  assert.match(workerHealth, /test -x \/jobs/);
+  for (const directory of ["queued", "running", "outbox"]) {
+    assert.match(workerHealth, new RegExp(`test -w /jobs/${directory}`));
+  }
+  assert.match(workerHealth, /test -r \/jobs\/control/);
+  assert.doesNotMatch(workerHealth, /test -w \/jobs(?:\s|&)/);
 });

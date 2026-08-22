@@ -8,7 +8,7 @@ pause() {
 
 release_sha=${1:-}
 printf '%s' "$release_sha" | grep -Eq '^[a-f0-9]{40}$' || pause INVALID_SHA
-origin=https://opentrad.dynv6.net
+origin=https://opentrad.dns.army
 opentrad_root=/opt/opentrad
 runtime_parent=/run
 if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
@@ -44,7 +44,7 @@ fetch_page() {
     --write-out '%{url_effective}' "$origin$route") || pause "FETCH_${name}"
   EFFECTIVE_URL="$effective" node -e '
     const value = new URL(process.env.EFFECTIVE_URL);
-    if (value.protocol !== "https:" || value.hostname !== "opentrad.dynv6.net") process.exit(1);
+    if (value.protocol !== "https:" || value.hostname !== "opentrad.dns.army") process.exit(1);
   ' || pause FINAL_ORIGIN
 }
 

@@ -39,7 +39,7 @@ services:
         - CMD
         - node
         - -e
-        - fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+        - const origin=new URL(process.env.OPENTRAD_PUBLIC_ORIGIN);require('node:http').get({hostname:'127.0.0.1',port:3000,path:'/api/health/ready',headers:{host:origin.host}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))
       interval: 10s
       timeout: 3s
       retries: 12
@@ -66,13 +66,15 @@ services:
       - /run/opentrad:rw,nodev,nosuid,noexec,size=64m,uid=10002,gid=10002,mode=0700
       - /work:rw,nodev,nosuid,noexec,size=2g,uid=10002,gid=10002,mode=0700
     healthcheck:
-      test: [CMD-SHELL, "test -w /jobs && test -w /work && kill -0 1"]
+      test:
+        - CMD-SHELL
+        - test -x /jobs && test -w /jobs/queued && test -w /jobs/running && test -w /jobs/outbox && test -r /jobs/control && test -w /work && kill -0 1
       interval: 10s
       timeout: 3s
       retries: 12
 
   clamav:
-    image: ${CLAMAV_IMAGE:?CLAMAV_IMAGE is required}
+    image: ${OPENTRAD_CLAMAV_IMAGE:?OPENTRAD_CLAMAV_IMAGE is required}
     read_only: true
     init: true
     cap_drop: [ALL]

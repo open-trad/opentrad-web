@@ -17,7 +17,7 @@ public_ip="$(curl --fail --silent --show-error --max-time 5 https://api.ipify.or
 dns_ip="$(
   curl --fail --silent --show-error --max-time 5 \
     -H 'accept: application/dns-json' \
-    'https://cloudflare-dns.com/dns-query?name=opentrad.dynv6.net&type=A' |
+    'https://cloudflare-dns.com/dns-query?name=opentrad.dns.army&type=A' |
     node -e '
       let body = "";
       process.stdin.on("data", (chunk) => { body += chunk; });

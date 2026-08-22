@@ -38,8 +38,8 @@ const logPath = join(runtimeRoot, "api.log");
 const keyPath = join(runtimeRoot, "tls.key");
 const certificatePath = join(runtimeRoot, "tls.crt");
 const staticRoot = resolve(repositoryRoot, "apps/web/dist");
-const publicOrigin = "https://opentrad.dynv6.net:4173";
-const publicHost = "opentrad.dynv6.net:4173";
+const publicOrigin = "https://opentrad.dns.army:4173";
+const publicHost = "opentrad.dns.army:4173";
 
 let app;
 let database;
@@ -85,9 +85,9 @@ try {
       "-days",
       "1",
       "-subj",
-      "/CN=opentrad.dynv6.net",
+      "/CN=opentrad.dns.army",
       "-addext",
-      "subjectAltName=DNS:opentrad.dynv6.net,IP:127.0.0.1",
+      "subjectAltName=DNS:opentrad.dns.army,IP:127.0.0.1",
     ],
     { stdio: "ignore" },
   );

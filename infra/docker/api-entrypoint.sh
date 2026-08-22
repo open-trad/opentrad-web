@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+if test "$#" -gt 0; then
+  exec "$@"
+fi
+
 read_secret() {
   variable_name="$1"
   secret_path="$2"
@@ -43,4 +47,4 @@ if test -z "${OPENTRAD_TRUSTED_PROXY_CIDR:-}"; then
   export OPENTRAD_TRUSTED_PROXY_CIDR="$trusted_proxy_gateway/32"
 fi
 
-exec node dist/server.js
+exec node /app/dist/server.js

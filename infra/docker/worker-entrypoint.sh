@@ -1,9 +1,9 @@
 #!/bin/sh
 set -eu
 
-libreoffice --version | grep -F '26.2.5'
+/usr/bin/soffice --version | grep -F '26.2.5'
 pandoc --version | head -n 1 | grep -F '3.10.2'
-ocrmypdf --version | grep -F '17.10.0'
+ocrmypdf --version 2>&1 | grep -F '17.10.0'
 tesseract --version 2>&1 | head -n 1 | grep -F '5.5.3'
 qpdf --version | grep -F '12.4.0'
 pdftoppm -v 2>&1 | grep -F '26.08.0'

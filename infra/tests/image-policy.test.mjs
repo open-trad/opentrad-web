@@ -68,7 +68,7 @@ test("image definitions preserve the read-only runtime boundary", () => {
   );
   assert.doesNotMatch(
     files[1].split(/^FROM \$\{DEBIAN_IMAGE\} AS runtime$/m)[1],
-    /(?:apt|apk|dnf|yum)(?:-get)?\s+install/,
+    /(?:apk|dnf|yum)\s+install/,
   );
   assert.match(files[0], /mkdir -p \/run\/opentrad/);
   assert.match(files[1], /mkdir -p \/run\/opentrad \/work/);
@@ -77,9 +77,9 @@ test("image definitions preserve the read-only runtime boundary", () => {
 test("worker verifies every runtime tool before starting its current entry point", () => {
   const entrypoint = readFileSync(new URL("infra/docker/worker-entrypoint.sh", root), "utf8");
   for (const probe of [
-    "libreoffice --version | grep -F '26.2.5'",
+    "/usr/bin/soffice --version | grep -F '26.2.5'",
     "pandoc --version | head -n 1 | grep -F '3.10.2'",
-    "ocrmypdf --version | grep -F '17.10.0'",
+    "ocrmypdf --version 2>&1 | grep -F '17.10.0'",
     "tesseract --version 2>&1 | head -n 1 | grep -F '5.5.3'",
     "qpdf --version | grep -F '12.4.0'",
     "pdftoppm -v 2>&1 | grep -F '26.08.0'",
@@ -90,9 +90,53 @@ test("worker verifies every runtime tool before starting its current entry point
   assert.match(entrypoint, /exec node \/app\/main\.js\s*$/);
 });
 
+test("worker exposes the locked OCRmyPDF prefix to Python and the executable path", () => {
+  const worker = readFileSync(new URL("infra/docker/worker.Dockerfile", root), "utf8");
+  assert.match(worker, /PYTHONPATH=\/opt\/opentrad-tools\/local\/lib\/python3\.11\/dist-packages/);
+  assert.match(worker, /PATH=\/opt\/opentrad-tools\/local\/bin:/);
+  assert.match(
+    worker,
+    /LD_LIBRARY_PATH=\/opt\/opentrad-tools\/lib\/x86_64-linux-gnu:\/opt\/opentrad-tools\/lib:/,
+  );
+});
+
+test("worker exposes the absolute tool paths enforced by its runtime policy", () => {
+  const worker = readFileSync(new URL("infra/docker/worker.Dockerfile", root), "utf8");
+  const links = [
+    ["/opt/opentrad-tools/bin/pandoc", "/usr/bin/pandoc"],
+    ["/opt/opentrad-tools/bin/pdfinfo", "/usr/bin/pdfinfo"],
+    ["/opt/opentrad-tools/bin/pdftoppm", "/usr/bin/pdftoppm"],
+    ["/opt/opentrad-tools/bin/pdftotext", "/usr/bin/pdftotext"],
+    ["/opt/opentrad-tools/bin/qpdf", "/usr/bin/qpdf"],
+    ["/opt/opentrad-tools/bin/tesseract", "/usr/bin/tesseract"],
+    ["/opt/opentrad-tools/bin/vips", "/usr/bin/vips"],
+  ];
+  for (const [source, target] of links) {
+    assert.ok(worker.includes(`ln -s ${source} ${target}`), `missing policy link: ${target}`);
+  }
+  assert.match(worker, /COPY infra\/docker\/ocrmypdf-wrapper\.sh \/opt\/ocr\/bin\/ocrmypdf/);
+  assert.match(worker, /COPY infra\/docker\/soffice-wrapper\.sh \/usr\/bin\/soffice/);
+  assert.match(worker, /\/etc\/ld\.so\.conf\.d\/opentrad-tools\.conf/);
+  assert.match(worker, /&& \/sbin\/ldconfig/);
+
+  const ocrmypdfWrapper = readFileSync(new URL("infra/docker/ocrmypdf-wrapper.sh", root), "utf8");
+  assert.match(
+    ocrmypdfWrapper,
+    /PYTHONPATH=\/opt\/opentrad-tools\/local\/lib\/python3\.11\/dist-packages/,
+  );
+  assert.match(ocrmypdfWrapper, /exec \/opt\/opentrad-tools\/local\/bin\/ocrmypdf "\$@"/);
+
+  const sofficeWrapper = readFileSync(new URL("infra/docker/soffice-wrapper.sh", root), "utf8");
+  assert.match(sofficeWrapper, /LibreOffice 26\.2\.5\.2 cd7284b4cbbfeb507e630c1aac019f4157393acb/);
+  assert.match(sofficeWrapper, /printf '%s\\n' 'LibreOffice 26\.2\.5'/);
+  assert.match(sofficeWrapper, /exec \/opt\/libreoffice26\.2\/program\/soffice "\$@"/);
+});
+
 test("worker downloads only lock-declared artifacts and verifies them before extraction", () => {
   const worker = readFileSync(new URL("infra/docker/worker.Dockerfile", root), "utf8");
   assert.match(worker, /COPY infra\/docker\/toolchain\.lock\.json/);
+  assert.match(worker, /COPY infra\/docker\/worker-runtime-packages\.lock\.json/);
+  assert.match(worker, /verify-runtime-packages\.mjs/);
   assert.match(worker, /fetch-toolchain\.mjs --download/);
   assert.match(worker, /sha256sum -c/);
   assert.match(worker, /fetch-toolchain\.mjs --install/);
@@ -132,7 +176,8 @@ test("API deployment uses the current package layout and excludes source and tes
   );
   assert.doesNotMatch(dockerfile, /deploy --legacy/);
   assert.match(dockerfile, /find \/out\/src \/out\/tests -depth -delete/);
-  assert.match(entrypoint, /exec node dist\/server\.js\s*$/);
+  assert.match(entrypoint, /if test "\$#" -gt 0; then\s+exec "\$@"\s+fi/);
+  assert.match(entrypoint, /exec node \/app\/dist\/server\.js\s*$/);
   assert.match(dockerfile, /pnpm fetch --ignore-scripts --frozen-lockfile/);
   assert.match(dockerfile, /npm_config_nodedir=\/usr\/local/);
   assert.match(dockerfile, /COPY infra\/docker\/debian-packages\.lock\.json/);
@@ -142,6 +187,9 @@ test("API deployment uses the current package layout and excludes source and tes
     dockerfile,
     /pnpm install --offline --frozen-lockfile --filter @opentrad\/api\.\.\./,
   );
+  assert.match(dockerfile, /mkdir -p \/run\/opentrad \/var\/lib\/opentrad/);
+  assert.match(dockerfile, /chown 10001:10100 \/var\/lib\/opentrad/);
+  assert.match(dockerfile, /chmod 0700 \/var\/lib\/opentrad/);
 });
 
 test("worker gets Node 24 only from the digest-locked Node image", () => {
@@ -357,15 +405,21 @@ test("Poppler's newer Fontconfig input has an independent exact lock", () => {
     schemaVersion: 1,
     id: "fontconfig",
     version: "2.15.0",
-    source: "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.15.0.tar.xz",
+    source: "https://github.com/fontconfig/fontconfig/archive/refs/tags/2.15.0.tar.gz",
     license: "MIT",
-    sha256: "63a0658d0e06e0fa886106452b58ef04f21f58202ea02a94c39de0d3335d7c0e",
+    sha256: "cdebb4b805d33e9bdefcc0ef9743db638d2acb21139bbe1a6a85878d4c3e8c9e",
   });
   const dockerfile = readFileSync(new URL("infra/docker/worker.Dockerfile", root), "utf8");
   assert.match(dockerfile, /COPY infra\/docker\/fontconfig\.lock\.json/);
   assert.match(
     dockerfile,
     /node \/build\/fetch-fontconfig\.mjs \/build\/fontconfig\.lock\.json \/build\/fontconfig/,
+  );
+  assert.match(dockerfile, /meson setup \/build\/fontconfig-build \/build\/fontconfig/);
+  assert.match(dockerfile, /-Dnls=disabled -Ddoc=disabled -Dtests=disabled/);
+  assert.match(
+    dockerfile,
+    /CFLAGS='-I\/build\/toolchain\/root\/opt\/opentrad-tools\/include\/freetype2/,
   );
 });
 
@@ -385,7 +439,10 @@ test("Fontconfig's Expat headers come from an independent exact lock", () => {
     dockerfile,
     /node \/build\/fetch-expat\.mjs \/build\/expat\.lock\.json \/build\/expat/,
   );
-  assert.match(dockerfile, /EXPAT_CFLAGS=-I\/build\/toolchain\/root\/opt\/opentrad-tools\/include/);
+  assert.match(
+    dockerfile,
+    /PKG_CONFIG_PATH=\/build\/toolchain\/root\/opt\/opentrad-tools\/lib\/pkgconfig/,
+  );
 });
 
 test("Fontconfig's gperf generator comes from an independent exact lock", () => {

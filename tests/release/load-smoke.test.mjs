@@ -66,8 +66,8 @@ test("target mode is fixed to production and cannot shorten the acceptance phase
     users: 12,
   });
   assert.deepEqual(
-    parseTargetArguments(["--target", "https://opentrad.dynv6.net", "--profile-fd", "3"]),
-    { profileFd: 3, target: "https://opentrad.dynv6.net" },
+    parseTargetArguments(["--target", "https://opentrad.dns.army", "--profile-fd", "3"]),
+    { profileFd: 3, target: "https://opentrad.dns.army" },
   );
   assert.throws(() =>
     parseTargetArguments(["--target", "https://example.invalid", "--profile-fd", "3"]),
@@ -75,7 +75,7 @@ test("target mode is fixed to production and cannot shorten the acceptance phase
   assert.throws(() =>
     parseTargetArguments([
       "--target",
-      "https://opentrad.dynv6.net",
+      "https://opentrad.dns.army",
       "--profile-fd",
       "3",
       "--hold-ms",
@@ -133,7 +133,7 @@ test("target runner uses 12 ephemeral accounts and stops submissions on a live b
     host,
     profile: { existingServices: [] },
     sleep: async () => {},
-    target: "https://opentrad.dynv6.net",
+    target: "https://opentrad.dns.army",
     timings: { drainMs: 1, holdMs: 1, pollMs: 1, rampMs: 1, retentionMs: 1, users: 12 },
     transport,
   });
@@ -185,7 +185,7 @@ test("target cleanup attempts every account and sanitizes deletion failures", as
     host,
     profile: { existingServices: [] },
     sleep: async () => {},
-    target: "https://opentrad.dynv6.net",
+    target: "https://opentrad.dns.army",
     timings: { drainMs: 1, holdMs: 1, pollMs: 1, rampMs: 1, retentionMs: 1, users: 12 },
     transport,
   });
@@ -256,7 +256,7 @@ test("target runner stops submissions as soon as the live 5xx rate reaches the t
     host,
     profile: { existingServices: [] },
     sleep: async () => {},
-    target: "https://opentrad.dynv6.net",
+    target: "https://opentrad.dns.army",
     timings: { drainMs: 1, holdMs: 10, pollMs: 1, rampMs: 12, retentionMs: 1, users: 12 },
     transport,
   });
@@ -309,7 +309,7 @@ test("target runner proves the eleventh request is rejected by daily quota for e
     sleep: async (ms) => {
       clock += ms;
     },
-    target: "https://opentrad.dynv6.net",
+    target: "https://opentrad.dns.army",
     timings: { drainMs: 1, holdMs: 300, pollMs: 1, rampMs: 12, retentionMs: 1, users: 12 },
     transport,
   });
@@ -360,7 +360,7 @@ test("target phases use wall-clock deadlines instead of adding operation time to
     sleep: async (ms) => {
       clock += ms;
     },
-    target: "https://opentrad.dynv6.net",
+    target: "https://opentrad.dns.army",
     timings: { drainMs: 20, holdMs: 20, pollMs: 10, rampMs: 12, retentionMs: 20, users: 12 },
     transport,
   });

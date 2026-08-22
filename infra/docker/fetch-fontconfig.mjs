@@ -13,8 +13,7 @@ if (!lockPath || !targetPath) {
 }
 
 const lock = JSON.parse(await readFile(resolve(lockPath), "utf8"));
-const expectedSource =
-  "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.15.0.tar.xz";
+const expectedSource = "https://github.com/fontconfig/fontconfig/archive/refs/tags/2.15.0.tar.gz";
 if (
   lock.schemaVersion !== 1 ||
   lock.id !== "fontconfig" ||
@@ -27,7 +26,7 @@ if (
   throw new Error("invalid Fontconfig lock");
 }
 
-const archive = resolve(targetPath, `fontconfig-${process.pid}.tar.xz`);
+const archive = resolve(targetPath, `fontconfig-${process.pid}.tar.gz`);
 const temporary = `${archive}.partial`;
 mkdirSync(targetPath, { recursive: true });
 try {
@@ -50,7 +49,7 @@ try {
   );
   if (hash.digest("hex") !== lock.sha256) throw new Error("Fontconfig checksum mismatch");
   renameSync(temporary, archive);
-  const extraction = spawnSync("tar", ["-xJf", archive, "-C", targetPath, "--strip-components=1"], {
+  const extraction = spawnSync("tar", ["-xzf", archive, "-C", targetPath, "--strip-components=1"], {
     stdio: "inherit",
   });
   if (extraction.status !== 0) throw new Error("Fontconfig extraction failed");

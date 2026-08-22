@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const TWO_GIB = 2 * 1024 * 1024 * 1024;
-const PRODUCTION_TARGET = "https://opentrad.dynv6.net";
+const PRODUCTION_TARGET = "https://opentrad.dns.army";
 const WORKER_CONTAINER = "opentrad-worker-1";
 const JOB_VOLUME = "opentrad_job_ram";
 

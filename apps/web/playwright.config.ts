@@ -22,7 +22,7 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     acceptDownloads: true,
-    baseURL: "https://opentrad.dynv6.net:4173",
+    baseURL: "https://opentrad.dns.army:4173",
     ignoreHTTPSErrors: true,
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
@@ -47,7 +47,7 @@ export default defineConfig({
         launchOptions: {
           args: [
             "--proxy-server=direct://",
-            "--host-resolver-rules=MAP opentrad.dynv6.net 127.0.0.1",
+            "--host-resolver-rules=MAP opentrad.dns.army 127.0.0.1",
           ],
         },
         viewport: { width: 1_440, height: 1_000 },
@@ -60,7 +60,7 @@ export default defineConfig({
         launchOptions: {
           args: [
             "--proxy-server=direct://",
-            "--host-resolver-rules=MAP opentrad.dynv6.net 127.0.0.1",
+            "--host-resolver-rules=MAP opentrad.dns.army 127.0.0.1",
           ],
         },
       },

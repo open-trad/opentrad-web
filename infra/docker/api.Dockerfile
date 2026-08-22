@@ -36,8 +36,10 @@ ENV NODE_ENV=production
 WORKDIR /app
 RUN groupadd --gid 10001 opentrad-api \
  && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin opentrad-api \
- && mkdir -p /run/opentrad \
- && chown 10001:10001 /run/opentrad
+ && mkdir -p /run/opentrad /var/lib/opentrad \
+ && chown 10001:10001 /run/opentrad \
+ && chown 10001:10100 /var/lib/opentrad \
+ && chmod 0700 /var/lib/opentrad
 COPY --from=build --chown=10001:10001 /out/ ./
 COPY --chown=10001:10001 infra/docker/api-entrypoint.sh /usr/local/bin/opentrad-api
 RUN chmod 0555 /usr/local/bin/opentrad-api

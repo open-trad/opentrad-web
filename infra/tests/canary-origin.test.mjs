@@ -8,7 +8,7 @@ import test from "node:test";
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const canaryScript = path.join(repositoryRoot, "infra/deploy/run-canary.sh");
 const releaseSha = "0123456789abcdef0123456789abcdef01234567";
-const expectedOrigin = "https://opentrad.dynv6.net";
+const expectedOrigin = "https://opentrad.dns.army";
 
 async function executable(file, body) {
   await writeFile(file, body);

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "fontconfig",
   "version": "2.15.0",
-  "source": "https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.15.0.tar.xz",
+  "source": "https://github.com/fontconfig/fontconfig/archive/refs/tags/2.15.0.tar.gz",
   "license": "MIT",
-  "sha256": "63a0658d0e06e0fa886106452b58ef04f21f58202ea02a94c39de0d3335d7c0e"
+  "sha256": "cdebb4b805d33e9bdefcc0ef9743db638d2acb21139bbe1a6a85878d4c3e8c9e"
 }
