@@ -7,6 +7,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { resolveCommandPolicy } from "../src/commandPolicy.js";
 import * as workerExports from "../src/index.js";
+import { parseWorkerManifest } from "../src/manifest.js";
 import { resolveServerConversionPlan } from "../src/policies/workspace.js";
 import { createProcessRunnerForTesting, FIXED_PROCESS_ENVIRONMENT } from "../src/processRunner.js";
 import { TOOLCHAIN_POLICY, type WorkerToolName } from "../src/toolchain.js";
@@ -438,6 +439,15 @@ describe("fixed non-bid server conversion plans", () => {
     expectHardened(first);
     expect(json).not.toMatch(/inputBytes|sourceName|originalName|displayName|body|hash|log/iu);
     expect(json).not.toMatch(/secret|token|password/iu);
+  });
+
+  it("accepts the hardened manifest produced by the queue boundary", () => {
+    const hardened = parseWorkerManifest(manifest("structured.convert", "md", "docx"));
+    const plan = resolveServerConversionPlan(hardened);
+
+    expect(plan.operation).toBe("structured.convert");
+    expect(plan.inputFormat).toBe("md");
+    expect(plan.outputFormat).toBe("docx");
   });
 
   it("never accepts or copies caller command, argv, environment, path, or Pandoc extension fields", () => {

@@ -27,6 +27,15 @@ describe("worker manifest", () => {
     expect(Object.isFrozen(parsed.options)).toBe(true);
   });
 
+  it("revalidates its own hardened output without relaxing polluted prototypes", () => {
+    const first = parseWorkerManifest(manifest());
+    const second = parseWorkerManifest(first);
+
+    expect(second).toEqual(first);
+    expect(Object.getPrototypeOf(second)).toBeNull();
+    expect(Object.getPrototypeOf(second.options)).toBeNull();
+  });
+
   it.each([
     ["unknown field", manifest({ extra: true })],
     ["wrong schema", manifest({ schemaVersion: "server-v2" })],

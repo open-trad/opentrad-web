@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 0027
 
 install -d -m 0700 /work/home /work/tmp
 
