@@ -1,13 +1,4 @@
-import {
-  BadgeCheck,
-  FileCheck2,
-  FilePenLine,
-  FileSignature,
-  FolderSync,
-  HardDrive,
-  RefreshCw,
-  ShieldCheck,
-} from "lucide-react";
+import { FileCheck2, FilePenLine, FileSignature, FolderSync } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -55,13 +46,6 @@ const tools: ToolCard[] = [
   },
 ];
 
-const promises = [
-  { label: "开源免费", text: "透明开放，自由使用", icon: <BadgeCheck /> },
-  { label: "本地优先", text: "核心任务在设备完成", icon: <HardDrive /> },
-  { label: "数据安全", text: "边界清楚，您掌控数据", icon: <ShieldCheck /> },
-  { label: "持续更新", text: "社区协作，不断完善", icon: <RefreshCw /> },
-];
-
 export function HomePage() {
   return (
     <div className="home-page paper-grain">
@@ -88,20 +72,6 @@ export function HomePage() {
             <span className="tool-detail">{tool.detail}</span>
           </Link>
         ))}
-      </section>
-
-      <section className="trust-strip" aria-label="OpenTrad 可信承诺">
-        <div className="trust-grid section-container">
-          {promises.map((promise) => (
-            <div className="trust-item" key={promise.label}>
-              <span aria-hidden="true">{promise.icon}</span>
-              <div>
-                <strong>{promise.label}</strong>
-                <small>{promise.text}</small>
-              </div>
-            </div>
-          ))}
-        </div>
       </section>
     </div>
   );
