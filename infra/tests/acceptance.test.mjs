@@ -137,4 +137,24 @@ test("formal acceptance exposes only sanitized load failure codes", async () => 
       /PAUSE_ACCEPTANCE:LOAD_FAILED/u.test(error.stderr) &&
       !/PRIVATE-load-secret/u.test(error.stderr),
   );
+
+  await executable(
+    join(release, "load-smoke.mjs"),
+    `process.stdout.write('PRIVATE-malformed-load-output'); process.exitCode = 1;\n`,
+  );
+  await assert.rejects(
+    execFileAsync("sh", [script, sha], {
+      env: {
+        ...process.env,
+        OPENTRAD_LIBEXEC: libexec,
+        OPENTRAD_ROOT: root,
+        OPENTRAD_TEST_MODE: "1",
+      },
+    }),
+    (error) =>
+      error.code === 78 &&
+      /PAUSE_ACCEPTANCE:LOAD_FAILED/u.test(error.stderr) &&
+      !/PRIVATE-malformed-load-output/u.test(error.stderr) &&
+      !/SyntaxError/u.test(error.stderr),
+  );
 });

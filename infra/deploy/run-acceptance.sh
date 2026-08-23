@@ -73,14 +73,18 @@ node "$libexec/build-load-profile.mjs" "$before" "$profile"
 if ! node "$libexec/release/load-smoke.mjs" \
   --target https://opentrad.dns.army --profile-fd 3 3<"$profile" >"$load"; then
   node -e '
-    const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
-    const failures = value?.failures;
-    if (
-      !Array.isArray(failures) ||
-      failures.length < 1 ||
-      failures.some((code) => typeof code !== "string" || !/^[A-Z][A-Z0-9_]{1,63}$/.test(code))
-    ) process.exit(78);
-    process.stderr.write(`${JSON.stringify({ failures: [...new Set(failures)].sort() })}\n`);
+    try {
+      const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+      const failures = value?.failures;
+      if (
+        !Array.isArray(failures) ||
+        failures.length < 1 ||
+        failures.some((code) => typeof code !== "string" || !/^[A-Z][A-Z0-9_]{1,63}$/.test(code))
+      ) throw new Error();
+      process.stderr.write(`${JSON.stringify({ failures: [...new Set(failures)].sort() })}\n`);
+    } catch {
+      process.exitCode = 78;
+    }
   ' "$load" || true
   pause LOAD_FAILED
 fi
