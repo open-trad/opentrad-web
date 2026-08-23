@@ -197,6 +197,59 @@ test("target runner uses 12 ephemeral accounts and stops submissions on a live b
   assert.ok(events.includes("fixtures:cleanup"));
 });
 
+test("ramp-up gives every user one turn before any user is submitted twice", async () => {
+  const { runTarget } = await import(
+    new URL("../../scripts/release/load-smoke.mjs", import.meta.url)
+  );
+  let clock = 0;
+  const submissions = [];
+  const transport = {
+    snapshot: () => ({ fiveXx: 0, requests: 100 }),
+    async register(index) {
+      return { index };
+    },
+    async readiness() {
+      return true;
+    },
+    async submit(user) {
+      submissions.push(user.index);
+      return { accepted: true, id: `job-${submissions.length}`, queuePosition: 0 };
+    },
+    async status() {
+      return { status: "succeeded" };
+    },
+    async download() {},
+    async cancel() {},
+    async deleteAccount() {},
+  };
+  const host = {
+    async sample() {
+      return {
+        existingServiceRestartDelta: 0,
+        latencyRatios: [1, 1, 1, 1, 1],
+        residueJobs: 0,
+        workerMemoryBytes: 1,
+        workerOomKills: 0,
+      };
+    },
+  };
+  await runTarget({
+    host,
+    now: () => clock,
+    profile: { existingServices: [] },
+    sleep: async (ms) => {
+      clock += ms;
+    },
+    target: "https://opentrad.dns.army",
+    timings: { drainMs: 0, holdMs: 0, pollMs: 1, rampMs: 12, retentionMs: 0, users: 12 },
+    transport,
+  });
+  assert.deepEqual(
+    submissions.slice(0, 12),
+    Array.from({ length: 12 }, (_, index) => index),
+  );
+});
+
 test("target cleanup attempts every account and sanitizes deletion failures", async () => {
   const { runTarget } = await import(
     new URL("../../scripts/release/load-smoke.mjs", import.meta.url)
