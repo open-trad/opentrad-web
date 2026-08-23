@@ -27,14 +27,19 @@ function difference(name, field, expected, actual) {
   return { actual, expected, field, name };
 }
 
-function allowedOpenTradContainer(container) {
+function allowedOpenTradContainer(name, container) {
   const ports = array(container?.publishedPorts);
   const networks = array(container?.networks);
+  const networkNames = networks.map((network) =>
+    typeof network === "string" ? network.split(":", 1)[0] : network,
+  );
+  if (/^opentrad-worker-[0-9]+$/u.test(name)) {
+    return ports.length === 0 && same(networkNames, ["none"]);
+  }
   return (
     ports.every((port) => port === "127.0.0.1:13300->3000/tcp") &&
-    networks.every(
-      (network) => typeof network === "string" && network.split(":", 1)[0].startsWith("opentrad_"),
-    )
+    networkNames.length > 0 &&
+    networkNames.every((network) => typeof network === "string" && network.startsWith("opentrad_"))
   );
 }
 
@@ -56,7 +61,7 @@ export function compareExisting(before, after) {
   }
   for (const [name, actual] of Object.entries(afterContainers)) {
     if (Object.hasOwn(beforeContainers, name)) continue;
-    if (!name.startsWith("opentrad-") || !allowedOpenTradContainer(actual)) {
+    if (!name.startsWith("opentrad-") || !allowedOpenTradContainer(name, actual)) {
       differences.push(difference(name, "addition", "opentrad-scoped", "unscoped"));
     }
   }
