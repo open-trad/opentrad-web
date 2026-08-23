@@ -24,7 +24,7 @@ test("load evaluator enforces queue, quota, health, memory, and host stability",
     workerMemoryBytes: 2_000_000_000,
     workerOomKills: 0,
     existingServiceRestartDelta: 0,
-    latencyWindows: [1.01, 1.08, 1.12, 1.04, 1.19],
+    latencyWindowsByService: { stable: [1.01, 1.08, 1.12, 1.04, 1.19] },
     residueJobs: 0,
   });
   assert.equal(passing.ok, true);
@@ -36,6 +36,22 @@ test("load evaluator enforces queue, quota, health, memory, and host stability",
     evaluateLoadSamples({ ...passing.metrics, quotaVerifiedByUser: {} }).failures.includes(
       "DAILY_QUOTA",
     ),
+  );
+  assert.equal(
+    evaluateLoadSamples({
+      ...passing.metrics,
+      latencyWindowsByService: {
+        serviceA: [1.4, 1.1, 1.4, 1.1, 1.4],
+        serviceB: [1.1, 1.4, 1.1, 1.4, 1.1],
+      },
+    }).failures.includes("EXISTING_SERVICE_LATENCY"),
+    false,
+  );
+  assert.ok(
+    evaluateLoadSamples({
+      ...passing.metrics,
+      latencyWindowsByService: { serviceA: [1.21, 1.22, 1.23, 1.24, 1.25] },
+    }).failures.includes("EXISTING_SERVICE_LATENCY"),
   );
 });
 
@@ -173,7 +189,7 @@ test("target runner uses 12 ephemeral accounts and stops submissions on a live b
     async sample() {
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,
@@ -226,7 +242,7 @@ test("ramp-up gives every user one turn before any user is submitted twice", asy
     async sample() {
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,
@@ -278,7 +294,7 @@ test("target cleanup attempts every account and sanitizes deletion failures", as
     async sample() {
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,
@@ -349,7 +365,7 @@ test("target runner stops submissions as soon as the live 5xx rate reaches the t
     async sample() {
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,
@@ -373,6 +389,8 @@ test("target runner proves the eleventh request is rejected by daily quota for e
     new URL("../../scripts/release/load-smoke.mjs", import.meta.url)
   );
   let clock = 0;
+  let hostSamples = 0;
+  let readinessChecks = 0;
   const calls = new Map();
   const transport = {
     snapshot: () => ({ fiveXx: 0, requests: 1_000 }),
@@ -380,6 +398,7 @@ test("target runner proves the eleventh request is rejected by daily quota for e
       return { index };
     },
     async readiness() {
+      readinessChecks += 1;
       return true;
     },
     async submit(user) {
@@ -397,9 +416,11 @@ test("target runner proves the eleventh request is rejected by daily quota for e
   };
   const host = {
     async sample() {
+      hostSamples += 1;
+      clock += 3;
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,
@@ -420,6 +441,8 @@ test("target runner proves the eleventh request is rejected by daily quota for e
   assert.equal(result.ok, true);
   assert.deepEqual(new Set(calls.values()), new Set([11]));
   assert.deepEqual(new Set(Object.values(result.metrics.quotaVerifiedByUser)), new Set([true]));
+  assert.ok(readinessChecks > hostSamples * 10);
+  assert.equal(result.metrics.healthChecks, readinessChecks);
 });
 
 test("target phases use wall-clock deadlines instead of adding operation time to every interval", async () => {
@@ -450,7 +473,7 @@ test("target phases use wall-clock deadlines instead of adding operation time to
       clock += 7;
       return {
         existingServiceRestartDelta: 0,
-        latencyRatios: [1, 1, 1, 1, 1],
+        latencyRatiosByService: { service: [1, 1, 1, 1, 1] },
         residueJobs: 0,
         workerMemoryBytes: 1,
         workerOomKills: 0,

@@ -175,6 +175,7 @@ jobs:
           if-no-files-found: error
           retention-days: 90
       - name: Run the fixed formal acceptance command
+        timeout-minutes: 35
         env:
           DEPLOY_HOST: ${{ secrets.OPENTRAD_DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.OPENTRAD_DEPLOY_USER }}
@@ -182,6 +183,9 @@ jobs:
         run: >-
           ssh -i "$RUNNER_TEMP/opentrad-ssh/key"
           -o IdentitiesOnly=yes
+          -o ConnectTimeout=15
+          -o ServerAliveInterval=15
+          -o ServerAliveCountMax=3
           -o UserKnownHostsFile="$RUNNER_TEMP/opentrad-ssh/known_hosts"
           -o StrictHostKeyChecking=yes
           "${DEPLOY_USER}@${DEPLOY_HOST}"
