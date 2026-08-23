@@ -225,11 +225,22 @@ describe("worker cancellation lifecycle", () => {
     const claim = await queue.claimNext();
     expect(claim).not.toBeNull();
     if (!claim) return;
+    let markConversionStarted: (() => void) | undefined;
+    const conversionStarted = new Promise<void>((resolve) => {
+      markConversionStarted = resolve;
+    });
     const pending = runClaim(
       claim,
       queue,
-      runtime({ convert: async () => new Promise(() => {}), settleTimeoutMs: 2_750 }),
+      runtime({
+        convert: async () => {
+          markConversionStarted?.();
+          return new Promise(() => {});
+        },
+        settleTimeoutMs: 2_750,
+      }),
     );
+    await conversionStarted;
     await cancel(root);
     await vi.advanceTimersByTimeAsync(250 + 2_750);
 
