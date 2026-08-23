@@ -84,6 +84,57 @@ test("target mode is fixed to production and cannot shorten the acceptance phase
   );
 });
 
+test("production load profile requires the exact four existing services", async () => {
+  const { validateProfile } = await import(
+    new URL("../../scripts/release/load-smoke.mjs", import.meta.url)
+  );
+  const existingServices = [
+    {
+      baselineP95Ms: 100,
+      containerName: "openvac-production-web-1",
+      id: "openvac-web",
+      url: "https://openvac.cn/",
+    },
+    {
+      baselineP95Ms: 100,
+      containerName: "paperbanana-hk-auth-gateway-1",
+      id: "paperbanana-auth",
+      url: "https://api.paperbanana.asia/",
+    },
+    {
+      baselineP95Ms: 100,
+      containerName: "tensor-auto-web-1",
+      id: "tensor-auto-web",
+      url: "https://tensor-auto.dns.army/",
+    },
+    {
+      baselineP95Ms: 100,
+      containerName: "tensor-auto-api-1",
+      id: "tensor-auto-api",
+      url: "https://tensor-auto.dns.army/",
+    },
+  ];
+  assert.deepEqual(
+    validateProfile({ existingServices }).existingServices.map((service) => service.id),
+    ["openvac-web", "paperbanana-auth", "tensor-auto-web", "tensor-auto-api"],
+  );
+  assert.throws(
+    () => validateProfile({ existingServices: existingServices.slice(0, 3) }),
+    (error) => error.code === "PAUSE_LOAD:PROFILE_INVALID",
+  );
+  assert.throws(
+    () =>
+      validateProfile({
+        existingServices: existingServices.map((service) =>
+          service.id === "tensor-auto-api"
+            ? { ...service, containerName: "tensor-auto-web-1" }
+            : service,
+        ),
+      }),
+    (error) => error.code === "PAUSE_LOAD:PROFILE_INVALID",
+  );
+});
+
 test("target runner uses 12 ephemeral accounts and stops submissions on a live breach", async () => {
   const { runTarget } = await import(
     new URL("../../scripts/release/load-smoke.mjs", import.meta.url)

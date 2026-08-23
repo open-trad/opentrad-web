@@ -11,6 +11,28 @@ const TWO_GIB = 2 * 1024 * 1024 * 1024;
 const PRODUCTION_TARGET = "https://opentrad.dns.army";
 const WORKER_CONTAINER = "opentrad-worker-1";
 const JOB_VOLUME = "opentrad_job_ram";
+const EXISTING_SERVICES = Object.freeze([
+  Object.freeze({
+    containerName: "openvac-production-web-1",
+    id: "openvac-web",
+    url: "https://openvac.cn/",
+  }),
+  Object.freeze({
+    containerName: "paperbanana-hk-auth-gateway-1",
+    id: "paperbanana-auth",
+    url: "https://api.paperbanana.asia/",
+  }),
+  Object.freeze({
+    containerName: "tensor-auto-web-1",
+    id: "tensor-auto-web",
+    url: "https://tensor-auto.dns.army/",
+  }),
+  Object.freeze({
+    containerName: "tensor-auto-api-1",
+    id: "tensor-auto-api",
+    url: "https://tensor-auto.dns.army/",
+  }),
+]);
 
 export const PRODUCTION_TIMINGS = Object.freeze({
   drainMs: 60_000,
@@ -130,10 +152,11 @@ export function parseTargetArguments(args) {
   return Object.freeze(output);
 }
 
-function validateProfile(input) {
+export function validateProfile(input) {
   if (input === null || typeof input !== "object" || !Array.isArray(input.existingServices)) {
     pause("PAUSE_LOAD:PROFILE_INVALID");
   }
+  const expectedById = new Map(EXISTING_SERVICES.map((service) => [service.id, service]));
   const ids = new Set();
   const existingServices = input.existingServices.map((service) => {
     let url;
@@ -142,14 +165,17 @@ function validateProfile(input) {
     } catch {
       pause("PAUSE_LOAD:PROFILE_INVALID");
     }
+    const expected = expectedById.get(service?.id);
     if (
       typeof service?.id !== "string" ||
       !/^[a-z0-9][a-z0-9_-]{0,31}$/.test(service.id) ||
       ids.has(service.id) ||
+      !expected ||
       typeof service.containerName !== "string" ||
-      service.containerName.startsWith("opentrad-") ||
+      service.containerName !== expected.containerName ||
       !numeric(service.baselineP95Ms) ||
       service.baselineP95Ms <= 0 ||
+      url.href !== expected.url ||
       url.protocol !== "https:" ||
       url.username ||
       url.password ||
@@ -165,7 +191,7 @@ function validateProfile(input) {
       url: url.href,
     });
   });
-  if (existingServices.length !== 3) pause("PAUSE_LOAD:PROFILE_INVALID");
+  if (existingServices.length !== EXISTING_SERVICES.length) pause("PAUSE_LOAD:PROFILE_INVALID");
   return Object.freeze({ existingServices: Object.freeze(existingServices) });
 }
 
