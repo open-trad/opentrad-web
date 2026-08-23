@@ -43,6 +43,29 @@ test("comparison ignores transient samples and allows only scoped OpenTrad addit
   assert.deepEqual(compareExisting(before, after), []);
 });
 
+test("comparison allows only the Worker to use Docker's isolated none network", () => {
+  const before = snapshot();
+  const after = snapshot();
+  after.containers["opentrad-worker-1"] = {
+    ...immutable,
+    containerId: "sha256:opentrad-worker",
+    networks: ["none:isolated-network-id"],
+    publishedPorts: [],
+  };
+  assert.deepEqual(compareExisting(before, after), []);
+
+  after.containers["opentrad-api-1"] = {
+    ...immutable,
+    containerId: "sha256:opentrad-api",
+    networks: ["none:isolated-network-id"],
+    publishedPorts: [],
+  };
+  assert.deepEqual(
+    compareExisting(before, after).map((difference) => difference.name),
+    ["opentrad-api-1"],
+  );
+});
+
 test("latency capture records five bounded windows and a deterministic p95 per existing service", async () => {
   let calls = 0;
   const result = await captureLatency({
