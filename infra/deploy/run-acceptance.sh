@@ -112,7 +112,10 @@ restore_marker
 printf '%s\n' '{"ok":true}' >"$privacy"
 
 "$libexec/capture-baseline.sh" acceptance
-node "$libexec/compare-baseline.mjs" "$before" "$acceptance" >"$runtime/baseline-diff.json"
+if ! node "$libexec/compare-baseline.mjs" "$before" "$acceptance" \
+  >"$runtime/baseline-diff.json"; then
+  pause BASELINE_CHANGED
+fi
 node -e '
   const differences = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
   if (!Array.isArray(differences) || differences.length !== 0) process.exit(78);
