@@ -6,8 +6,6 @@ const links = [
   { label: "首页", to: "/" },
   { label: "模板中心", to: "/templates" },
   { label: "格式转换", to: "/convert" },
-  { label: "帮助文档", to: "/help" },
-  { label: "关于我们", to: "/about" },
 ];
 
 export function AppHeader() {

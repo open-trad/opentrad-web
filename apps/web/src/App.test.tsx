@@ -31,12 +31,19 @@ describe("首页导航与工具入口", () => {
     expect(within(brand).getByText("开源商贸")).toBeVisible();
 
     const navigation = screen.getByRole("navigation", { name: "主导航" });
-    for (const label of ["首页", "模板中心", "格式转换", "帮助文档", "关于我们"]) {
+    for (const label of ["首页", "模板中心", "格式转换"]) {
       expect(within(navigation).getByRole("link", { name: label })).toBeVisible();
+    }
+    for (const label of ["帮助文档", "关于我们"]) {
+      expect(within(navigation).queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
     const coreTools = screen.getByRole("region", { name: "核心工具" });
     for (const label of ["格式转换", "报价单", "合同", "标书"]) {
       expect(within(coreTools).getByRole("link", { name: new RegExp(label) })).toBeVisible();
+    }
+    expect(screen.queryByRole("region", { name: "OpenTrad 可信承诺" })).not.toBeInTheDocument();
+    for (const label of ["开源免费", "本地优先", "数据安全", "持续更新"]) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
   });
 
