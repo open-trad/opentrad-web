@@ -99,3 +99,62 @@ test("formal acceptance fails closed before load when deployment evidence is abs
     (error) => error.code === 78 && /PAUSE_ACCEPTANCE:EVIDENCE_MISSING/u.test(error.stderr),
   );
 });
+
+test("formal acceptance exposes only sanitized load failure codes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opentrad-acceptance-load-failure-"));
+  const libexec = join(root, "libexec");
+  const release = join(libexec, "release");
+  const reports = join(root, "reports");
+  const baselines = join(root, "baselines");
+  await mkdir(release, { recursive: true });
+  await mkdir(reports);
+  await mkdir(baselines);
+  await writeFile(join(reports, `${sha}.json`), JSON.stringify({ deployed: true, sourceSha: sha }));
+  await writeFile(join(reports, `canary-${sha}.json`), JSON.stringify({ ok: true }));
+  await writeFile(join(reports, `markers-${sha}.json`), JSON.stringify([]), { mode: 0o600 });
+  await writeFile(join(baselines, `before-${sha}.json`), JSON.stringify({ latencyP95: {} }));
+  await executable(
+    join(libexec, "build-load-profile.mjs"),
+    `import { writeFileSync } from "node:fs"; writeFileSync(process.argv[3], '{"existingServices":[]}\\n');\n`,
+  );
+  await executable(
+    join(release, "load-smoke.mjs"),
+    `process.stdout.write('{"failures":["QUEUE_LIMIT"],"ok":false,"secret":"PRIVATE-load-secret"}\\n'); process.exitCode = 1;\n`,
+  );
+
+  await assert.rejects(
+    execFileAsync("sh", [script, sha], {
+      env: {
+        ...process.env,
+        OPENTRAD_LIBEXEC: libexec,
+        OPENTRAD_ROOT: root,
+        OPENTRAD_TEST_MODE: "1",
+      },
+    }),
+    (error) =>
+      error.code === 78 &&
+      /\{"failures":\["QUEUE_LIMIT"\]\}/u.test(error.stderr) &&
+      /PAUSE_ACCEPTANCE:LOAD_FAILED/u.test(error.stderr) &&
+      !/PRIVATE-load-secret/u.test(error.stderr),
+  );
+
+  await executable(
+    join(release, "load-smoke.mjs"),
+    `process.stdout.write('PRIVATE-malformed-load-output'); process.exitCode = 1;\n`,
+  );
+  await assert.rejects(
+    execFileAsync("sh", [script, sha], {
+      env: {
+        ...process.env,
+        OPENTRAD_LIBEXEC: libexec,
+        OPENTRAD_ROOT: root,
+        OPENTRAD_TEST_MODE: "1",
+      },
+    }),
+    (error) =>
+      error.code === 78 &&
+      /PAUSE_ACCEPTANCE:LOAD_FAILED/u.test(error.stderr) &&
+      !/PRIVATE-malformed-load-output/u.test(error.stderr) &&
+      !/SyntaxError/u.test(error.stderr),
+  );
+});

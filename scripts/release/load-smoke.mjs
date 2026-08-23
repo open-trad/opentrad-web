@@ -545,12 +545,18 @@ export async function runTarget({
   };
   const submit = async () => {
     if (stopped) return;
-    const user = users.find(
-      (candidate) =>
-        (acceptedByUser[`user-${candidate.index + 1}`] < 10 ||
-          !quotaVerifiedByUser[`user-${candidate.index + 1}`]) &&
-        ![...jobs.values()].some((job) => job.user === candidate && !isTerminal(job.status)),
-    );
+    const user = users
+      .filter(
+        (candidate) =>
+          (acceptedByUser[`user-${candidate.index + 1}`] < 10 ||
+            !quotaVerifiedByUser[`user-${candidate.index + 1}`]) &&
+          ![...jobs.values()].some((job) => job.user === candidate && !isTerminal(job.status)),
+      )
+      .sort((left, right) => {
+        const acceptedDifference =
+          acceptedByUser[`user-${left.index + 1}`] - acceptedByUser[`user-${right.index + 1}`];
+        return acceptedDifference || left.index - right.index;
+      })[0];
     if (!user) return;
     const key = `user-${user.index + 1}`;
     const quotaProbe = acceptedByUser[key] === 10;
