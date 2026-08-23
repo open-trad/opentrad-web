@@ -50,10 +50,10 @@ test("canary privacy checks use the uploaded marker set across live SQLite files
       new RegExp(`grep -aFq -f "\\$runtime/marker-values\\.txt"[^\\n]*${suffix}`),
     );
   }
-  assert.ok(
-    source.indexOf("PRAGMA wal_checkpoint(TRUNCATE); VACUUM;") <
-      source.indexOf("marker_report_temp=$(mktemp"),
-  );
+  const scrub = "PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);";
+  const scrubIndex = source.indexOf(scrub);
+  assert.notEqual(scrubIndex, -1);
+  assert.ok(scrubIndex < source.indexOf("marker_report_temp=$(mktemp"));
   assert.match(source, /install -d -o root -g opentrad-deploy -m 0750 "\$report_directory"/u);
   assert.match(source, /chown root:root "\$marker_report_temp" "\$canary_report_temp"/u);
 });

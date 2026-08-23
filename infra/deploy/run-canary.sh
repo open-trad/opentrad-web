@@ -152,7 +152,7 @@ cleanup_needed=0
 database_volume=$(docker volume inspect opentrad_auth_data --format '{{.Mountpoint}}' 2>/dev/null || true)
 test -n "$database_volume" && test -f "$database_volume/opentrad.sqlite" || pause DATABASE_MISSING
 sqlite3 -cmd '.timeout 5000' "$database_volume/opentrad.sqlite" \
-  'PRAGMA wal_checkpoint(TRUNCATE); VACUUM;' >/dev/null
+  'PRAGMA wal_checkpoint(TRUNCATE); VACUUM; PRAGMA wal_checkpoint(TRUNCATE);' >/dev/null
 if grep -aFq "$username" "$database_volume/opentrad.sqlite" \
   || grep -aFq -f "$runtime/marker-values.txt" "$database_volume/opentrad.sqlite" \
   || { test -f "$database_volume/opentrad.sqlite-wal" && grep -aFq "$username" "$database_volume/opentrad.sqlite-wal"; } \
