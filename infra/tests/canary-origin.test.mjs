@@ -19,7 +19,7 @@ function curlCommands(source) {
   const commands = [];
   let current = "";
   for (const line of source.split("\n")) {
-    if (current.length === 0 && !line.includes("curl ")) continue;
+    if (current.length === 0 && !line.includes("curl ") && !line.includes("local_curl ")) continue;
     current += `${current.length === 0 ? "" : "\n"}${line}`;
     if (!line.trimEnd().endsWith("\\")) {
       commands.push(current);
@@ -28,6 +28,31 @@ function curlCommands(source) {
   }
   return commands;
 }
+
+test("canary keeps public entry checks external and pins business probes to localhost", async () => {
+  const source = await readFile(canaryScript, "utf8");
+  assert.match(
+    source,
+    /local_curl\(\) \{\n {2}curl --http1\.1 --max-time 30 \\\n {4}--resolve 'opentrad\.dns\.army:443:127\.0\.0\.1' "\$@"\n\}/u,
+  );
+
+  const fetchPage = source.slice(
+    source.indexOf("fetch_page()"),
+    source.indexOf("fetch_page / home"),
+  );
+  assert.match(fetchPage, /effective=\$\(curl /u);
+  assert.doesNotMatch(fetchPage, /local_curl|--resolve/u);
+
+  const businessSection = source.slice(source.indexOf("username=$(node"));
+  const directBusinessCurls = curlCommands(businessSection).filter((command) =>
+    command.trimStart().startsWith("curl "),
+  );
+  assert.deepEqual(directBusinessCurls, []);
+  assert.equal(curlCommands(businessSection).length, 6);
+
+  const cleanup = source.slice(source.indexOf("cleanup()"), source.indexOf("trap cleanup"));
+  assert.match(cleanup, /local_curl --silent/u);
+});
 
 test("every canary mutation carries the exact production origin boundary headers", async () => {
   const source = await readFile(canaryScript, "utf8");
