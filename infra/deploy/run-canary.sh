@@ -9,6 +9,10 @@ pause() {
 release_sha=${1:-}
 printf '%s' "$release_sha" | grep -Eq '^[a-f0-9]{40}$' || pause INVALID_SHA
 origin=https://opentrad.dns.army
+local_curl() {
+  curl --http1.1 --max-time 30 \
+    --resolve 'opentrad.dns.army:443:127.0.0.1' "$@"
+}
 opentrad_root=/opt/opentrad
 runtime_parent=/run
 if test "${OPENTRAD_TEST_MODE:-0}" = 1; then
@@ -25,7 +29,7 @@ canary_report_temp=
 cleanup() {
   if test "$cleanup_needed" -eq 1 && test -s "$cookie_jar" \
     && test -s "$runtime/delete-body.json"; then
-    curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
+    local_curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
       --header 'sec-fetch-site: same-origin' \
       --header 'content-type: application/json' --output /dev/null \
       --data-binary @"$runtime/delete-body.json" "$origin/api/auth/delete-user" >/dev/null 2>&1 || true
@@ -66,7 +70,7 @@ printf '{"username":"%s","password":"%s","acknowledgements":{"noPasswordRecovery
   "$username" "$password" >"$runtime/register-body.json"
 printf '{"password":"%s"}' "$password" >"$runtime/delete-body.json"
 chmod 0600 "$runtime/register-body.json" "$runtime/delete-body.json"
-register_status=$(curl --silent --show-error --output "$runtime/register.json" \
+register_status=$(local_curl --silent --show-error --output "$runtime/register.json" \
   --write-out '%{http_code}' --cookie-jar "$cookie_jar" \
   --header 'content-type: application/json' --header "origin: $origin" \
   --header 'sec-fetch-site: same-origin' \
@@ -97,7 +101,7 @@ metadata="{\"operation\":\"structured.convert\",\"inputFormat\":\"md\",\"outputF
 
 submit() {
   output=$1
-  curl --fail --silent --show-error --cookie "$cookie_jar" \
+  local_curl --fail --silent --show-error --cookie "$cookie_jar" \
     --header "origin: $origin" \
     --header 'sec-fetch-site: same-origin' \
     --header "idempotency-key: $idempotency_key" \
@@ -119,7 +123,7 @@ job_id=$(node -e '
 complete=0
 attempt=0
 while test "$attempt" -lt 60; do
-  curl --fail --silent --show-error --cookie "$cookie_jar" \
+  local_curl --fail --silent --show-error --cookie "$cookie_jar" \
     --header "origin: $origin" --output "$runtime/job-status.json" \
     "$origin/api/v1/jobs/$job_id" || pause JOB_STATUS
   status=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).job?.status ?? "")' "$runtime/job-status.json")
@@ -132,17 +136,17 @@ while test "$attempt" -lt 60; do
 done
 test "$complete" -eq 1 || pause JOB_TIMEOUT
 
-curl --fail --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
+local_curl --fail --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
   --dump-header "$runtime/result.headers" --output "$runtime/result.docx" \
   "$origin/api/v1/jobs/$job_id/result" || pause RESULT_DOWNLOAD
 test "$(od -An -tx1 -N2 "$runtime/result.docx" | tr -d ' \n')" = 504b || pause RESULT_MAGIC
 grep -Eiq '^content-type:[[:space:]]*application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
   "$runtime/result.headers" || pause RESULT_MIME
-second_status=$(curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
+second_status=$(local_curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
   --output /dev/null --write-out '%{http_code}' "$origin/api/v1/jobs/$job_id/result")
 case "$second_status" in 404 | 409) ;; *) pause RESULT_REPLAY ;; esac
 
-delete_status=$(curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
+delete_status=$(local_curl --silent --show-error --cookie "$cookie_jar" --header "origin: $origin" \
   --header 'sec-fetch-site: same-origin' \
   --header 'content-type: application/json' --output "$runtime/delete.json" --write-out '%{http_code}' \
   --data-binary @"$runtime/delete-body.json" "$origin/api/auth/delete-user")
