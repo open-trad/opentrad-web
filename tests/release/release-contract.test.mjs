@@ -253,6 +253,10 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
   assert.match(deploy, /seal-release\.sh/);
   assert.match(deploy, /cleanup-incoming-release\.sh/);
   assert.match(deploy, /run-acceptance\.sh/);
+  assert.match(deploy, /Run the fixed formal acceptance command[\s\S]*?timeout-minutes:\s*35/);
+  assert.match(deploy, /ConnectTimeout=15/);
+  assert.match(deploy, /ServerAliveInterval=15/);
+  assert.match(deploy, /ServerAliveCountMax=3/);
   assert.match(deploy, /post-deploy-report\.mjs --verify-deployment/);
   assert.match(deploy, /post-deploy-report\.mjs --verify/);
   assert.doesNotMatch(deploy, /continue-on-error:\s*true/);

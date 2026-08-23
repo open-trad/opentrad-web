@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 const TWO_GIB = 2 * 1024 * 1024 * 1024;
+const HOST_SAMPLE_INTERVAL_MS = 5_000;
 const PRODUCTION_TARGET = "https://opentrad.dns.army";
 const WORKER_CONTAINER = "opentrad-worker-1";
 const JOB_VOLUME = "opentrad_job_ram";
@@ -52,6 +53,17 @@ function pause(code) {
 const numeric = (value) => typeof value === "number" && Number.isFinite(value);
 
 export function evaluateLoadSamples(input) {
+  const latencyInput = input.latencyWindowsByService;
+  const latencyWindowsByService = Object.freeze(
+    latencyInput && typeof latencyInput === "object" && !Array.isArray(latencyInput)
+      ? Object.fromEntries(
+          Object.entries(latencyInput).map(([id, windows]) => [
+            id,
+            Object.freeze(Array.isArray(windows) ? [...windows] : []),
+          ]),
+        )
+      : {},
+  );
   const metrics = Object.freeze({
     requests: input.requests,
     fiveXx: input.fiveXx,
@@ -65,7 +77,7 @@ export function evaluateLoadSamples(input) {
     workerMemoryBytes: input.workerMemoryBytes,
     workerOomKills: input.workerOomKills,
     existingServiceRestartDelta: input.existingServiceRestartDelta,
-    latencyWindows: Object.freeze([...(input.latencyWindows ?? [])]),
+    latencyWindowsByService,
     residueJobs: input.residueJobs,
   });
   const failures = [];
@@ -104,9 +116,13 @@ export function evaluateLoadSamples(input) {
       failures.push("WORKER_MEMORY");
     }
     if (metrics.existingServiceRestartDelta !== 0) failures.push("HOST_STABILITY");
+    const latencySeries = Object.values(metrics.latencyWindowsByService);
     if (
-      metrics.latencyWindows.length < 5 ||
-      metrics.latencyWindows.slice(-5).some((ratio) => !numeric(ratio) || ratio > 1.2)
+      latencySeries.length === 0 ||
+      latencySeries.some(
+        (windows) => windows.length < 5 || windows.some((ratio) => !numeric(ratio)),
+      ) ||
+      latencySeries.some((windows) => windows.slice(-5).every((ratio) => ratio > 1.2))
     )
       failures.push("EXISTING_SERVICE_LATENCY");
     if (metrics.residueJobs !== 0) failures.push("RETENTION_RESIDUE");
@@ -132,7 +148,9 @@ export function runFixture(mode = "pass") {
     workerMemoryBytes: 1_500_000_000,
     workerOomKills: 0,
     existingServiceRestartDelta: 0,
-    latencyWindows: [1.03, 1.08, 1.1, 1.14, 1.18],
+    latencyWindowsByService: Object.fromEntries(
+      EXISTING_SERVICES.map((service) => [service.id, [1.03, 1.08, 1.1, 1.14, 1.18]]),
+    ),
     residueJobs: 0,
   });
 }
@@ -397,7 +415,9 @@ export async function createProductionHost(profile) {
   ]);
   const jobRoot = volume.trim();
   if (!jobRoot || !(await stat(jobRoot)).isDirectory()) pause("PAUSE_LOAD:JOB_VOLUME_MISSING");
-  const windows = [];
+  const windowsByService = Object.fromEntries(
+    profile.existingServices.map((service) => [service.id, []]),
+  );
   let lastWindow = 0;
   return Object.freeze({
     async sample(now = Date.now()) {
@@ -421,7 +441,6 @@ export async function createProductionHost(profile) {
         restartDelta += Math.max(0, Number(stdout.trim()) - initial.get(service.id));
       }
       if (lastWindow === 0 || now - lastWindow >= 60_000) {
-        let worst = 0;
         for (const service of profile.existingServices) {
           const samples = [];
           for (let index = 0; index < 10; index += 1) {
@@ -429,14 +448,15 @@ export async function createProductionHost(profile) {
             await boundedHead(service.url);
             samples.push(performance.now() - started);
           }
-          worst = Math.max(worst, percentile95(samples) / service.baselineP95Ms);
+          windowsByService[service.id].push(percentile95(samples) / service.baselineP95Ms);
         }
-        windows.push(worst);
         lastWindow = now;
       }
       return {
         existingServiceRestartDelta: restartDelta,
-        latencyRatios: [...windows],
+        latencyRatiosByService: Object.fromEntries(
+          Object.entries(windowsByService).map(([id, windows]) => [id, [...windows]]),
+        ),
         residueJobs: await countFiles(jobRoot),
         workerMemoryBytes: parseBytes(memory.trim().split("/")[0].trim()),
         workerOomKills: worker?.State?.OOMKilled === true ? 1 : 0,
@@ -477,10 +497,11 @@ export async function runTarget({
     workerMemoryBytes: 0,
     workerOomKills: 0,
     existingServiceRestartDelta: 0,
-    latencyWindows: [],
+    latencyWindowsByService: {},
     residueJobs: 0,
   };
   const liveFailures = new Set();
+  let nextHostSampleAt = 0;
   let stopped = false;
   const observeHttp = () => {
     const observed = transport.snapshot?.();
@@ -497,26 +518,36 @@ export async function runTarget({
       stopped = true;
     }
   };
-  const sample = async () => {
+  const sample = async ({ force = false } = {}) => {
     metrics.healthChecks += 1;
     if (await transport.readiness()) metrics.healthSuccesses += 1;
     else liveFailures.add("READINESS");
     observeHttp();
-    const value = await host.sample();
+    const sampledAt = now();
+    if (!force && sampledAt < nextHostSampleAt) {
+      if (liveFailures.size) stopped = true;
+      return;
+    }
+    nextHostSampleAt = sampledAt + HOST_SAMPLE_INTERVAL_MS;
+    const value = await host.sample(sampledAt);
     metrics.workerMemoryBytes = Math.max(metrics.workerMemoryBytes, value.workerMemoryBytes);
     metrics.workerOomKills = Math.max(metrics.workerOomKills, value.workerOomKills);
     metrics.existingServiceRestartDelta = Math.max(
       metrics.existingServiceRestartDelta,
       value.existingServiceRestartDelta,
     );
-    metrics.latencyWindows = value.latencyRatios;
+    metrics.latencyWindowsByService = Object.fromEntries(
+      Object.entries(value.latencyRatiosByService).map(([id, windows]) => [id, [...windows]]),
+    );
     metrics.residueJobs = value.residueJobs;
     if (metrics.workerMemoryBytes >= TWO_GIB || metrics.workerOomKills > 0)
       liveFailures.add("WORKER_MEMORY");
     if (metrics.existingServiceRestartDelta > 0) liveFailures.add("HOST_STABILITY");
     if (
-      metrics.latencyWindows.slice(-5).length === 5 &&
-      metrics.latencyWindows.slice(-5).some((ratio) => ratio > 1.2)
+      Object.values(metrics.latencyWindowsByService).some(
+        (windows) =>
+          windows.slice(-5).length === 5 && windows.slice(-5).every((ratio) => ratio > 1.2),
+      )
     )
       liveFailures.add("EXISTING_SERVICE_LATENCY");
     if (liveFailures.size) stopped = true;
@@ -625,6 +656,7 @@ export async function runTarget({
         break;
       await sleepUntil(retentionDeadline, timings.pollMs);
     }
+    await sample({ force: true });
   } finally {
     const cleanup = await Promise.allSettled(users.map((user) => transport.deleteAccount(user)));
     if (cleanup.some((result) => result.status === "rejected")) {
