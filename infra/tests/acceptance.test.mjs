@@ -100,6 +100,53 @@ test("formal acceptance fails closed before load when deployment evidence is abs
   );
 });
 
+test("formal acceptance emits a stable code when the existing-service baseline changes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "opentrad-acceptance-baseline-change-"));
+  const libexec = join(root, "libexec");
+  const release = join(libexec, "release");
+  const reports = join(root, "reports");
+  const baselines = join(root, "baselines");
+  await mkdir(release, { recursive: true });
+  await mkdir(reports);
+  await mkdir(baselines);
+  await writeFile(join(reports, `${sha}.json`), JSON.stringify({ deployed: true, sourceSha: sha }));
+  await writeFile(join(reports, `canary-${sha}.json`), JSON.stringify({ ok: true }));
+  await writeFile(join(reports, `markers-${sha}.json`), JSON.stringify([]), { mode: 0o600 });
+  await writeFile(join(baselines, `before-${sha}.json`), JSON.stringify({ latencyP95: {} }));
+  await executable(
+    join(libexec, "build-load-profile.mjs"),
+    `import { writeFileSync } from "node:fs"; writeFileSync(process.argv[3], '{"existingServices":[]}\\n');\n`,
+  );
+  await executable(join(release, "load-smoke.mjs"), `process.stdout.write('{"ok":true}\\n');\n`);
+  await executable(join(release, "privacy-sentinel.mjs"), "process.exitCode = 0;\n");
+  await executable(
+    join(libexec, "capture-baseline.sh"),
+    `#!/bin/sh
+set -eu
+printf '%s\\n' '{"latencyP95":{}}' >"$OPENTRAD_ROOT/baselines/acceptance.json"
+`,
+  );
+  await executable(
+    join(libexec, "compare-baseline.mjs"),
+    `process.stdout.write('[{"field":"containerId","name":"existing-service"}]\\n'); process.exitCode = 1;\n`,
+  );
+
+  await assert.rejects(
+    execFileAsync("sh", [script, sha], {
+      env: {
+        ...process.env,
+        OPENTRAD_LIBEXEC: libexec,
+        OPENTRAD_ROOT: root,
+        OPENTRAD_TEST_MODE: "1",
+      },
+    }),
+    (error) =>
+      error.code === 78 &&
+      /PAUSE_ACCEPTANCE:BASELINE_CHANGED/u.test(error.stderr) &&
+      !/existing-service/u.test(error.stderr),
+  );
+});
+
 test("formal acceptance exposes only sanitized load failure codes", async () => {
   const root = await mkdtemp(join(tmpdir(), "opentrad-acceptance-load-failure-"));
   const libexec = join(root, "libexec");
