@@ -86,6 +86,7 @@ export function registerRegistrationRoute(
         applyAuthResponseHeaders(
           reply,
           result.headers,
+          publicOrigin,
           intrinsicReflectApply(intrinsicStringStartsWith, publicOrigin, ["https://"]) as boolean,
         );
         return reply.status(201).send(response);
