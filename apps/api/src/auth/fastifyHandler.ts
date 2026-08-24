@@ -32,10 +32,24 @@ const intrinsicUrlOriginGet = intrinsicReflectGetOwnPropertyDescriptor(
   URL.prototype,
   "origin",
 )?.get;
+const intrinsicUrlHashGet = intrinsicReflectGetOwnPropertyDescriptor(URL.prototype, "hash")?.get;
 const intrinsicUrlPathnameGet = intrinsicReflectGetOwnPropertyDescriptor(
   URL.prototype,
   "pathname",
 )?.get;
+const intrinsicUrlPasswordGet = intrinsicReflectGetOwnPropertyDescriptor(
+  URL.prototype,
+  "password",
+)?.get;
+const intrinsicUrlSearchParamsGet = intrinsicReflectGetOwnPropertyDescriptor(
+  URL.prototype,
+  "searchParams",
+)?.get;
+const intrinsicUrlUsernameGet = intrinsicReflectGetOwnPropertyDescriptor(
+  URL.prototype,
+  "username",
+)?.get;
+const intrinsicSearchParamsGetAll = URLSearchParams.prototype.getAll;
 
 const ALLOWED_AUTH_RESPONSE_HEADERS = new Set([
   "cache-control",
@@ -53,6 +67,7 @@ export interface AuthHandlerRuntime {
 }
 
 export interface AuthRouteOptions {
+  readonly githubClientId: string | null;
   readonly handlerTimeoutMs: number;
   readonly publicOrigin: string;
 }
@@ -156,12 +171,96 @@ interface AuthResponseHeaderSnapshot {
   readonly setCookies: readonly string[];
 }
 
-function safeLocation(location: string, publicOrigin: string): boolean {
+function oneQueryValue(searchParams: URLSearchParams, name: string): string | null {
+  const values = intrinsicReflectApply(intrinsicSearchParamsGetAll, searchParams, [
+    name,
+  ]) as string[];
+  return values.length === 1 ? (values[0] ?? null) : null;
+}
+
+function safeGithubScopes(searchParams: URLSearchParams): boolean {
+  const scope = oneQueryValue(searchParams, "scope");
+  if (scope === null) return false;
+  const scopes = intrinsicReflectApply(intrinsicStringSplit, scope, [" "]) as string[];
+  if (scopes.length < 2 || scopes.length > 8) return false;
+  let readUser = false;
+  let userEmail = false;
+  for (let index = 0; index < scopes.length; index += 1) {
+    const value = scopes[index];
+    if (value === "read:user") readUser = true;
+    else if (value === "user:email") userEmail = true;
+    else return false;
+  }
+  return readUser && userEmail;
+}
+
+function safeGithubAuthorizationLocation(
+  target: URL,
+  publicOrigin: string,
+  githubClientId: string,
+): boolean {
+  try {
+    if (
+      !intrinsicUrlHashGet ||
+      !intrinsicUrlOriginGet ||
+      !intrinsicUrlPasswordGet ||
+      !intrinsicUrlPathnameGet ||
+      !intrinsicUrlSearchParamsGet ||
+      !intrinsicUrlUsernameGet
+    ) {
+      return false;
+    }
+    if (
+      intrinsicReflectApply(intrinsicUrlOriginGet, target, []) !== "https://github.com" ||
+      intrinsicReflectApply(intrinsicUrlPathnameGet, target, []) !== "/login/oauth/authorize" ||
+      intrinsicReflectApply(intrinsicUrlUsernameGet, target, []) !== "" ||
+      intrinsicReflectApply(intrinsicUrlPasswordGet, target, []) !== "" ||
+      intrinsicReflectApply(intrinsicUrlHashGet, target, []) !== ""
+    ) {
+      return false;
+    }
+    const searchParams = intrinsicReflectApply(
+      intrinsicUrlSearchParamsGet,
+      target,
+      [],
+    ) as URLSearchParams;
+    const state = oneQueryValue(searchParams, "state");
+    const challenge = oneQueryValue(searchParams, "code_challenge");
+    return (
+      oneQueryValue(searchParams, "response_type") === "code" &&
+      oneQueryValue(searchParams, "client_id") === githubClientId &&
+      oneQueryValue(searchParams, "redirect_uri") === `${publicOrigin}/api/auth/callback/github` &&
+      oneQueryValue(searchParams, "code_challenge_method") === "S256" &&
+      safeGithubScopes(searchParams) &&
+      state !== null &&
+      state.length > 0 &&
+      state.length <= 1_024 &&
+      challenge !== null &&
+      challenge.length > 0 &&
+      challenge.length <= 1_024
+    );
+  } catch {
+    return false;
+  }
+}
+
+function safeLocation(
+  location: string,
+  publicOrigin: string,
+  githubAuthorizationClientId: string | null,
+): boolean {
   try {
     if (!intrinsicUrlOriginGet) return false;
     if (intrinsicReflectApply(intrinsicStringStartsWith, location, ["//"])) return false;
     const target = new IntrinsicURL(location, publicOrigin);
-    return intrinsicReflectApply(intrinsicUrlOriginGet, target, []) === publicOrigin;
+    if (intrinsicReflectApply(intrinsicUrlOriginGet, target, []) === publicOrigin) return true;
+    return (
+      githubAuthorizationClientId !== null &&
+      intrinsicReflectApply(intrinsicStringStartsWith, location, [
+        "https://github.com/login/oauth/authorize?",
+      ]) &&
+      safeGithubAuthorizationLocation(target, publicOrigin, githubAuthorizationClientId)
+    );
   } catch {
     return false;
   }
@@ -171,6 +270,7 @@ function snapshotAuthResponseHeaders(
   headers: Headers,
   publicOrigin: string,
   secureRequired: boolean,
+  githubAuthorizationClientId: string | null,
 ): AuthResponseHeaderSnapshot {
   try {
     const setCookies = getSetCookies(headers);
@@ -189,7 +289,11 @@ function snapshotAuthResponseHeaders(
       ) {
         bridgeFailure();
       }
-      if (lowerName === "location" && !safeLocation(value, publicOrigin)) bridgeFailure();
+      if (
+        lowerName === "location" &&
+        !safeLocation(value, publicOrigin, githubAuthorizationClientId)
+      )
+        bridgeFailure();
       if (intrinsicReflectApply(intrinsicSetHas, ALLOWED_AUTH_RESPONSE_HEADERS, [lowerName])) {
         allowed.push(Object.freeze([lowerName, value] as const));
       }
@@ -208,9 +312,15 @@ export function applyAuthResponseHeaders(
   headers: Headers,
   publicOrigin: string,
   secureRequired: boolean,
+  githubAuthorizationClientId: string | null = null,
 ): void {
   try {
-    const snapshot = snapshotAuthResponseHeaders(headers, publicOrigin, secureRequired);
+    const snapshot = snapshotAuthResponseHeaders(
+      headers,
+      publicOrigin,
+      secureRequired,
+      githubAuthorizationClientId,
+    );
     for (let index = 0; index < snapshot.headers.length; index += 1) {
       const header = snapshot.headers[index];
       if (header === undefined) bridgeFailure();
@@ -363,6 +473,54 @@ function privacySafeResponseBody(response: Response, body: Buffer): Buffer {
   }
 }
 
+function validateGithubAuthorizationResponse(
+  response: Response,
+  body: Buffer,
+  publicOrigin: string,
+  githubClientId: string,
+): void {
+  try {
+    if (!responseIsJson(response.headers.get("content-type"))) bridgeFailure();
+    const parsed = intrinsicReflectApply(intrinsicJsonParse, JSON, [
+      intrinsicReflectApply(intrinsicBufferToString, body, ["utf8"]),
+    ]);
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) bridgeFailure();
+    const keys = intrinsicReflectOwnKeys(parsed);
+    if (keys.length !== 2) bridgeFailure();
+    let redirectKey = false;
+    let urlKey = false;
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index];
+      if (key === "redirect") redirectKey = true;
+      else if (key === "url") urlKey = true;
+      else bridgeFailure();
+    }
+    if (!redirectKey || !urlKey) bridgeFailure();
+    const redirect = intrinsicReflectGetOwnPropertyDescriptor(parsed, "redirect");
+    const url = intrinsicReflectGetOwnPropertyDescriptor(parsed, "url");
+    const location = response.headers.get("location");
+    if (
+      !redirect ||
+      !("value" in redirect) ||
+      redirect.value !== true ||
+      !url ||
+      !("value" in url) ||
+      typeof url.value !== "string" ||
+      location === null ||
+      url.value !== location ||
+      !safeGithubAuthorizationLocation(
+        new IntrinsicURL(url.value, publicOrigin),
+        publicOrigin,
+        githubClientId,
+      )
+    ) {
+      bridgeFailure();
+    }
+  } catch {
+    bridgeFailure();
+  }
+}
+
 function bridgeUrl(request: FastifyRequest, publicOrigin: string): string {
   const path = requestPath(request);
   if (!isAuthPath(path) || path.length > 2_048) bridgeFailure();
@@ -472,6 +630,20 @@ export function mountAuthHandler(
         const body = isAuthError
           ? intrinsicBufferFrom('{"error":{"code":"INVALID_REQUEST"}}', "utf8")
           : privacySafeResponseBody(response, upstreamBody);
+        const githubAuthorizationClientId =
+          response.status === 200 &&
+          request.method === "POST" &&
+          requestPath(request) === "/api/auth/sign-in/social"
+            ? options.githubClientId
+            : null;
+        if (githubAuthorizationClientId !== null) {
+          validateGithubAuthorizationResponse(
+            response,
+            body,
+            options.publicOrigin,
+            githubAuthorizationClientId,
+          );
+        }
         applyAuthResponseHeaders(
           reply,
           response.headers,
@@ -479,6 +651,7 @@ export function mountAuthHandler(
           intrinsicReflectApply(intrinsicStringStartsWith, options.publicOrigin, [
             "https://",
           ]) as boolean,
+          githubAuthorizationClientId,
         );
         if (isAuthError) reply.header("content-type", "application/json");
         reply.status(isAuthError ? 400 : response.status);
