@@ -138,4 +138,12 @@ describe("server conversion panel", () => {
       }),
     ).not.toBeChecked();
   });
+
+  it("keeps server file controls locked while explaining login and separate confirmation", () => {
+    render(<ServerConversionPanel enabled account={account(false)} services={services()} />);
+
+    expect(screen.getByText("登录后即可使用服务器转换；每次上传都需要单独确认。")).toBeVisible();
+    expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "提交服务器处理" })).not.toBeInTheDocument();
+  });
 });

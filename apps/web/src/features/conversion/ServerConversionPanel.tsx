@@ -369,9 +369,9 @@ function EnabledServerConversionPanel({
           </div>
         </>
       ) : (
-        <div className="server-login-note">
-          <FileArchive aria-hidden="true" />
-          <p>登录后才会显示服务器文件选择与上传确认。</p>
+        <div className="server-login-note server-login-note--compact">
+          <LockKeyhole aria-hidden="true" />
+          <p>登录后即可使用服务器转换；每次上传都需要单独确认。</p>
         </div>
       )}
     </section>
