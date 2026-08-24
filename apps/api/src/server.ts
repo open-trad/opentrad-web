@@ -532,6 +532,7 @@ export async function buildServer(
     }
     registerRegistrationRoute(app, auth, config.publicOrigin);
     mountAuthHandler(app, auth, {
+      githubClientId: config.githubClientId,
       handlerTimeoutMs: dependencies.authHandlerTimeoutMs,
       publicOrigin: config.publicOrigin,
     });
