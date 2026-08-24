@@ -27,7 +27,7 @@ export type { ServerConversionServices } from "./useConversionJob";
 
 export const SERVER_FEATURES_ENABLED =
   import.meta.env.VITE_DEPLOYMENT_MODE === "production" &&
-  window.location.hostname === "opentrad.dns.army";
+  import.meta.env.VITE_SERVER_FEATURES_ENABLED === "true";
 
 const serverCapabilities = Object.freeze(
   CAPABILITIES.filter((capability) => capability.execution === "server"),
@@ -137,7 +137,7 @@ function ServerPreview() {
       </div>
       <div className="server-preview-note">
         <LockKeyhole aria-hidden="true" />
-        <p>GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。</p>
+        <p>服务器转换仅在正式生产站点开放。</p>
       </div>
     </section>
   );
@@ -369,9 +369,9 @@ function EnabledServerConversionPanel({
           </div>
         </>
       ) : (
-        <div className="server-login-note">
-          <FileArchive aria-hidden="true" />
-          <p>登录后才会显示服务器文件选择与上传确认。</p>
+        <div className="server-login-note server-login-note--compact">
+          <LockKeyhole aria-hidden="true" />
+          <p>登录后即可使用服务器转换；每次上传都需要单独确认。</p>
         </div>
       )}
     </section>

@@ -319,6 +319,148 @@ describe("byte-exact Better Auth bridge", () => {
     expect(String(response.headers["set-cookie"])).not.toContain("Domain=");
   });
 
+  it("forwards an empty JSON OAuth callback redirect with its state and session cookies", async () => {
+    const headers = new Headers({
+      "content-type": "application/json",
+      location: "https://opentrad.example/dashboard",
+    });
+    headers.append(
+      "set-cookie",
+      "better-auth.state=state-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    headers.append(
+      "set-cookie",
+      "better-auth.session_token=session-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    const app = await appForTest({
+      auth: {
+        api: {
+          getSession: async () => null,
+          signUpEmail: async () => {
+            throw new Error("unused");
+          },
+        },
+        handler: async () => new Response(null, { headers, status: 302 }),
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback/github?code=opaque-code&state=opaque-state",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.body).toBe("");
+    expect(response.headers.location).toBe("https://opentrad.example/dashboard");
+    expect(response.headers["set-cookie"]).toEqual([
+      "better-auth.state=state-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+      "better-auth.session_token=session-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    ]);
+  });
+
+  it("fails closed for a nonempty invalid JSON OAuth callback redirect", async () => {
+    const app = await appForTest({
+      auth: {
+        api: {
+          getSession: async () => null,
+          signUpEmail: async () => {
+            throw new Error("unused");
+          },
+        },
+        handler: async () =>
+          new Response("{", {
+            headers: { "content-type": "application/json", location: "/dashboard" },
+            status: 302,
+          }),
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback/github?code=opaque-code&state=opaque-state",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: { code: "INVALID_REQUEST", retryable: true } });
+    expect(response.headers.location).toBeUndefined();
+  });
+
+  it("fails closed for an external OAuth callback redirect without exposing its cookies", async () => {
+    const headers = new Headers({
+      "content-type": "application/json",
+      location: "https://attacker.example/callback",
+    });
+    headers.append(
+      "set-cookie",
+      "better-auth.state=state-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    headers.append(
+      "set-cookie",
+      "better-auth.session_token=session-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    const app = await appForTest({
+      auth: {
+        api: {
+          getSession: async () => null,
+          signUpEmail: async () => {
+            throw new Error("unused");
+          },
+        },
+        handler: async () => new Response(null, { headers, status: 302 }),
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback/github?code=opaque-code&state=opaque-state",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: { code: "INVALID_REQUEST", retryable: true } });
+    expect(response.headers.location).toBeUndefined();
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("fails closed for a same-origin protocol-relative OAuth callback redirect", async () => {
+    const headers = new Headers({
+      "content-type": "application/json",
+      location: "//opentrad.example/dashboard",
+    });
+    headers.append(
+      "set-cookie",
+      "better-auth.state=state-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    headers.append(
+      "set-cookie",
+      "better-auth.session_token=session-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    const app = await appForTest({
+      auth: {
+        api: {
+          getSession: async () => null,
+          signUpEmail: async () => {
+            throw new Error("unused");
+          },
+        },
+        handler: async () => new Response(null, { headers, status: 302 }),
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/callback/github?code=opaque-code&state=opaque-state",
+      headers: { host: "opentrad.example" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: { code: "INVALID_REQUEST", retryable: true } });
+    expect(response.headers.location).toBeUndefined();
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
   it("rejects cookies whose values imitate required security attributes", async () => {
     const headers = new Headers({ "content-type": "application/json" });
     headers.append(

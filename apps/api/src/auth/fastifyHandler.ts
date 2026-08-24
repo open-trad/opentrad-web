@@ -156,8 +156,20 @@ interface AuthResponseHeaderSnapshot {
   readonly setCookies: readonly string[];
 }
 
+function safeLocation(location: string, publicOrigin: string): boolean {
+  try {
+    if (!intrinsicUrlOriginGet) return false;
+    if (intrinsicReflectApply(intrinsicStringStartsWith, location, ["//"])) return false;
+    const target = new IntrinsicURL(location, publicOrigin);
+    return intrinsicReflectApply(intrinsicUrlOriginGet, target, []) === publicOrigin;
+  } catch {
+    return false;
+  }
+}
+
 function snapshotAuthResponseHeaders(
   headers: Headers,
+  publicOrigin: string,
   secureRequired: boolean,
 ): AuthResponseHeaderSnapshot {
   try {
@@ -177,6 +189,7 @@ function snapshotAuthResponseHeaders(
       ) {
         bridgeFailure();
       }
+      if (lowerName === "location" && !safeLocation(value, publicOrigin)) bridgeFailure();
       if (intrinsicReflectApply(intrinsicSetHas, ALLOWED_AUTH_RESPONSE_HEADERS, [lowerName])) {
         allowed.push(Object.freeze([lowerName, value] as const));
       }
@@ -193,10 +206,11 @@ function snapshotAuthResponseHeaders(
 export function applyAuthResponseHeaders(
   reply: FastifyReply,
   headers: Headers,
+  publicOrigin: string,
   secureRequired: boolean,
 ): void {
   try {
-    const snapshot = snapshotAuthResponseHeaders(headers, secureRequired);
+    const snapshot = snapshotAuthResponseHeaders(headers, publicOrigin, secureRequired);
     for (let index = 0; index < snapshot.headers.length; index += 1) {
       const header = snapshot.headers[index];
       if (header === undefined) bridgeFailure();
@@ -326,6 +340,7 @@ function responseIsJson(contentType: string | null): boolean {
 }
 
 function privacySafeResponseBody(response: Response, body: Buffer): Buffer {
+  if (body.length === 0) return body;
   const isJson = responseIsJson(response.headers.get("content-type"));
   if (!isJson) {
     const text = intrinsicReflectApply(intrinsicBufferToString, body, ["utf8"]) as string;
@@ -460,6 +475,7 @@ export function mountAuthHandler(
         applyAuthResponseHeaders(
           reply,
           response.headers,
+          options.publicOrigin,
           intrinsicReflectApply(intrinsicStringStartsWith, options.publicOrigin, [
             "https://",
           ]) as boolean,

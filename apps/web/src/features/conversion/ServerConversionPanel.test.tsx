@@ -84,9 +84,7 @@ describe("server conversion panel", () => {
     const runtime = account(false);
     render(<ServerConversionPanel enabled={false} account={runtime} services={services()} />);
 
-    expect(
-      screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。"),
-    ).toBeVisible();
+    expect(screen.getByText("服务器转换仅在正式生产站点开放。")).toBeVisible();
     expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();
     expect(runtime.loadOptions).not.toHaveBeenCalled();
@@ -137,5 +135,13 @@ describe("server conversion panel", () => {
         name: "我同意本次文件上传到 OpenTrad 服务器处理",
       }),
     ).not.toBeChecked();
+  });
+
+  it("keeps server file controls locked while explaining login and separate confirmation", () => {
+    render(<ServerConversionPanel enabled account={account(false)} services={services()} />);
+
+    expect(screen.getByText("登录后即可使用服务器转换；每次上传都需要单独确认。")).toBeVisible();
+    expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "提交服务器处理" })).not.toBeInTheDocument();
   });
 });

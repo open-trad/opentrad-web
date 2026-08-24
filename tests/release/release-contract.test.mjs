@@ -204,13 +204,35 @@ test("all workflow actions are immutable and Pages is preview only", async () =>
 
   const pages = await readFile(new URL(".github/workflows/pages.yml", root), "utf8");
   assert.match(pages, /VITE_DEPLOYMENT_MODE:\s*preview/);
-  assert.match(pages, /VITE_SERVER_API_ENABLED:\s*["']false["']/);
-  assert.doesNotMatch(pages, /VITE_SERVER_API_ENABLED:\s*["']true["']/);
+  assert.match(pages, /VITE_SERVER_FEATURES_ENABLED:\s*["']false["']/);
+  assert.doesNotMatch(pages, /VITE_SERVER_FEATURES_ENABLED:\s*["']true["']/);
+  assert.doesNotMatch(pages, /VITE_SERVER_API_ENABLED/);
   assert.match(pages, /Prove preview has no production API endpoint/);
 
   const release = await readFile(new URL(".github/workflows/release-images.yml", root), "utf8");
   assert.match(release, /VITE_DEPLOYMENT_MODE:\s*production/);
-  assert.match(release, /VITE_SERVER_API_ENABLED:\s*["']true["']/);
+  const releaseWorkflowEnv = release.slice(release.indexOf("env:"), release.indexOf("\njobs:"));
+  assert.doesNotMatch(releaseWorkflowEnv, /VITE_SERVER_FEATURES_ENABLED/);
+  const qualityGates = release.slice(
+    release.indexOf("- name: Quality and policy gates"),
+    release.indexOf("- name: Browser end-to-end gate"),
+  );
+  assert.match(qualityGates, /VITE_SERVER_FEATURES_ENABLED=true pnpm build/);
+  assert.doesNotMatch(release, /VITE_SERVER_API_ENABLED/);
+  const packageJson = await readFile(new URL("package.json", root), "utf8");
+  assert.match(
+    packageJson,
+    /"e2e:serve":\s*"[^"\n]*VITE_DEPLOYMENT_MODE=production VITE_SERVER_FEATURES_ENABLED=true[^"\n]*"/,
+  );
+  assert.doesNotMatch(packageJson, /VITE_SERVER_API_ENABLED/);
+  const serverConversionPanel = await readFile(
+    new URL("apps/web/src/features/conversion/ServerConversionPanel.tsx", root),
+    "utf8",
+  );
+  assert.match(serverConversionPanel, /VITE_DEPLOYMENT_MODE\s*===\s*["']production["']/);
+  assert.match(serverConversionPanel, /VITE_SERVER_FEATURES_ENABLED\s*===\s*["']true["']/);
+  assert.doesNotMatch(serverConversionPanel, /window\.location\.hostname/);
+  assert.doesNotMatch(serverConversionPanel, /opentrad\.dns\.army/);
   assert.match(release, /release_sha/);
   assert.match(release, /REQUESTED_SHA.*GITHUB_SHA|GITHUB_SHA.*REQUESTED_SHA/s);
   assert.match(release, /merge-base --is-ancestor "\$REQUESTED_SHA" refs\/remotes\/origin\/main/);

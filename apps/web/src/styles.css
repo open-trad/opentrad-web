@@ -2028,6 +2028,226 @@ button:disabled {
   margin-top: 20px;
 }
 
+.account-panel {
+  display: grid;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #c4d1e3;
+  border-radius: var(--radius-small);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.account-panel__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--blue);
+}
+
+.account-panel__heading > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+}
+
+.account-panel__heading span {
+  display: block;
+  margin-bottom: 2px;
+  color: #657486;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.account-panel__heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.account-panel__github-action,
+.account-panel__submit {
+  display: inline-flex;
+  width: 100%;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 15px;
+  border: 1px solid var(--blue);
+  border-radius: var(--radius-small);
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.account-panel__github-action svg,
+.account-panel__submit svg,
+.account-panel__sign-out svg {
+  width: 16px;
+  height: 16px;
+}
+
+.account-panel__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #738092;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.account-panel__divider::before,
+.account-panel__divider::after {
+  height: 1px;
+  flex: 1;
+  background: #d8e0eb;
+  content: "";
+}
+
+.account-panel__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border: 1px solid #b9c8dc;
+  border-radius: var(--radius-small);
+}
+
+.account-panel__tab {
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid #b9c8dc;
+  background: transparent;
+  color: #647286;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-panel__tab:last-child {
+  border-right: 0;
+}
+
+.account-panel__tab[aria-selected="true"] {
+  background: #e7eef8;
+  color: var(--blue);
+}
+
+.account-panel__form {
+  display: grid;
+  gap: 11px;
+}
+
+.account-panel__field {
+  display: grid;
+  gap: 6px;
+  color: #4f5e70;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-panel__field input {
+  width: 100%;
+  min-height: 43px;
+  padding: 0 12px;
+  border: 1px solid #b9c8dc;
+  border-radius: var(--radius-small);
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--ink);
+  font: inherit;
+}
+
+.account-panel__acknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #5f6c7d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.account-panel__acknowledgement input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.account-panel button:focus-visible,
+.account-panel input:focus-visible {
+  outline: 2px solid #497bb9;
+  outline-offset: 2px;
+}
+
+.account-panel button:disabled,
+.account-panel input:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.account-panel__privacy {
+  margin: 0;
+  color: #6d7988;
+  font-size: 9px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.account-panel__alert {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #e0b5ac;
+  border-radius: var(--radius-small);
+  background: #fff7f5;
+  color: #9b3e2e;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.account-panel--authenticated {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.account-panel--authenticated .account-panel__alert {
+  grid-column: 1 / -1;
+}
+
+.account-panel__sign-out {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #b9c8dc;
+  border-radius: var(--radius-small);
+  background: rgba(255, 253, 248, 0.88);
+  color: #506a8d;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-panel__status {
+  color: #647286;
+  font-size: 11px;
+}
+
+.server-login-note--compact {
+  min-height: 0;
+  justify-content: flex-start;
+  margin-top: 14px;
+  padding: 15px 16px;
+  text-align: left;
+}
+
 .server-conversion-controls {
   grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.6fr);
 }
@@ -2631,6 +2851,15 @@ button:disabled {
 
   .conversion-heading h2 {
     font-size: 20px;
+  }
+
+  .account-panel--authenticated {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .account-panel__sign-out {
+    width: 100%;
   }
 
   .conversion-history > div:first-child {
