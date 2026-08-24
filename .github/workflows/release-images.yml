@@ -21,7 +21,6 @@ env:
   NODE_VERSION: 24.19.0
   PNPM_VERSION: 10.28.2
   VITE_DEPLOYMENT_MODE: production
-  VITE_SERVER_API_ENABLED: "true"
   VITE_BASE_PATH: /
   API_REPOSITORY: ghcr.io/open-trad/opentrad-api
   WORKER_REPOSITORY: ghcr.io/open-trad/opentrad-worker
@@ -84,7 +83,7 @@ jobs:
           pnpm lint
           pnpm typecheck
           pnpm test
-          pnpm build
+          VITE_SERVER_FEATURES_ENABLED=true pnpm build
           pnpm golds:verify
           node --test tests/release/*.test.mjs
           node --test infra/tests/*.test.mjs

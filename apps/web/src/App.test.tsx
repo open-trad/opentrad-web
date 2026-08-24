@@ -248,9 +248,7 @@ describe("格式转换边界", () => {
     expect(screen.queryByText(/超大文件/)).not.toBeInTheDocument();
 
     expect(screen.getByRole("heading", { name: "服务器增强" })).toBeVisible();
-    expect(
-      screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。"),
-    ).toBeVisible();
+    expect(screen.getByText("服务器转换仅在正式生产站点开放。")).toBeVisible();
     expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "登录" })).not.toBeInTheDocument();
   });

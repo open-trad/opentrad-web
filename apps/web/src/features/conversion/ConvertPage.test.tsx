@@ -24,9 +24,7 @@ it("runs the integrated local panel without session or network access", async ()
   render(<ConvertPage localServices={services} />);
 
   expect(screen.getByRole("heading", { name: "格式转换" })).toBeVisible();
-  expect(
-    screen.getByText("GitHub Pages 为本地功能预览；服务器转换仅在 opentrad.dns.army 开放。"),
-  ).toBeVisible();
+  expect(screen.getByText("服务器转换仅在正式生产站点开放。")).toBeVisible();
   expect(screen.queryByLabelText("选择服务器处理文件")).not.toBeInTheDocument();
   await user.upload(
     screen.getByLabelText("选择本地转换文件"),

@@ -37,7 +37,7 @@ jobs:
         env:
           VITE_BASE_PATH: /opentrad-web/
           VITE_DEPLOYMENT_MODE: preview
-          VITE_SERVER_API_ENABLED: "false"
+          VITE_SERVER_FEATURES_ENABLED: "false"
       - name: Prove preview has no production API endpoint
         run: >-
           ! rg --text --fixed-strings 'opentrad.dns.army/api' apps/web/dist
