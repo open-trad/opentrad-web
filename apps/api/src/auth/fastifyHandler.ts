@@ -508,7 +508,11 @@ function validateGithubAuthorizationResponse(
       typeof url.value !== "string" ||
       location === null ||
       url.value !== location ||
-      !safeLocation(url.value, publicOrigin, githubClientId)
+      !safeGithubAuthorizationLocation(
+        new IntrinsicURL(url.value, publicOrigin),
+        publicOrigin,
+        githubClientId,
+      )
     ) {
       bridgeFailure();
     }

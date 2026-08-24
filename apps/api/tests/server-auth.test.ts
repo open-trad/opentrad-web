@@ -518,6 +518,52 @@ describe("byte-exact Better Auth bridge", () => {
     expect(response.headers["set-cookie"]).toBeUndefined();
   });
 
+  it("fails closed when a social response redirects to a same-origin non-GitHub URL", async () => {
+    const location = `${origin}/convert`;
+    const headers = new Headers({
+      "content-type": "application/json",
+      location,
+    });
+    headers.append(
+      "set-cookie",
+      "__Secure-opentrad.state=state-value; Path=/; HttpOnly; Secure; SameSite=Lax",
+    );
+    const app = await buildServer(
+      testConfig({
+        GITHUB_CLIENT_ID: "github-client-id",
+        GITHUB_CLIENT_SECRET: "github-client-secret",
+      }),
+      {
+        auth: {
+          api: {
+            getSession: async () => null,
+            signUpEmail: async () => {
+              throw new Error("unused");
+            },
+          },
+          handler: async () =>
+            new Response(JSON.stringify({ redirect: true, url: location }), {
+              headers,
+              status: 200,
+            }),
+        },
+      },
+    );
+    liveApps.push(app);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/sign-in/social",
+      headers: stateChangingHeaders,
+      payload: { callbackURL: `${origin}/convert`, provider: "github" },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ error: { code: "INVALID_REQUEST", retryable: true } });
+    expect(response.headers.location).toBeUndefined();
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
   it("fails closed for a GitHub-shaped social redirect with the wrong client id", async () => {
     const location = new URL("https://github.com/login/oauth/authorize");
     location.searchParams.set("response_type", "code");
