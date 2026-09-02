@@ -42,10 +42,11 @@ printf '%s\n' "$public_ip" | awk -F. '
   }
   END { exit ok ? 0 : 1 }
 ' || pause "PAUSE_DNS:PUBLIC_IP_UNAVAILABLE"
-dns_ip="$(
+resolve_dns_ip() {
+  resolver_url=$1
   curl --fail --silent --show-error --max-time 5 \
     -H 'accept: application/dns-json' \
-    'https://cloudflare-dns.com/dns-query?name=opentrad.xyz&type=A' |
+    "$resolver_url" |
     node -e '
       let body = "";
       process.stdin.on("data", (chunk) => { body += chunk; });
@@ -61,7 +62,11 @@ dns_ip="$(
         }
       });
     '
-)" || pause "PAUSE_DNS:OPENTRAD_RECORD_NOT_READY"
+}
+dns_ip="$({
+  resolve_dns_ip 'https://cloudflare-dns.com/dns-query?name=opentrad.xyz&type=A' ||
+    resolve_dns_ip 'https://dns.alidns.com/resolve?name=opentrad.xyz&type=A'
+} 2>/dev/null)" || pause "PAUSE_DNS:OPENTRAD_RECORD_NOT_READY"
 test "$dns_ip" = "$public_ip" || pause "PAUSE_DNS:OPENTRAD_RECORD_NOT_READY"
 
 for secret_name in better_auth_secret github_client_id github_client_secret; do
