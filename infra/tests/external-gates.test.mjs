@@ -40,6 +40,9 @@ function fixture(overrides = {}) {
   *latest/meta-data/public-ipv4*)
     test "\${FAKE_METADATA_IP_FAIL:-0}" != 1 || exit 1
     printf '%s' "\${FAKE_METADATA_PUBLIC_IP:-203.0.113.10}" ;;
+  *latest/meta-data/eipv4*)
+    test "\${FAKE_METADATA_EIP_FAIL:-0}" != 1 || exit 1
+    printf '%s' "\${FAKE_METADATA_EIP:-203.0.113.10}" ;;
   *api.ipify.org*)
     test "\${FAKE_IPIFY_FAIL:-0}" != 1 || exit 1
     printf '%s' "\${FAKE_PUBLIC_IP:-203.0.113.10}" ;;
@@ -149,6 +152,12 @@ test("external gates prefer Alibaba Cloud instance metadata over ipify", () => {
 
 test("external gates fall back to ipify when instance metadata is unavailable", () => {
   const result = run({ FAKE_METADATA_TOKEN_FAIL: "1" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.trim(), "EXTERNAL_GATES_OK");
+});
+
+test("external gates use Alibaba Cloud eipv4 when public-ipv4 is absent", () => {
+  const result = run({ FAKE_IPIFY_FAIL: "1", FAKE_METADATA_IP_FAIL: "1" });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout.trim(), "EXTERNAL_GATES_OK");
 });

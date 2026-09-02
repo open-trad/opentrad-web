@@ -19,11 +19,14 @@ metadata_token="$({
 } 2>/dev/null || true)"
 public_ip=
 if test -n "$metadata_token"; then
-  public_ip="$({
-    curl --fail --silent --show-error --max-time 2 \
-      -H "X-aliyun-ecs-metadata-token: $metadata_token" \
-      'http://100.100.100.200/latest/meta-data/public-ipv4'
-  } 2>/dev/null || true)"
+  for metadata_path in public-ipv4 eipv4; do
+    public_ip="$({
+      curl --fail --silent --show-error --max-time 2 \
+        -H "X-aliyun-ecs-metadata-token: $metadata_token" \
+        "http://100.100.100.200/latest/meta-data/$metadata_path"
+    } 2>/dev/null || true)"
+    test -z "$public_ip" || break
+  done
 fi
 if test -z "$public_ip"; then
   public_ip="$({
