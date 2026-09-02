@@ -231,14 +231,14 @@ test("approved policy exactly represents the retained release evidence", async (
     await readFile(new URL("infra/docker/trivy-exceptions.json", root), "utf8"),
   );
   assert.deepEqual(draft.approval, {
-    approvedAt: "2026-08-22T16:28:27.000Z",
+    approvedAt: "2026-09-02T13:30:43.000Z",
     approvedBy: "yrjmdqmmx",
-    expiresAt: "2026-09-05T16:28:27.000Z",
+    expiresAt: "2026-09-16T13:30:43.000Z",
     rationale:
-      "Trivy run 32580505927 reported no FixedVersion for these exact Debian 12.15 tuples. API and worker run non-root, read-only, without package managers; the worker has no network during tool verification. Any changed, added, fixed, missing, or expired finding fails closed.",
+      "Owner-approved refresh after Trivy run 33629180211 identified fixed versions for libexpat1 and the ClamAV base image. The release now pins Debian libexpat1 deb12u3 and the patched ClamAV digest; API and worker remain non-root, read-only, without package managers. Any changed, added, fixed, missing, or expired finding fails closed.",
     status: "approved",
   });
-  assert.equal(draft.findings.length, 35);
+  assert.equal(draft.findings.length, 34);
   const reports = {
     api: { ...report("api"), Results: [{ Target: "debian 12.15", Vulnerabilities: [] }] },
     clamav: normalizedCleanClamav,
@@ -261,12 +261,12 @@ test("approved policy exactly represents the retained release evidence", async (
   }
   assert.deepEqual(
     verifyTrivyPolicy({
-      now: new Date("2026-08-22T16:28:27.001Z"),
+      now: new Date("2026-09-02T13:30:43.001Z"),
       policy: draft,
       reports,
     }),
     {
-      acceptedFindings: 65,
+      acceptedFindings: 64,
       policyExpiresAt: draft.approval.expiresAt,
     },
   );

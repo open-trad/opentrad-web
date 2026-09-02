@@ -490,7 +490,7 @@
     },
     {
       "name": "libexpat1",
-      "version": "2.5.0-1+deb12u2",
+      "version": "2.5.0-1+deb12u3",
       "architecture": "amd64",
       "md5ManifestSha256": "768235bc0056a52e0fe8f307447d7d2eddb4fc02a20cc1e34016f9416bdb6e2e"
     },

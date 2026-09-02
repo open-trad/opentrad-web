@@ -1,9 +1,9 @@
 {
   "approval": {
-    "approvedAt": "2026-08-22T16:28:27.000Z",
+    "approvedAt": "2026-09-02T13:30:43.000Z",
     "approvedBy": "yrjmdqmmx",
-    "expiresAt": "2026-09-05T16:28:27.000Z",
-    "rationale": "Trivy run 32580505927 reported no FixedVersion for these exact Debian 12.15 tuples. API and worker run non-root, read-only, without package managers; the worker has no network during tool verification. Any changed, added, fixed, missing, or expired finding fails closed.",
+    "expiresAt": "2026-09-16T13:30:43.000Z",
+    "rationale": "Owner-approved refresh after Trivy run 33629180211 identified fixed versions for libexpat1 and the ClamAV base image. The release now pins Debian libexpat1 deb12u3 and the patched ClamAV digest; API and worker remain non-root, read-only, without package managers. Any changed, added, fixed, missing, or expired finding fails closed.",
     "status": "approved"
   },
   "findings": [
@@ -17,7 +17,7 @@
     },
     {
       "images": ["worker"],
-      "installedVersion": "2.5.0-1+deb12u2",
+      "installedVersion": "2.5.0-1+deb12u3",
       "package": "libexpat1",
       "severity": "HIGH",
       "status": "will_not_fix",
@@ -65,7 +65,7 @@
     },
     {
       "images": ["worker"],
-      "installedVersion": "2.5.0-1+deb12u2",
+      "installedVersion": "2.5.0-1+deb12u3",
       "package": "libexpat1",
       "severity": "HIGH",
       "status": "affected",
@@ -97,7 +97,7 @@
     },
     {
       "images": ["worker"],
-      "installedVersion": "2.5.0-1+deb12u2",
+      "installedVersion": "2.5.0-1+deb12u3",
       "package": "libexpat1",
       "severity": "HIGH",
       "status": "affected",
@@ -246,14 +246,6 @@
       "severity": "HIGH",
       "status": "fix_deferred",
       "vulnerabilityId": "CVE-2026-54369"
-    },
-    {
-      "images": ["worker"],
-      "installedVersion": "2.5.0-1+deb12u2",
-      "package": "libexpat1",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-56408"
     },
     {
       "images": ["api", "worker"],

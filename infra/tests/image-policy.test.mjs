@@ -17,6 +17,22 @@ test("base images are digest pinned", () => {
   }
 });
 
+test("security refresh pins patched Debian and ClamAV inputs", () => {
+  const baseImages = readFileSync(new URL("infra/docker/base-images.lock", root), "utf8");
+  assert.match(
+    baseImages,
+    /^CLAMAV_IMAGE=clamav\/clamav:1\.5\.4@sha256:f0954d679017eb6d48221e2b2be3ac5457bf278a844f39b672376f55a085f591$/m,
+  );
+  for (const path of [
+    "infra/docker/debian-packages.lock.json",
+    "infra/docker/worker-runtime-packages.lock.json",
+  ]) {
+    const lock = JSON.parse(readFileSync(new URL(path, root), "utf8"));
+    const expat = lock.packages.find((dependency) => dependency.name === "libexpat1");
+    assert.equal(expat?.version, "2.5.0-1+deb12u3");
+  }
+});
+
 test("Debian runtime base includes the current Bookworm security point release", () => {
   const lock = readFileSync(new URL("infra/docker/base-images.lock", root), "utf8");
   const resolver = readFileSync(new URL("infra/docker/resolve-locks.mjs", root), "utf8");
