@@ -45,6 +45,12 @@ describe("首页导航与工具入口", () => {
     for (const label of ["开源免费", "本地优先", "数据安全", "持续更新"]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument();
     }
+
+    const filingFooter = screen.getByRole("contentinfo");
+    expect(within(filingFooter).getByText("义星智能商贸工作台")).toBeVisible();
+    expect(
+      within(filingFooter).getByRole("link", { name: "浙ICP备2026071869号-1" }),
+    ).toHaveAttribute("href", "https://beian.miit.gov.cn");
   });
 
   test("首页入口会进入对应的真实工作区", async () => {

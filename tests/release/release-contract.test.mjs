@@ -293,8 +293,8 @@ test("operator runbooks contain exact gates and decision points", async () => {
   const combined = `${production}\n${rollback}\n${privacy}`;
 
   for (const required of [
-    "https://opentrad.dns.army",
-    "https://opentrad.dns.army/api/auth/callback/github",
+    "https://opentrad.xyz",
+    "https://opentrad.xyz/api/auth/callback/github",
     "check-external-gates.sh",
     "capture-baseline.sh",
     "--dry-run up -d",
@@ -312,7 +312,7 @@ test("operator runbooks contain exact gates and decision points", async () => {
     "four required files",
     "opentrad-api-1",
     "opentrad-worker-1",
-    "--target https://opentrad.dns.army --profile-fd 3",
+    "--target https://opentrad.xyz --profile-fd 3",
     "--remote-profile production --markers-fd 3",
   ]) {
     assert.ok(combined.includes(required), `missing runbook contract: ${required}`);

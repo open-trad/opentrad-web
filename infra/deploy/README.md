@@ -1,6 +1,6 @@
 # OpenTrad production deployment
 
-This directory deploys only `opentrad.dns.army` as Compose project `opentrad`. It must not
+This directory deploys only `opentrad.xyz` as Compose project `opentrad`. It must not
 modify the existing `openvac-production`, `paperbanana-hk`, or `tensor-auto` projects. Their
 published ports `3010`, `13005`, `13200`, and `13201` are immutable; OpenTrad alone may add
 `127.0.0.1:13300`.

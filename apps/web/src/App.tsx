@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AppFooter } from "./components/AppFooter";
 import { AppHeader } from "./components/AppHeader";
 import { DocumentEditorPage } from "./features/documents/editor/DocumentEditorPage";
 import { ConvertPage } from "./pages/ConvertPage";
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
+        <AppFooter />
       </div>
     </BrowserRouter>
   );

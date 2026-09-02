@@ -71,7 +71,7 @@ baseline="$runtime/baseline.json"
 
 node "$libexec/build-load-profile.mjs" "$before" "$profile"
 if ! node "$libexec/release/load-smoke.mjs" \
-  --target https://opentrad.dns.army --profile-fd 3 3<"$profile" >"$load"; then
+  --target https://opentrad.xyz --profile-fd 3 3<"$profile" >"$load"; then
   node -e '
     try {
       const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));

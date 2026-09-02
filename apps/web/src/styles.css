@@ -102,6 +102,40 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell > main {
+  flex: 1;
+}
+
+.site-footer {
+  border-top: 1px solid rgba(200, 192, 179, 0.8);
+  background: #f7f3eb;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.site-footer__inner {
+  width: min(calc(100% - 48px), var(--content));
+  min-height: 56px;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.site-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer a:hover {
+  color: var(--ink);
 }
 
 .section-container {

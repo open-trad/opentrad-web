@@ -234,7 +234,7 @@ test("deploy and rollback readiness preserve the public host boundary", async ()
     const source = await readFile(path.join(repositoryRoot, "infra/deploy", script), "utf8");
     assert.match(
       source,
-      /curl --fail --silent --show-error --header 'Host: opentrad\.dns\.army'\s*\\\s*http:\/\/127\.0\.0\.1:13300\/api\/health\/ready/u,
+      /curl --fail --silent --show-error --header 'Host: opentrad\.xyz'\s*\\\s*http:\/\/127\.0\.0\.1:13300\/api\/health\/ready/u,
       script,
     );
   }
