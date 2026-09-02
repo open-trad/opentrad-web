@@ -12,8 +12,33 @@ if test -n "${OPENTRAD_TEST_ROOT:-}"; then
   runtime_root=$OPENTRAD_TEST_ROOT
 fi
 
-public_ip="$(curl --fail --silent --show-error --max-time 5 https://api.ipify.org)" ||
-  pause "PAUSE_DNS:PUBLIC_IP_UNAVAILABLE"
+metadata_token="$({
+  curl --fail --silent --show-error --max-time 2 --request PUT \
+    -H 'X-aliyun-ecs-metadata-token-ttl-seconds: 60' \
+    'http://100.100.100.200/latest/api/token'
+} 2>/dev/null || true)"
+public_ip=
+if test -n "$metadata_token"; then
+  public_ip="$({
+    curl --fail --silent --show-error --max-time 2 \
+      -H "X-aliyun-ecs-metadata-token: $metadata_token" \
+      'http://100.100.100.200/latest/meta-data/public-ipv4'
+  } 2>/dev/null || true)"
+fi
+if test -z "$public_ip"; then
+  public_ip="$({
+    curl --fail --silent --show-error --max-time 5 https://api.ipify.org
+  } 2>/dev/null || true)"
+fi
+printf '%s\n' "$public_ip" | awk -F. '
+  NF == 4 {
+    for (i = 1; i <= 4; i += 1) {
+      if ($i !~ /^[0-9]+$/ || $i < 0 || $i > 255) exit 1
+    }
+    ok = 1
+  }
+  END { exit ok ? 0 : 1 }
+' || pause "PAUSE_DNS:PUBLIC_IP_UNAVAILABLE"
 dns_ip="$(
   curl --fail --silent --show-error --max-time 5 \
     -H 'accept: application/dns-json' \
