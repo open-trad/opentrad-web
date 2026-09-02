@@ -1,9 +1,9 @@
 {
   "approval": {
-    "approvedAt": "2026-09-02T13:30:43.000Z",
+    "approvedAt": "2026-09-02T16:20:00.000Z",
     "approvedBy": "yrjmdqmmx",
-    "expiresAt": "2026-09-16T13:30:43.000Z",
-    "rationale": "Owner-approved refresh after Trivy run 33629180211 identified fixed versions for libexpat1 and the ClamAV base image. The release now pins Debian libexpat1 deb12u3 and the patched ClamAV digest; API and worker remain non-root, read-only, without package managers. Any changed, added, fixed, missing, or expired finding fails closed.",
+    "expiresAt": "2026-09-16T16:20:00.000Z",
+    "rationale": "Owner-approved refresh after Trivy run 33648853383. The release pins Debian libexpat1 deb12u3 and the patched ClamAV digest; the remaining API and worker findings report no vendor fixed version. Runtime images remain non-root, read-only, and without package managers; any changed, added, fixed, missing, or expired finding fails closed.",
     "status": "approved"
   },
   "findings": [
@@ -177,70 +177,6 @@
     },
     {
       "images": ["api", "worker"],
-      "installedVersion": "1:2.38.1-5+deb12u3",
-      "package": "bsdutils",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "libblkid1",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "libmount1",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "libsmartcols1",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "libuuid1",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "mount",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "util-linux",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
-      "installedVersion": "2.38.1-5+deb12u3",
-      "package": "util-linux-extra",
-      "severity": "HIGH",
-      "status": "affected",
-      "vulnerabilityId": "CVE-2026-53615"
-    },
-    {
-      "images": ["api", "worker"],
       "installedVersion": "2.3.1-3",
       "package": "libacl1",
       "severity": "HIGH",
@@ -278,6 +214,30 @@
       "severity": "HIGH",
       "status": "fix_deferred",
       "vulnerabilityId": "CVE-2026-9538"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "2.5.0-1+deb12u3",
+      "package": "libexpat1",
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerabilityId": "CVE-2026-66046"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "3.40.1-2+deb12u2",
+      "package": "libsqlite3-0",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-11822"
+    },
+    {
+      "images": ["worker"],
+      "installedVersion": "3.40.1-2+deb12u2",
+      "package": "libsqlite3-0",
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerabilityId": "CVE-2026-11824"
     }
   ],
   "schemaVersion": 1
