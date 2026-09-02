@@ -156,7 +156,7 @@ compose --dry-run up -d --pull never
 deploy_stage=compose-up
 compose up -d --pull never --wait --wait-timeout 180
 deploy_stage=readiness
-curl --fail --silent --show-error --header 'Host: opentrad.dns.army' \
+curl --fail --silent --show-error --header 'Host: opentrad.xyz' \
   http://127.0.0.1:13300/api/health/ready >/dev/null
 
 deploy_stage=static-switch

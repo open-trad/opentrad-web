@@ -1,6 +1,6 @@
 # OpenTrad production runbook
 
-This runbook prepares and deploys only `https://opentrad.dns.army`. GitHub Pages is a preview-only static build; it must not call `opentrad.dns.army/api` or enable server conversion.
+This runbook prepares and deploys only `https://opentrad.xyz`. GitHub Pages is a preview-only static build; it must not call `opentrad.xyz/api` or enable server conversion.
 
 ## Hard boundaries
 
@@ -14,19 +14,19 @@ This runbook prepares and deploys only `https://opentrad.dns.army`. GitHub Pages
 
 Perform each write once, then run the read-only check directly below it.
 
-1. In dynv6, create an A record for `opentrad.dns.army` using the public IPv4 address observed from the production host at execution time. This repository intentionally contains no address.
+1. In Alibaba Cloud DNS, create an A record for the root record `@` of `opentrad.xyz` using the public IPv4 address observed from the production host at execution time. This repository intentionally contains no address.
 
    ```bash
-   dig +short A opentrad.dns.army
-   dig +short A opentrad.dns.army @ns1.dynv6.com
+   dig +short A opentrad.xyz
+   dig +short A opentrad.xyz @dns3.hichina.com
    ```
 
    Both results must be the currently observed production public IPv4 address. Otherwise stop with `PAUSE_DNS:PUBLIC_A_MISMATCH`.
 
 2. Create a GitHub OAuth App with these exact URLs:
 
-   - Homepage URL: `https://opentrad.dns.army`
-   - Authorization callback URL: `https://opentrad.dns.army/api/auth/callback/github`
+   - Homepage URL: `https://opentrad.xyz`
+   - Authorization callback URL: `https://opentrad.xyz/api/auth/callback/github`
 
    Verify the saved values in GitHub Settings. Do not print the client secret. A mismatch is `PAUSE_OAUTH:CALLBACK_MISMATCH`.
 
@@ -85,17 +85,17 @@ sudo rm -f /etc/nginx/sites-enabled/opentrad.conf
 sudo nginx -t
 sudo systemctl reload nginx
 sudo install -d -o root -g root -m 0700 /run/opentrad
-sudo sh -c 'set -eu; trap "rm -f /run/opentrad/certbot.ini" EXIT HUP INT TERM; umask 077; printf "email = %s\n" "$(cat /opt/opentrad/secrets/acme_email)" > /run/opentrad/certbot.ini; certbot --config /run/opentrad/certbot.ini certonly --webroot --webroot-path /var/www/letsencrypt --domain opentrad.dns.army --non-interactive --agree-tos'
-sudo test -s /etc/letsencrypt/live/opentrad.dns.army/fullchain.pem
-sudo test -s /etc/letsencrypt/live/opentrad.dns.army/privkey.pem
+sudo sh -c 'set -eu; trap "rm -f /run/opentrad/certbot.ini" EXIT HUP INT TERM; umask 077; printf "email = %s\n" "$(cat /opt/opentrad/secrets/acme_email)" > /run/opentrad/certbot.ini; certbot --config /run/opentrad/certbot.ini certonly --webroot --webroot-path /var/www/letsencrypt --domain opentrad.xyz --non-interactive --agree-tos'
+sudo test -s /etc/letsencrypt/live/opentrad.xyz/fullchain.pem
+sudo test -s /etc/letsencrypt/live/opentrad.xyz/privkey.pem
 sudo certbot renew --dry-run
 ```
 
 Any missing certificate, failed `nginx -t`, reload failure, or renewal dry-run failure is `PAUSE_TLS:*`. After deployment, require TLS 1.2 and 1.3 to connect and reject older protocol versions; inspect the certificate hostname and expiry without printing key material.
 
 ```bash
-openssl s_client -connect opentrad.dns.army:443 -servername opentrad.dns.army -tls1_2 </dev/null
-openssl s_client -connect opentrad.dns.army:443 -servername opentrad.dns.army -tls1_3 </dev/null
+openssl s_client -connect opentrad.xyz:443 -servername opentrad.xyz -tls1_2 </dev/null
+openssl s_client -connect opentrad.xyz:443 -servername opentrad.xyz -tls1_3 </dev/null
 ```
 
 Read-only host checks:
@@ -138,7 +138,7 @@ sudo /usr/local/libexec/opentrad/run-acceptance.sh 0123456789abcdef0123456789abc
 node /opt/opentrad/current/scripts/release/post-deploy-report.mjs --verify 0123456789abcdef0123456789abcdef01234567 /opt/opentrad/reports/acceptance-0123456789abcdef0123456789abcdef01234567.json
 ```
 
-The root-owned wrapper opens the two profile files by descriptor and internally runs `load-smoke.mjs --target https://opentrad.dns.army --profile-fd 3` followed by `privacy-sentinel.mjs --remote-profile production --markers-fd 3`. These exact commands belong in the trusted wrapper, not in an operator shell where credential-bearing profile contents could be expanded or logged.
+The root-owned wrapper opens the two profile files by descriptor and internally runs `load-smoke.mjs --target https://opentrad.xyz --profile-fd 3` followed by `privacy-sentinel.mjs --remote-profile production --markers-fd 3`. These exact commands belong in the trusted wrapper, not in an operator shell where credential-bearing profile contents could be expanded or logged.
 
 The wrapper's temporary load profile is root-only and contains exactly three `existingServices` entries derived from the recorded baseline. Each entry contains a non-secret ID, the observed container name, its HTTPS health URL, and the measured pre-release `baselineP95Ms`. Do not commit, edit, or guess these production values. The runner creates 12 temporary accounts and 1 KiB fixtures internally, respects registration rate limits, runs a 60-second ramp, five-minute hold, 60-second drain, and up-to-15-minute retention check, then attempts deletion of every temporary account. It stops submissions immediately on a threshold breach and emits only numeric metrics and stable failure codes.
 

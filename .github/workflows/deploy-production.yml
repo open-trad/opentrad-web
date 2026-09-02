@@ -22,7 +22,7 @@ jobs:
   deploy:
     environment:
       name: production
-      url: https://opentrad.dns.army
+      url: https://opentrad.xyz
     runs-on: ubuntu-latest
     steps:
       - name: Validate exact release SHA

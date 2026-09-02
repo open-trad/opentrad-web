@@ -9,7 +9,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const TWO_GIB = 2 * 1024 * 1024 * 1024;
 const HOST_SAMPLE_INTERVAL_MS = 5_000;
-const PRODUCTION_TARGET = "https://opentrad.dns.army";
+const PRODUCTION_TARGET = "https://opentrad.xyz";
 const WORKER_CONTAINER = "opentrad-worker-1";
 const JOB_VOLUME = "opentrad_job_ram";
 const EXISTING_SERVICES = Object.freeze([

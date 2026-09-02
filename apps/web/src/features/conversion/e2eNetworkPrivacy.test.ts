@@ -46,9 +46,9 @@ function exactBuiltAsset(): string {
 
 describe("local conversion network privacy monitor", () => {
   it("rejects a same-origin asset-prefix URL that is absent from the exact build", () => {
-    expect(
-      observe({ url: "https://opentrad.dns.army:4173/assets/not-in-this-build.js" }, []),
-    ).toEqual(["GET https://opentrad.dns.army:4173/assets/not-in-this-build.js"]);
+    expect(observe({ url: "https://opentrad.xyz:4173/assets/not-in-this-build.js" }, [])).toEqual([
+      "GET https://opentrad.xyz:4173/assets/not-in-this-build.js",
+    ]);
   });
 
   it("detects encoded sentinels on an otherwise allowed exact asset request", () => {
@@ -59,7 +59,7 @@ describe("local conversion network privacy monitor", () => {
       observe(
         {
           headers: { "x-private": encoded },
-          url: `https://opentrad.dns.army:4173${path}`,
+          url: `https://opentrad.xyz:4173${path}`,
         },
         [sentinel],
       ),

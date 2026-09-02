@@ -8,7 +8,7 @@ import test from "node:test";
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
 const canaryScript = path.join(repositoryRoot, "infra/deploy/run-canary.sh");
 const releaseSha = "0123456789abcdef0123456789abcdef01234567";
-const expectedOrigin = "https://opentrad.dns.army";
+const expectedOrigin = "https://opentrad.xyz";
 
 async function executable(file, body) {
   await writeFile(file, body);
@@ -33,7 +33,7 @@ test("canary keeps public entry checks external and pins business probes to loca
   const source = await readFile(canaryScript, "utf8");
   assert.match(
     source,
-    /local_curl\(\) \{\n {2}curl --http1\.1 --max-time 30 \\\n {4}--resolve 'opentrad\.dns\.army:443:127\.0\.0\.1' "\$@"\n\}/u,
+    /local_curl\(\) \{\n {2}curl --http1\.1 --max-time 30 \\\n {4}--resolve 'opentrad\.xyz:443:127\.0\.0\.1' "\$@"\n\}/u,
   );
 
   const fetchPage = source.slice(

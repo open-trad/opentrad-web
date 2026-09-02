@@ -23,8 +23,8 @@ grep -F 'include /etc/nginx/snippets/opentrad-security-headers.conf' infra/nginx
 grep -F 'X-OpenTrad-Release $opentrad_release always' infra/nginx/opentrad-security-headers.conf
 grep -F 'set $opentrad_release "REPLACE_WITH_EXACT_RELEASE_SHA"' infra/nginx/opentrad.conf
 grep -F 'ssl_protocols TLSv1.2 TLSv1.3' infra/nginx/opentrad.conf
-grep -F 'return 308 https://opentrad.dns.army$request_uri' infra/nginx/opentrad.conf
-grep -F 'return 308 https://opentrad.dns.army$request_uri' infra/nginx/opentrad-http.conf
+grep -F 'return 308 https://opentrad.xyz$request_uri' infra/nginx/opentrad.conf
+grep -F 'return 308 https://opentrad.xyz$request_uri' infra/nginx/opentrad-http.conf
 grep -A4 -F 'location / {' infra/nginx/opentrad.conf | grep -F 'Cache-Control "no-store"'
 ! grep -Eq '3010|13005|13200|13201' infra/nginx/opentrad*.conf
 
@@ -41,11 +41,11 @@ command -v openssl >/dev/null 2>&1 || {
 
 temporary="$(mktemp -d "${TMPDIR:-/tmp}/opentrad-nginx.XXXXXX")"
 trap 'rm -rf "$temporary"' EXIT HUP INT TERM
-mkdir -p "$temporary/live/opentrad.dns.army"
+mkdir -p "$temporary/live/opentrad.xyz"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
-  -subj '/CN=opentrad.dns.army' \
-  -keyout "$temporary/live/opentrad.dns.army/privkey.pem" \
-  -out "$temporary/live/opentrad.dns.army/fullchain.pem" >/dev/null 2>&1
+  -subj '/CN=opentrad.xyz' \
+  -keyout "$temporary/live/opentrad.xyz/privkey.pem" \
+  -out "$temporary/live/opentrad.xyz/fullchain.pem" >/dev/null 2>&1
 
 for config in opentrad-http.conf opentrad.conf; do
   docker run --rm --platform linux/amd64 --pull=never \

@@ -118,7 +118,7 @@ export function monitorPrivateLocalNetwork(page: Page, sentinels: readonly strin
     const publicBootstrapApi =
       url.pathname === "/api/auth/get-session" || url.pathname === "/api/v1/auth-options";
     const allowed =
-      url.origin === "https://opentrad.dns.army:4173" &&
+      url.origin === "https://opentrad.xyz:4173" &&
       url.search === "" &&
       (request.method() === "GET" || request.method() === "HEAD") &&
       (url.pathname === "/convert" || immutableAsset || publicBootstrapApi);
